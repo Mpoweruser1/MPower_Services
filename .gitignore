@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.production
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+.vscode/
+.idea/
+*.exe
+*.zip
+*.rar
+MorePower_backup_2026-07-14/
+MorePower_DBtools_installedfiles/
+scoped_dir*/
+SEcretfiles/
+this first netlifyproject trailfiles/
+CLAUDE CODE/
+*_old*
+*_old1*
+*_old2*
+*_old3*
+*old.jsx
+*old.js

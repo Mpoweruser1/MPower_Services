@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="te">
+<head>
+<meta charset="UTF-8">
+<title>MPower CTS — ప్రతి MLA తమ పోర్టల్ ఎలా పొందుతారు</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#d0d0d0;padding:24px}
+.te{font-family:'Noto Sans Telugu',sans-serif}
+.a4{background:#fff;width:794px;margin:0 auto 32px;padding:50px 54px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-height:1123px;position:relative}
+@media print{
+  body{background:#fff;padding:0}
+  .a4{box-shadow:none;margin:0;page-break-after:always;min-height:0}
+  .noprint{display:none!important}
+  @page{size:A4 portrait;margin:0}
+}
+.noprint{text-align:center;margin-bottom:20px}
+.btn{background:#1a1a2e;color:#e8a020;border:none;border-radius:30px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;letter-spacing:0.5px}
+.label{display:inline-block;background:#1a1a2e;color:#e8a020;font-size:9px;font-weight:700;padding:3px 10px;border-radius:4px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+.label-b{background:#1d4ed8;color:#fff}
+.label-g{background:#15803d;color:#fff}
+.label-p{background:#7c3aed;color:#fff}
+.h1{font-size:26px;font-weight:800;color:#1a1a2e;letter-spacing:-0.5px;margin-bottom:4px}
+.h1-te{font-size:14px;color:#64748b;margin-bottom:6px}
+.divider{width:44px;height:3px;background:#e8a020;border-radius:2px;margin-bottom:22px}
+.steps{display:flex;align-items:stretch;gap:0;margin:12px 0 20px}
+.step{flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 6px;text-align:center}
+.step-num{width:22px;height:22px;border-radius:50%;background:#1a1a2e;color:#e8a020;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 5px}
+.step-t{font-size:10px;font-weight:600;color:#1a1a2e;margin-bottom:2px;line-height:1.3}
+.step-te{font-size:10px;color:#94a3b8;line-height:1.4}
+.arrow{display:flex;align-items:center;padding:0 3px;color:#e8a020;font-size:14px;font-weight:700;flex-shrink:0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+.card{border:1px solid #e2e8f0;border-radius:10px;padding:14px}
+.card-gold{border-left:4px solid #e8a020}
+.card-green{border-left:4px solid #22c55e}
+.card-purple{border-left:4px solid #7c3aed}
+.fi{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #f1f5f9}
+.fi:last-child{border:none}
+.fi-ico{width:28px;height:28px;border-radius:6px;background:#f8fafc;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.fi-t{font-size:11px;font-weight:600;color:#1a1a2e;margin-bottom:1px}
+.fi-te{font-size:10px;color:#64748b;line-height:1.5}
+table.acc{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+table.acc th{background:#1a1a2e;color:#fff;padding:7px 9px;text-align:left;font-size:10px}
+table.acc th:first-child{border-radius:5px 0 0 0}
+table.acc th:last-child{border-radius:0 5px 0 0}
+table.acc td{padding:7px 9px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+table.acc tr:nth-child(even) td{background:#f8fafc}
+.ck{color:#16a34a;font-weight:600}
+.cx{color:#94a3b8;font-size:10px}
+.free-box{background:#f0fdf4;border:2px solid #22c55e;border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-top:16px}
+.free-amt{font-size:48px;font-weight:800;color:#15803d;flex-shrink:0}
+.pf{position:absolute;bottom:24px;left:54px;right:54px;display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:8px}
+.pfl,.pfr{font-size:9px;color:#94a3b8}
+.timeline-line{position:relative;padding-left:22px;margin-bottom:20px}
+.timeline-line::before{content:'';position:absolute;left:6px;top:4px;bottom:4px;width:2px;background:#e2e8f0}
+.tl-item{position:relative;margin-bottom:18px}
+.tl-dot{position:absolute;left:-19px;top:5px;width:10px;height:10px;border-radius:50%;border:2px solid #fff}
+.tl-dot-green{background:#22c55e;box-shadow:0 0 0 1.5px #22c55e}
+.tl-dot-amber{background:#e8a020;box-shadow:0 0 0 1.5px #e8a020}
+.tl-dot-blue{background:#3b82f6;box-shadow:0 0 0 1.5px #3b82f6}
+.tl-dot-purple{background:#7c3aed;box-shadow:0 0 0 1.5px #7c3aed}
+.tl-phase{font-size:10px;font-weight:700;letter-spacing:0.5px;margin-bottom:2px}
+.tl-title{font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:3px}
+.tl-body{font-size:11px;color:#64748b;line-height:1.7}
+</style>
+</head>
+<body>
+
+<div class="noprint">
+  <button class="btn" onclick="window.print()">🖨 ముద్రించు / Save as PDF</button>
+</div>
+
+<!-- PAGE 1 -->
+<div class="a4">
+  <div class="label">A — MLA నమోదు ప్రక్రియ &bull; MLA Registration Process</div>
+  <div class="h1">ప్రతి MLA తమ స్వంత పోర్టల్‌ను ఎలా పొందుతారు</div>
+  <div class="h1-te">How each MLA and MP gets their own completely isolated portal</div>
+  <div class="divider"></div>
+
+  <p style="font-size:12px;color:#374151;line-height:1.75;margin-bottom:18px">
+    ప్రతి MLA మరియు MP కి పూర్తిగా వేర్పాటు చేయబడిన పోర్టల్ లభిస్తుంది — విడి డేటా, విడి సిబ్బంది, విడి నివేదికలు.
+    ఒక MPower వేదిక, 175 స్వతంత్ర పోర్టళ్ళు, సున్న డేటా కలయిక.<br>
+    <span style="color:#94a3b8;font-size:11px">Every MLA and MP gets a completely isolated portal — separate data, separate staff, separate reports.
+    One platform, 175 independent portals, zero data mixing.</span>
+  </p>
+
+  <div class="label label-b" style="margin-bottom:10px">నమోదు దశలు — 6 అడుగులు &bull; Registration — 6 steps</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-t" style="font-family:'Noto Sans Telugu',sans-serif">MLA కార్యాలయం దరఖాస్తు</div>
+      <div class="step-te">MLA office applies</div>
+    </div>
+    <div class="arrow">›</div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-t" style="font-family:'Noto Sans Telugu',sans-serif">గుర్తింపు ధృవీకరణ</div>
+      <div class="step-te">Identity verified</div>
+    </div>
+    <div class="arrow">›</div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-t" style="font-family:'Noto Sans Telugu',sans-serif">పోర్టల్ 1 రోజులో సిద్ధం</div>
+      <div class="step-te">Portal created in 1 day</div>
+    </div>
+    <div class="arrow">›</div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-t" style="font-family:'Noto Sans Telugu',sans-serif">సిబ్బంది ఖాతాలు జోడించు</div>
+      <div class="step-te">Staff accounts added</div>
+    </div>
+    <div class="arrow">›</div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-t" style="font-family:'Noto Sans Telugu',sans-serif">పౌర లింక్ WhatsApp ద్వారా</div>
+      <div class="step-te">Citizen link shared</div>
+    </div>
+    <div class="arrow">›</div>
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-t" style="font-family:'Noto Sans Telugu',sans-serif">అందుబాటులో — ఉచితంగా</div>
+      <div class="step-te">Live — completely free</div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div>
+      <div class="label" style="margin-bottom:8px">ప్రతి MLA కి లభించేది &bull; What each MLA gets</div>
+      <div class="card card-gold">
+        <div class="fi">
+          <div class="fi-ico">🔗</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">విశిష్టమైన పౌర పోర్టల్ లింక్</div>
+            <div class="fi-te">mpowerapp.in/grievance/andhra-pradesh/citizen?mla=vegulla-mandapeta</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">📊</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">విడి సిబ్బంది డాష్‌బోర్డ్</div>
+            <div class="fi-te">Private staff dashboard — వేరే MLA చూడలేరు / No other MLA can access</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">👥</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">అపరిమిత సిబ్బందిని జోడించవచ్చు</div>
+            <div class="fi-te">Add unlimited staff — grievance_staff and grievance_admin roles</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">📈</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">తమ నియోజకవర్గం నివేదికలు మాత్రమే</div>
+            <div class="fi-te">Own constituency reports only — village to mandal level</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">🔒</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">సంపూర్ణ డేటా వేర్పాటు</div>
+            <div class="fi-te">Complete data isolation — PostgreSQL RLS enforced at database level</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="label label-g" style="margin-bottom:8px">MLA నియంత్రించేది &bull; What MLA controls</div>
+      <div class="card card-green">
+        <div class="fi">
+          <div class="fi-ico">➕</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">ఎప్పుడైనా సిబ్బందిని జోడించవచ్చు</div>
+            <div class="fi-te">Add or remove staff anytime with one click</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">🎭</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">పాత్రలు నిర్ణయించవచ్చు</div>
+            <div class="fi-te">Assign staff / senior staff / admin roles</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">📋</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">అన్ని ఫిర్యాదులు చూడవచ్చు</div>
+            <div class="fi-te">View all constituency complaints with full history</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">🖨️</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">ఎప్పుడైనా నివేదికలు ముద్రించవచ్చు</div>
+            <div class="fi-te">Print or export reports at any time</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">🗓️</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">ఫిర్యాదు ప్రాధాన్యత నిర్ణయించవచ్చు</div>
+            <div class="fi-te">Set complaint priority and resolution deadlines</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="label label-p" style="margin-bottom:8px">ఎవరు ఏమి చూడగలరు — పూర్తి యాక్సెస్ పట్టిక &bull; Who sees what — complete access matrix</div>
+  <table class="acc">
+    <thead>
+      <tr>
+        <th>పాత్ర &bull; Role</th>
+        <th>తమ నియోజకవర్గం</th>
+        <th>వేరే MLA డేటా</th>
+        <th>రాష్ట్ర స్థాయి</th>
+        <th>సిబ్బంది జోడించు</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong style="font-family:'Noto Sans Telugu',sans-serif">MLA / MP అడ్మిన్</strong><br><span style="font-size:9px;color:#64748b">MLA / MP Admin</span></td>
+        <td class="ck">✓ పూర్తి</td>
+        <td class="cx">✗ ఎప్పుడూ లేదు</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="ck">✓ అవును</td>
+      </tr>
+      <tr>
+        <td><strong style="font-family:'Noto Sans Telugu',sans-serif">సీనియర్ సిబ్బంది</strong><br><span style="font-size:9px;color:#64748b">Senior staff</span></td>
+        <td class="ck">✓ పూర్తి</td>
+        <td class="cx">✗ ఎప్పుడూ లేదు</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="cx">✗ లేదు</td>
+      </tr>
+      <tr>
+        <td><strong style="font-family:'Noto Sans Telugu',sans-serif">ఫిర్యాదు సిబ్బంది</strong><br><span style="font-size:9px;color:#64748b">Grievance staff</span></td>
+        <td class="ck">✓ తమ క్యూ మాత్రమే</td>
+        <td class="cx">✗ ఎప్పుడూ లేదు</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="cx">✗ లేదు</td>
+      </tr>
+      <tr>
+        <td><strong style="font-family:'Noto Sans Telugu',sans-serif">రాష్ట్ర ప్రభుత్వం / CM</strong><br><span style="font-size:9px;color:#64748b">State Govt / CM office</span></td>
+        <td class="ck">✓ చదవడం మాత్రమే</td>
+        <td class="ck">✓ అందరిది చదవడం</td>
+        <td class="ck">✓ పూర్తి డాష్‌బోర్డ్</td>
+        <td class="cx">✗ లేదు</td>
+      </tr>
+      <tr>
+        <td><strong style="font-family:'Noto Sans Telugu',sans-serif">MPower అడ్మిన్</strong><br><span style="font-size:9px;color:#64748b">MPower admin</span></td>
+        <td class="ck">✓ సపోర్ట్ మాత్రమే</td>
+        <td class="ck">✓ సపోర్ట్ మాత్రమే</td>
+        <td class="ck">✓ పూర్తి</td>
+        <td class="ck">✓ అవును</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="free-box">
+    <div class="free-amt">₹0</div>
+    <div>
+      <div style="font-size:14px;font-weight:700;color:#15803d;margin-bottom:3px;font-family:'Noto Sans Telugu',sans-serif">ఆంధ్రప్రదేశ్ ప్రభుత్వానికి మొత్తం ఖర్చు — పూర్తి ఉచితం</div>
+      <div style="font-size:11px;color:#374151">Total cost to Andhra Pradesh government — ever</div>
+      <div style="font-size:11px;color:#64748b;margin-top:2px;font-family:'Noto Sans Telugu',sans-serif">సెటప్: ఉచితం &bull; శిక్షణ: ఉచితం &bull; 175 పోర్టళ్ళు: ఉచితం &bull; నిర్వహణ: ఉచితం &bull; అప్‌గ్రేడ్‌లు: ఉచితం</div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS &bull; MLA నమోదు &bull; యాక్సెస్ మాతృక</div>
+    <div class="pfr">Technical Supplement — Page 1</div>
+  </div>
+</div>
+
+<!-- PAGE 2 -->
+<div class="a4">
+  <div class="label">B — రాష్ట్ర స్థాయి విస్తరణ &bull; State-wide Rollout Plan</div>
+  <div class="h1">ఆంధ్రప్రదేశ్ అన్ని 175 నియోజకవర్గాలకు విస్తరణ</div>
+  <div class="h1-te">Rolling out to all 175 AP constituencies — MLAs and MPs — in 6 months</div>
+  <div class="divider"></div>
+
+  <p style="font-size:12px;color:#374151;line-height:1.75;margin-bottom:20px">
+    దశల వారీ విస్తరణ — మండపేట పైలట్ తో మొదలు, 6 నెలల్లో అన్ని AP నియోజకవర్గాలకు.<br>
+    <span style="color:#94a3b8;font-size:11px">Phased rollout — starting with Mandapeta pilot, scaling to all AP constituencies within 6 months.</span>
+  </p>
+
+  <div class="label label-g" style="margin-bottom:14px">విస్తరణ దశలు &bull; Rollout phases</div>
+
+  <div class="timeline-line">
+    <div class="tl-item">
+      <div class="tl-dot tl-dot-green"></div>
+      <div class="tl-phase" style="color:#22c55e">దశ 1 — నెల 1 — ఇప్పుడే &bull; Phase 1 — Month 1 — NOW</div>
+      <div class="tl-title" style="font-family:'Noto Sans Telugu',sans-serif">మండపేట పైలట్ — 1 నియోజకవర్గం</div>
+      <div class="tl-body">
+        నిజమైన నిర్వహణ. నిజమైన పౌర ఫిర్యాదులు. సిబ్బంది శిక్షణ. పనితీరు కొలత. Bug పరిష్కారాలు.<br>
+        <span style="color:#94a3b8">Live deployment in Mandapeta. Real citizen complaints. Staff trained. Metrics collected. Bug fixes based on real usage.</span>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot tl-dot-amber"></div>
+      <div class="tl-phase" style="color:#e8a020">దశ 2 — నెలలు 2-3 &bull; Phase 2 — Months 2–3</div>
+      <div class="tl-title" style="font-family:'Noto Sans Telugu',sans-serif">తూర్పు గోదావరి జిల్లా — 16 నియోజకవర్గాలు</div>
+      <div class="tl-body">
+        తూర్పు గోదావరి అన్ని MLAలు మరియు MPs కి విస్తరించు. జిల్లా స్థాయి నివేదికలు అందుబాటు. CM కార్యాలయానికి చదివే హక్కు మంజూరు.<br>
+        <span style="color:#94a3b8">Expand to all East Godavari MLAs and MPs. District-level reporting enabled. CM office read-only access granted.</span>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot tl-dot-blue"></div>
+      <div class="tl-phase" style="color:#3b82f6">దశ 3 — నెలలు 3-4 &bull; Phase 3 — Months 3–4</div>
+      <div class="tl-title" style="font-family:'Noto Sans Telugu',sans-serif">గోదావరి + కృష్ణా ప్రాంతం — 60 నియోజకవర్గాలు</div>
+      <div class="tl-body">
+        పూర్తి తీరాంధ్ర కవరేజ్. MP పోర్టళ్ళు జోడించు. మంత్రి-స్థాయి విభాగ డాష్‌బోర్డ్ అందుబాటు. రాష్ట్ర అనలిటిక్స్ డాష్‌బోర్డ్ ప్రారంభం.<br>
+        <span style="color:#94a3b8">Full coastal AP coverage. MP portals added. Minister department dashboards activated. State-level analytics go live.</span>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-dot tl-dot-purple"></div>
+      <div class="tl-phase" style="color:#7c3aed">దశ 4 — నెలలు 5-6 &bull; Phase 4 — Months 5–6</div>
+      <div class="tl-title" style="font-family:'Noto Sans Telugu',sans-serif">అన్ని 175 AP నియోజకవర్గాలు + MPs</div>
+      <div class="tl-body">
+        పూర్తి రాష్ట్ర విస్తరణ. 175 MLAలు, 25 MPలు. CM పూర్తి అనలిటిక్స్ డాష్‌బోర్డ్. సచివాలయం అనుసంధానం. తెలుగు భాష పూర్తి.<br>
+        <span style="color:#94a3b8">Full state rollout. 175 MLAs, 25 MPs. CM full analytics. Sachivalayam integration. Telugu language complete.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="g2" style="margin-bottom:16px">
+    <div>
+      <div class="label label-b" style="margin-bottom:8px">ప్రభుత్వం అందించేది &bull; What government provides</div>
+      <div class="card" style="border-left:4px solid #3b82f6">
+        <div class="fi">
+          <div class="fi-ico">📋</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">అన్ని MLAల జాబితా నియోజకవర్గ కోడ్‌లతో</div>
+            <div class="fi-te">List of all MLAs and MPs with constituency codes</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">📞</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">MLA కార్యాలయ సంప్రదింపు WhatsApp నంబర్</div>
+            <div class="fi-te">MLA office contact person and WhatsApp number</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">👔</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">మంత్రుల జాబితా వారి విభాగాలతో</div>
+            <div class="fi-te">List of Ministers with their department assignments</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">✅</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">పౌర లింక్ పంచుకోవడానికి అధికారిక ఆమోదం</div>
+            <div class="fi-te">Official endorsement to share citizen portal links</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="label label-g" style="margin-bottom:8px">MPower అందించేది — ఉచితంగా &bull; What MPower provides free</div>
+      <div class="card card-green">
+        <div class="fi">
+          <div class="fi-ico">⚙️</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">175 నియోజకవర్గ పోర్టళ్ళ సెటప్ — ఉచితంగా</div>
+            <div class="fi-te">All 175 constituency portals setup — completely free</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">🎓</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">సిబ్బంది శిక్షణ తెలుగు + ఇంగ్లీషు — ఉచితంగా</div>
+            <div class="fi-te">Staff training in Telugu and English — free</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">📊</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">CM రాష్ట్ర డాష్‌బోర్డ్ — ఉచితంగా</div>
+            <div class="fi-te">CM full state analytics dashboard — free</div>
+          </div>
+        </div>
+        <div class="fi">
+          <div class="fi-ico">🔧</div>
+          <div>
+            <div class="fi-t" style="font-family:'Noto Sans Telugu',sans-serif">నిరంతర మద్దతు + నిర్వహణ — ఉచితంగా</div>
+            <div class="fi-te">Ongoing support and maintenance — free forever</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="free-box">
+    <div class="free-amt">₹0</div>
+    <div>
+      <div style="font-size:14px;font-weight:700;color:#15803d;margin-bottom:4px;font-family:'Noto Sans Telugu',sans-serif">ఆంధ్రప్రదేశ్ ప్రభుత్వానికి ఎప్పటికీ మొత్తం ఖర్చు — సున్న</div>
+      <div style="font-size:11px;color:#374151;margin-bottom:3px">Setup ₹0 &bull; Training ₹0 &bull; 175 portals ₹0 &bull; Minister dashboards ₹0 &bull; CM dashboard ₹0 &bull; Maintenance ₹0 &bull; Upgrades ₹0</div>
+      <div style="font-size:11px;color:#64748b;font-family:'Noto Sans Telugu',sans-serif">సెటప్ ₹0 &bull; శిక్షణ ₹0 &bull; 175 పోర్టళ్ళు ₹0 &bull; మంత్రి డాష్‌బోర్డ్ ₹0 &bull; CM డాష్‌బోర్డ్ ₹0 &bull; నిర్వహణ ₹0</div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS &bull; రాష్ట్ర విస్తరణ &bull; 175 నియోజకవర్గాలు &bull; ఉచిత సేవ</div>
+    <div class="pfr">Technical Supplement — Page 2</div>
+  </div>
+</div>
+
+</body>
+</html>

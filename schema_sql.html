@@ -1,0 +1,183 @@
+
+<h2 class="sr-only">Supabase SQL schema for MediCare hospital system</h2>
+<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);padding:14px 16px;max-width:640px;margin:1rem auto;">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+  <span style="font-size:13px;font-weight:500;color:var(--color-text-primary);"><i class="ti ti-database" aria-hidden="true"></i> schema.sql — paste into Supabase SQL editor</span>
+  <button onclick="copyCode('schema-code')" style="font-size:12px;padding:4px 12px;background:transparent;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);cursor:pointer;color:var(--color-text-secondary);">Copy</button>
+</div>
+<pre id="schema-code" style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary);overflow-x:auto;margin:0;white-space:pre-wrap;">-- USERS / AUTH TABLE
+create table public.users (
+  id uuid primary key default gen_random_uuid(),
+  username text unique not null,
+  email text unique not null,
+  phone text,
+  role text not null check (role in ('superadmin','hradmin','sysadmin','doctor','nurse','receptionist','lab_technician','pharmacist')),
+  created_at timestamptz default now()
+);
+
+-- DOCTORS TABLE
+create table public.doctors (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.users(id),
+  did text unique not null,
+  first_name text not null,
+  last_name text not null,
+  dob date,
+  gender text,
+  phone text,
+  email text,
+  address text,
+  national_id text,
+  medical_reg_no text,
+  date_of_joining date,
+  employment_type text,
+  primary_speciality text,
+  sub_speciality text,
+  consultation_types text[],
+  languages text[],
+  bio text,
+  total_experience int,
+  speciality_experience int,
+  consultation_fee numeric,
+  emergency_availability text,
+  ward_room text,
+  working_days text[],
+  opd_morning_from time,
+  opd_morning_to time,
+  opd_evening_from time,
+  opd_evening_to time,
+  surgery_from time,
+  surgery_to time,
+  max_patients_per_day int,
+  avg_consultation_min int,
+  qualifications jsonb,
+  certifications jsonb,
+  work_history jsonb,
+  publications text,
+  awards text,
+  procedures jsonb,
+  created_at timestamptz default now()
+);
+
+-- PATIENTS TABLE
+create table public.patients (
+  id uuid primary key default gen_random_uuid(),
+  pid text unique not null,
+  first_name text not null,
+  last_name text not null,
+  dob date,
+  gender text,
+  blood_group text,
+  phone text,
+  emergency_contact text,
+  address text,
+  national_id text,
+  insurance_no text,
+  known_allergies text,
+  existing_conditions text,
+  registered_by uuid references public.users(id),
+  created_at timestamptz default now()
+);
+
+-- APPOINTMENTS TABLE
+create table public.appointments (
+  id uuid primary key default gen_random_uuid(),
+  apt_id text unique not null,
+  patient_id uuid references public.patients(id),
+  doctor_id uuid references public.doctors(id),
+  appointment_date date not null,
+  time_slot time,
+  department text,
+  appointment_type text,
+  chief_complaint text,
+  status text default 'scheduled' check (status in ('scheduled','completed','cancelled','no-show')),
+  booked_by uuid references public.users(id),
+  created_at timestamptz default now()
+);
+
+-- LAB REPORTS TABLE
+create table public.lab_reports (
+  id uuid primary key default gen_random_uuid(),
+  patient_id uuid references public.patients(id),
+  appointment_id uuid references public.appointments(id),
+  sample_date date,
+  report_date date,
+  test_type text,
+  results jsonb,
+  remarks text,
+  status text check (status in ('normal','borderline','abnormal','critical')),
+  entered_by uuid references public.users(id),
+  created_at timestamptz default now()
+);
+
+-- TREATMENT RECORDS TABLE
+create table public.treatments (
+  id uuid primary key default gen_random_uuid(),
+  patient_id uuid references public.patients(id),
+  doctor_id uuid references public.doctors(id),
+  appointment_id uuid references public.appointments(id),
+  treatment_date date,
+  treatment_type text check (treatment_type in ('general','preop','postop','inpatient')),
+  surgery_name text,
+  scheduled_surgery_date date,
+  operating_surgeon text,
+  preop_instructions text,
+  recovery_status text,
+  postop_care text,
+  diagnosis text,
+  prescription text,
+  bp text,
+  temperature text,
+  pulse text,
+  follow_up_date date,
+  entered_by uuid references public.users(id),
+  created_at timestamptz default now()
+);
+
+-- BILLING TABLE
+create table public.billing (
+  id uuid primary key default gen_random_uuid(),
+  bill_no text unique not null,
+  patient_id uuid references public.patients(id),
+  bill_date date,
+  services jsonb,
+  discount numeric default 0,
+  insurance_covered numeric default 0,
+  net_amount numeric,
+  payment_mode text,
+  amount_received numeric,
+  transaction_no text,
+  payment_status text check (payment_status in ('paid','partial','pending','insurance_processing')),
+  collected_by uuid references public.users(id),
+  created_at timestamptz default now()
+);
+
+-- PRIVILEGES TABLE
+create table public.privileges (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.users(id),
+  module text not null,
+  access text check (access in ('read','write','both')),
+  granted_by uuid references public.users(id),
+  created_at timestamptz default now(),
+  unique(user_id, module)
+);
+
+-- ROW LEVEL SECURITY
+alter table public.patients enable row level security;
+alter table public.appointments enable row level security;
+alter table public.lab_reports enable row level security;
+alter table public.treatments enable row level security;
+alter table public.billing enable row level security;
+alter table public.privileges enable row level security;</pre>
+</div>
+<script>
+function copyCode(id){
+  const el=document.getElementById(id);
+  navigator.clipboard.writeText(el.textContent).then(()=>{
+    const btn=el.previousElementSibling.querySelector('button');
+    btn.textContent='Copied!';
+    setTimeout(()=>btn.textContent='Copy',2000);
+  });
+}
+</script>

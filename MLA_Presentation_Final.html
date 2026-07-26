@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="te">
+<head>
+<meta charset="UTF-8">
+<title>MPower CTS — MLA Portal Presentation</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans Telugu','Inter',sans-serif;background:#d0d0d0;padding:24px}
+.a4{background:#fff;width:794px;margin:0 auto 32px;padding:50px 54px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-height:1123px;position:relative}
+@media print{
+  body{background:#fff;padding:0}
+  .a4{box-shadow:none;margin:0;page-break-after:always;min-height:0}
+  .noprint{display:none!important}
+  @page{size:A4 portrait;margin:0}
+}
+.noprint{text-align:center;margin-bottom:20px}
+.btn{background:#1a1a2e;color:#e8a020;border:none;border-radius:30px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
+.lbl{display:inline-block;background:#1a1a2e;color:#e8a020;font-size:9px;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:1.5px;margin-bottom:8px;font-family:'Inter',sans-serif}
+.lbl-g{background:#15803d;color:#fff}
+.lbl-b{background:#1d4ed8;color:#fff}
+.lbl-p{background:#7c3aed;color:#fff}
+.lbl-o{background:#c2410c;color:#fff}
+.h1{font-size:26px;font-weight:800;color:#1a1a2e;margin-bottom:4px}
+.h2{font-size:13px;color:#64748b;margin-bottom:8px;font-family:'Inter',sans-serif}
+.div{width:44px;height:3px;background:#e8a020;border-radius:2px;margin-bottom:20px}
+.steps{display:flex;align-items:stretch;gap:0;margin:12px 0 18px}
+.step{flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 6px;text-align:center}
+.step-num{width:24px;height:24px;border-radius:50%;background:#1a1a2e;color:#e8a020;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-family:'Inter',sans-serif}
+.step-t{font-size:10px;font-weight:700;color:#1a1a2e;margin-bottom:2px;line-height:1.3}
+.step-e{font-size:9px;color:#94a3b8;line-height:1.3;font-family:'Inter',sans-serif}
+.arrow{display:flex;align-items:center;padding:0 3px;color:#e8a020;font-size:14px;font-weight:700;flex-shrink:0;font-family:'Inter',sans-serif}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.card{border:1px solid #e2e8f0;border-radius:10px;padding:14px}
+.card-gold{border-left:4px solid #e8a020}
+.card-green{border-left:4px solid #22c55e}
+.card-blue{border-left:4px solid #3b82f6}
+.card-purple{border-left:4px solid #7c3aed}
+.card-head{font-size:12px;font-weight:700;color:#1a1a2e;margin-bottom:8px}
+.fi{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #f1f5f9}
+.fi:last-child{border:none}
+.fi-ico{width:26px;height:26px;border-radius:6px;background:#f8fafc;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.fi-t{font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:1px}
+.fi-e{font-size:10px;color:#64748b;line-height:1.4;font-family:'Inter',sans-serif}
+table.acc{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px}
+table.acc th{background:#1a1a2e;color:#fff;padding:7px 9px;text-align:left;font-size:10px;font-family:'Inter',sans-serif}
+table.acc td{padding:7px 9px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+table.acc tr:nth-child(even) td{background:#f8fafc}
+.ck{color:#16a34a;font-weight:600;font-family:'Inter',sans-serif}
+.cx{color:#94a3b8;font-size:10px;font-family:'Inter',sans-serif}
+.free-box{background:#f0fdf4;border:2px solid #22c55e;border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:14px}
+.free-amt{font-size:46px;font-weight:800;color:#15803d;flex-shrink:0;font-family:'Inter',sans-serif}
+.sc{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px}
+.sc-title{font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:6px}
+.sc-item{font-size:11px;color:#374151;padding:4px 0;border-bottom:1px solid #f1f5f9;line-height:1.5}
+.sc-item:last-child{border:none}
+.sc-te{font-size:10px;color:#94a3b8;font-family:'Noto Sans Telugu',sans-serif}
+.fb-box{background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.fb-title{font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:8px}
+.fb-row{font-size:11px;color:#1e40af;padding:4px 0;border-bottom:1px dashed #bfdbfe;line-height:1.6;font-family:'Inter',sans-serif}
+.fb-row:last-child{border:none}
+.doc-box{background:#fef9c3;border:1px solid #fbbf24;border-radius:10px;padding:12px 16px;margin-bottom:14px}
+.doc-title{font-size:12px;font-weight:700;color:#92400e;margin-bottom:6px}
+.doc-row{font-size:11px;color:#78350f;padding:4px 0;border-bottom:1px dashed #fde68a;line-height:1.6;font-family:'Inter',sans-serif}
+.doc-row:last-child{border:none}
+.pf{position:absolute;bottom:24px;left:54px;right:54px;display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:8px}
+.pfl,.pfr{font-size:9px;color:#94a3b8;font-family:'Inter',sans-serif}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center}
+.stat-n{font-size:26px;font-weight:800;color:#1a1a2e;line-height:1;font-family:'Inter',sans-serif}
+.stat-l{font-size:10px;color:#64748b;margin-top:4px;line-height:1.3;font-family:'Inter',sans-serif}
+.stat-te{font-size:9px;color:#94a3b8}
+</style>
+</head>
+<body>
+
+<div class="noprint"><button class="btn" onclick="window.print()">🖨 ముద్రించు / Save as PDF</button></div>
+
+<!-- PAGE 1 -->
+<div class="a4">
+  <div class="lbl">MPower CTS · MLA Portal Presentation · Page 1 of 3</div>
+  <div class="h1">ప్రతి MLA తమ స్వంత పోర్టల్‌ను ఎలా పొందుతారు</div>
+  <div class="h2">How each MLA and MP gets their own completely isolated grievance portal — free forever</div>
+  <div class="div"></div>
+
+  <div class="stat-grid">
+    <div class="stat">
+      <div class="stat-n">175</div>
+      <div class="stat-l">AP MLAs</div>
+      <div class="stat-te">AP MLAలు</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">25</div>
+      <div class="stat-l">Lok Sabha MPs</div>
+      <div class="stat-te">లోక్‌సభ MPs</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">1</div>
+      <div class="stat-l">Day to go live</div>
+      <div class="stat-te">ఒక్క రోజులో లైవ్</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">₹0</div>
+      <div class="stat-l">Govt cost ever</div>
+      <div class="stat-te">ఎప్పటికీ ఉచితం</div>
+    </div>
+  </div>
+
+  <div class="lbl lbl-b" style="margin-bottom:10px">నమోదు దశలు — 6 అడుగులు · Registration — 6 steps</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-t">MLA కార్యాలయం దరఖాస్తు</div>
+      <div class="step-e">MLA office applies</div>
+    </div>
+    <div class="arrow">›</div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-t">గుర్తింపు ధృవీకరణ</div>
+      <div class="step-e">Identity verified</div>
+    </div>
+    <div class="arrow">›</div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-t">పోర్టల్ 1 రోజులో సిద్ధం</div>
+      <div class="step-e">Portal live in 1 day</div>
+    </div>
+    <div class="arrow">›</div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-t">సిబ్బంది ఖాతాలు జోడించు</div>
+      <div class="step-e">Staff accounts added</div>
+    </div>
+    <div class="arrow">›</div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-t">పౌర లింక్ WhatsApp ద్వారా</div>
+      <div class="step-e">Citizen link shared</div>
+    </div>
+    <div class="arrow">›</div>
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-t">అందుబాటులో — ఉచితంగా</div>
+      <div class="step-e">Live — completely free</div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div>
+      <div class="lbl" style="margin-bottom:8px">ప్రతి MLA కి లభించేది · What each MLA gets</div>
+      <div class="card card-gold">
+        <div class="fi"><div class="fi-ico">🔗</div><div><div class="fi-t">విశిష్టమైన పౌర పోర్టల్ లింక్</div><div class="fi-e">Unique citizen portal URL per constituency</div></div></div>
+        <div class="fi"><div class="fi-ico">📊</div><div><div class="fi-t">విడి సిబ్బంది డాష్‌బోర్డ్</div><div class="fi-e">Private dashboard — no other MLA can access</div></div></div>
+        <div class="fi"><div class="fi-ico">👥</div><div><div class="fi-t">అపరిమిత సిబ్బందిని జోడించవచ్చు</div><div class="fi-e">Add unlimited staff with role-based access</div></div></div>
+        <div class="fi"><div class="fi-ico">📈</div><div><div class="fi-t">తమ నియోజకవర్గం నివేదికలు మాత్రమే</div><div class="fi-e">Own constituency reports only</div></div></div>
+        <div class="fi"><div class="fi-ico">⭐</div><div><div class="fi-t">పౌర అభిప్రాయ సేకరణ వ్యవస్థ</div><div class="fi-e">Citizen feedback after every resolved complaint</div></div></div>
+        <div class="fi"><div class="fi-ico">🔒</div><div><div class="fi-t">సంపూర్ణ డేటా వేర్పాటు</div><div class="fi-e">Complete data isolation — RLS at database level</div></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="lbl lbl-g" style="margin-bottom:8px">MLA నియంత్రించేది · What MLA controls</div>
+      <div class="card card-green">
+        <div class="fi"><div class="fi-ico">➕</div><div><div class="fi-t">ఎప్పుడైనా సిబ్బందిని జోడించవచ్చు</div><div class="fi-e">Add or remove staff anytime</div></div></div>
+        <div class="fi"><div class="fi-ico">🎭</div><div><div class="fi-t">పాత్రలు నిర్ణయించవచ్చు</div><div class="fi-e">Assign staff / senior / admin roles</div></div></div>
+        <div class="fi"><div class="fi-ico">📋</div><div><div class="fi-t">అన్ని ఫిర్యాదులు చూడవచ్చు</div><div class="fi-e">View all complaints with full history</div></div></div>
+        <div class="fi"><div class="fi-ico">🖨️</div><div><div class="fi-t">ఎప్పుడైనా నివేదికలు ముద్రించవచ్చు</div><div class="fi-e">Print or export reports at any time</div></div></div>
+        <div class="fi"><div class="fi-ico">⭐</div><div><div class="fi-t">పౌర అభిప్రాయాలు చూడవచ్చు</div><div class="fi-e">View citizen feedback ratings and comments</div></div></div>
+        <div class="fi"><div class="fi-ico">🗓️</div><div><div class="fi-t">ప్రాధాన్యత నిర్ణయించవచ్చు</div><div class="fi-e">Set complaint priority and deadlines</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lbl lbl-p" style="margin-bottom:8px">ఎవరు ఏమి చూడగలరు · Complete access matrix</div>
+  <table class="acc">
+    <thead>
+      <tr>
+        <th>పాత్ర · Role</th>
+        <th>తమ నియోజకవర్గం</th>
+        <th>వేరే MLA డేటా</th>
+        <th>రాష్ట్ర స్థాయి</th>
+        <th>సిబ్బంది జోడించు</th>
+        <th>అభిప్రాయాలు</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>MLA / MP అడ్మిన్</strong></td>
+        <td class="ck">✓ పూర్తి</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="ck">✓ అవును</td>
+        <td class="ck">✓ అన్నీ</td>
+      </tr>
+      <tr>
+        <td><strong>సీనియర్ సిబ్బంది</strong></td>
+        <td class="ck">✓ పూర్తి</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="ck">✓ అన్నీ</td>
+      </tr>
+      <tr>
+        <td><strong>ఫిర్యాదు సిబ్బంది</strong></td>
+        <td class="ck">✓ తమ క్యూ మాత్రమే</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="ck">✓ తమవి మాత్రమే</td>
+      </tr>
+      <tr>
+        <td><strong>రాష్ట్ర ప్రభుత్వం / CM</strong></td>
+        <td class="ck">✓ చదవడం మాత్రమే</td>
+        <td class="ck">✓ అందరిది చదవడం</td>
+        <td class="ck">✓ పూర్తి డాష్‌బోర్డ్</td>
+        <td class="cx">✗ లేదు</td>
+        <td class="ck">✓ రాష్ట్ర స్థాయి</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="free-box">
+    <div class="free-amt">₹0</div>
+    <div>
+      <div style="font-size:14px;font-weight:700;color:#15803d;margin-bottom:3px">ఆంధ్రప్రదేశ్ ప్రభుత్వానికి మొత్తం ఖర్చు — పూర్తి ఉచితం</div>
+      <div style="font-size:11px;color:#374151;font-family:'Inter',sans-serif">Setup ₹0 · Training ₹0 · 175 portals ₹0 · CM dashboard ₹0 · Feedback system ₹0 · Maintenance ₹0 · Upgrades ₹0</div>
+      <div style="font-size:11px;color:#64748b;margin-top:2px">సెటప్ ఉచితం · శిక్షణ ఉచితం · 175 పోర్టళ్ళు ఉచితం · నిర్వహణ ఉచితం</div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS · MLA Portal · మండపేట పైలట్</div>
+    <div class="pfr">Page 1 of 3 · mpowerapp.in</div>
+  </div>
+</div>
+
+<!-- PAGE 2 -->
+<div class="a4">
+  <div class="lbl">MPower CTS · MLA Portal Presentation · Page 2 of 3</div>
+  <div class="h1">ఆంధ్రప్రదేశ్ ప్రభుత్వ పథకాలు — నవీకరించబడిన అధికారిక జాబితా</div>
+  <div class="h2">Official current AP welfare scheme names — pre-loaded in citizen portal · No old names anywhere</div>
+  <div class="div"></div>
+
+  <div class="lbl lbl-b" style="margin-bottom:12px">విద్య పథకాలు · Education Schemes</div>
+  <div class="g2" style="margin-bottom:16px">
+    <div class="sc">
+      <div class="sc-title">📚 పాఠశాల విద్య · School Education</div>
+      <div class="sc-item">తల్లికి వందనం పథకం<div class="sc-te">Talliki Vandanam Scheme — తల్లులకు ₹15,000 వార్షిక సహాయం</div></div>
+      <div class="sc-item">సర్వేపల్లి రాధాకృష్ణన్ విద్యా మిత్ర<div class="sc-te">Sarvepalli Radhakrishnan Vidya Mitra — స్టూడెంట్ కిట్లు</div></div>
+      <div class="sc-item">డొక్కా సీతమ్మ మధ్యాహ్న బడి భోజనం<div class="sc-te">Dokka Seethamma Madhyahana Badi Bhojanam — మధ్యాహ్న భోజనం</div></div>
+      <div class="sc-item">మన బడి — మన భవిష్యత్తు<div class="sc-te">Mana Badi — Mana Bhavishyathu — పాఠశాల మౌలిక సదుపాయాలు</div></div>
+      <div class="sc-item">బాలికా రక్ష<div class="sc-te">Balika Raksha — పాఠశాల బాలికలకు స్వచ్ఛత సహాయం</div></div>
+    </div>
+    <div class="sc">
+      <div class="sc-title">🎓 ఉన్నత విద్య · Higher Education</div>
+      <div class="sc-item">Post Matric Scholarships (Tuition Fee Reimbursement)<div class="sc-te">పోస్ట్ మెట్రిక్ స్కాలర్‌షిప్ — కళాశాల ట్యూషన్ రీఇంబర్స్‌మెంట్</div></div>
+      <div class="sc-item">Post Matric Scholarships (Maintenance Fee)<div class="sc-te">పోస్ట్ మెట్రిక్ స్కాలర్‌షిప్ — హాస్టల్ మరియు మెస్ సహాయం</div></div>
+      <div class="sc-item">అంబేద్కర్ ఓవర్సీస్ విద్యా నిధి (AOVN)<div class="sc-te">Ambedkar Overseas Vidya Nidhi — విదేశీ విద్య ఆర్థిక సహాయం</div></div>
+      <div class="sc-item">అబ్దుల్ కలామ్ ప్రతిభా పురస్కారం<div class="sc-te">Abdul Kalam Prathiba Puraskaram — పరీక్ష టాపర్లకు నగదు బహుమతి</div></div>
+      <div class="sc-item">NTR విద్యోన్నతి<div class="sc-te">NTR Vidyonnathi — పోటీ పరీక్షల కోచింగ్ సహాయం</div></div>
+      <div class="sc-item">Incentives for Civil Services Examination<div class="sc-te">సివిల్ సర్వీస్ పరీక్ష ప్రోత్సాహకాలు — UPSC అభ్యర్థులకు</div></div>
+    </div>
+  </div>
+
+  <div class="lbl lbl-o" style="margin-bottom:12px">వ్యవసాయం, సంక్షేమం మరియు గృహాలు · Agriculture, Welfare and Housing</div>
+  <div class="g2" style="margin-bottom:16px">
+    <div class="sc">
+      <div class="sc-title">🌾 వ్యవసాయం మరియు పోషణ · Agriculture and Nutrition</div>
+      <div class="sc-item">అన్నదాత సుఖీభవ<div class="sc-te">Annadata Sukhibhava — రైతు పెట్టుబడి ఆర్థిక సహాయం</div></div>
+      <div class="sc-item">బాల సంజీవని<div class="sc-te">Bala Sanjeevani — పాఠశాలలు మరియు అంగన్‌వాడీ పోషణ కార్యక్రమం</div></div>
+      <div class="sc-item">అన్న అమృత హస్తం<div class="sc-te">Anna Amrutha Hastam — గర్భిణీ మరియు పాలిచ్చే తల్లులకు పోషక సహాయం</div></div>
+    </div>
+    <div class="sc">
+      <div class="sc-title">🛡️ సంక్షేమం మరియు గృహాలు · Welfare and Housing</div>
+      <div class="sc-item">NTR భరోసా పెన్షన్ పథకం<div class="sc-te">NTR Bharosa Pension Scheme — వృద్ధులు, వికలాంగులు, విధవలు</div></div>
+      <div class="sc-item">చంద్రన్న పెళ్ళి కానుక<div class="sc-te">Chandranna Pelli Kanuka — పేద వధువులకు వివాహ ఆర్థిక సహాయం</div></div>
+      <div class="sc-item">NTR గృహ నిర్మాణ పథకం<div class="sc-te">NTR Housing Scheme — ఆర్థికంగా వెనుకబడిన వారికి గృహాలు</div></div>
+    </div>
+  </div>
+
+  <div class="lbl lbl-b" style="margin-bottom:10px">ఫిర్యాదు దాఖలుకు అవసరమైన పత్రాలు · Documents needed</div>
+  <div class="doc-box">
+    <div class="doc-title">📄 పత్రాల జాబితా — అన్ని ఫిర్యాదులకు సిద్ధంగా ఉంచుకోండి</div>
+    <div class="doc-row"><strong>అన్ని ఫిర్యాదులకు:</strong> ఆధార్ కార్డు · రేషన్ కార్డు (రైస్ కార్డు) · ఆదాయ ధృవీకరణ పత్రం (MeeSeva / సచివాలయం)</div>
+    <div class="doc-row"><strong>భూమి మరియు ఆస్తి వివాదాలు:</strong> పాస్‌బుక్ కాపీ · రిజిస్టర్డ్ సేల్ డీడ్ · అడంగల్/పహాణి · 1B రికార్డులు · సర్వే నంబర్లు · జియో-ట్యాగ్డ్ ఫోటోలు</div>
+    <div class="doc-row"><strong>పథకాల ఫిర్యాదులు:</strong> ఆధార్ కార్డు · రేషన్ కార్డు · సంబంధిత పథక నమోదు పత్రాలు</div>
+  </div>
+
+  <div class="lbl lbl-p" style="margin-bottom:10px">పౌర అభిప్రాయ సేకరణ వ్యవస్థ · Citizen Feedback System</div>
+  <div class="fb-box">
+    <div class="fb-title">⭐ ఫిర్యాదు పరిష్కరించిన తర్వాత స్వయంచాలకంగా అభిప్రాయం సేకరించబడుతుంది</div>
+    <div class="fb-row"><strong>1. స్వయంచాలక WhatsApp సందేశం:</strong> Resolved అయిన వెంటనే పౌరుడికి అభిప్రాయ అభ్యర్థన వస్తుంది</div>
+    <div class="fb-row"><strong>2. 1 నుండి 5 నక్షత్రాల రేటింగ్:</strong> సేవ వేగం · సిబ్బంది వైఖరి · పరిష్కార నాణ్యత</div>
+    <div class="fb-row"><strong>3. తెలుగు లేదా ఇంగ్లీషులో వ్యాఖ్యలు:</strong> పౌరుడు తమ అభిప్రాయం స్వేచ్ఛగా రాయవచ్చు</div>
+    <div class="fb-row"><strong>4. MLA డాష్‌బోర్డ్లో నివేదికలు:</strong> నెలవారీ అభిప్రాయ ట్రెండ్స్ · తక్కువ రేటింగ్ వర్గాలు హైలైట్</div>
+    <div class="fb-row"><strong>5. CM కార్యాలయానికి రాష్ట్ర స్థాయి సారాంశం:</strong> 175 నియోజకవర్గాల అభిప్రాయ విశ్లేషణ</div>
+  </div>
+
+  <div class="free-box">
+    <div class="free-amt">₹0</div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#15803d;margin-bottom:3px">అన్ని నవీకరించబడిన పథకాలు, పత్రాల తనిఖీ మరియు అభిప్రాయ వ్యవస్థ — పూర్తి ఉచితం</div>
+      <div style="font-size:11px;color:#374151;font-family:'Inter',sans-serif">All updated official AP scheme names pre-loaded · Document checklist built-in · Feedback system included · Zero cost</div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS · నవీకరించబడిన AP పథకాలు · పౌర అభిప్రాయ వ్యవస్థ · పత్రాల జాబితా</div>
+    <div class="pfr">Page 2 of 3 · mpowerapp.in</div>
+  </div>
+</div>
+
+<!-- PAGE 3 -->
+<div class="a4">
+  <div class="lbl">MPower CTS · MLA Portal Presentation · Page 3 of 3</div>
+  <div class="h1">రాష్ట్ర స్థాయి విస్తరణ — 175 నియోజకవర్గాలు</div>
+  <div class="h2">State-wide rollout — Mandapeta pilot → all 175 AP constituencies in 6 months — ₹0 to government</div>
+  <div class="div"></div>
+
+  <div style="position:relative;padding-left:22px;margin-bottom:22px">
+    <div style="position:absolute;left:6px;top:4px;bottom:4px;width:2px;background:#e2e8f0"></div>
+
+    <div style="position:relative;margin-bottom:18px">
+      <div style="position:absolute;left:-19px;top:5px;width:10px;height:10px;border-radius:50%;background:#22c55e;border:2px solid #fff;box-shadow:0 0 0 1.5px #22c55e"></div>
+      <div style="font-size:10px;font-weight:700;color:#22c55e;letter-spacing:0.5px;margin-bottom:2px;font-family:'Inter',sans-serif">దశ 1 — నెల 1 — ఇప్పుడే · PHASE 1 — NOW</div>
+      <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:3px">మండపేట పైలట్ — 1 నియోజకవర్గం</div>
+      <div style="font-size:11px;color:#64748b;line-height:1.8;font-family:'Inter',sans-serif">నిజమైన పౌర ఫిర్యాదులు · అన్ని నవీకరించబడిన AP పథకాల వర్గాలు అందుబాటు · అభిప్రాయ వ్యవస్థ ప్రారంభం · సిబ్బంది శిక్షణ · పనితీరు కొలత<br>Live with all updated official AP scheme categories · Feedback system active · Staff trained · Metrics collected</div>
+    </div>
+
+    <div style="position:relative;margin-bottom:18px">
+      <div style="position:absolute;left:-19px;top:5px;width:10px;height:10px;border-radius:50%;background:#e8a020;border:2px solid #fff;box-shadow:0 0 0 1.5px #e8a020"></div>
+      <div style="font-size:10px;font-weight:700;color:#e8a020;letter-spacing:0.5px;margin-bottom:2px;font-family:'Inter',sans-serif">దశ 2 — నెలలు 2-3 · PHASE 2 — MONTHS 2–3</div>
+      <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:3px">తూర్పు గోదావరి జిల్లా — 16 నియోజకవర్గాలు</div>
+      <div style="font-size:11px;color:#64748b;line-height:1.8;font-family:'Inter',sans-serif">తూర్పు గోదావరి అన్ని MLAలు మరియు MPs · జిల్లా స్థాయి నివేదికలు · CM కార్యాలయానికి చదివే హక్కు · జిల్లా అభిప్రాయ నివేదికలు<br>All East Godavari MLAs and MPs · District feedback reports · CM read-only access</div>
+    </div>
+
+    <div style="position:relative;margin-bottom:18px">
+      <div style="position:absolute;left:-19px;top:5px;width:10px;height:10px;border-radius:50%;background:#3b82f6;border:2px solid #fff;box-shadow:0 0 0 1.5px #3b82f6"></div>
+      <div style="font-size:10px;font-weight:700;color:#3b82f6;letter-spacing:0.5px;margin-bottom:2px;font-family:'Inter',sans-serif">దశ 3 — నెలలు 3-4 · PHASE 3 — MONTHS 3–4</div>
+      <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:3px">గోదావరి + కృష్ణా ప్రాంతం — 60 నియోజకవర్గాలు</div>
+      <div style="font-size:11px;color:#64748b;line-height:1.8;font-family:'Inter',sans-serif">పూర్తి తీరాంధ్ర కవరేజ్ · MP పోర్టళ్ళు జోడించు · మంత్రి విభాగ డాష్‌బోర్డ్ · రాష్ట్ర అభిప్రాయ విశ్లేషణ<br>Full coastal AP coverage · MP portals · Minister dashboards · State-level feedback analytics</div>
+    </div>
+
+    <div style="position:relative">
+      <div style="position:absolute;left:-19px;top:5px;width:10px;height:10px;border-radius:50%;background:#7c3aed;border:2px solid #fff;box-shadow:0 0 0 1.5px #7c3aed"></div>
+      <div style="font-size:10px;font-weight:700;color:#7c3aed;letter-spacing:0.5px;margin-bottom:2px;font-family:'Inter',sans-serif">దశ 4 — నెలలు 5-6 · PHASE 4 — MONTHS 5–6</div>
+      <div style="font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:3px">అన్ని 175 AP నియోజకవర్గాలు + 25 MPs</div>
+      <div style="font-size:11px;color:#64748b;line-height:1.8;font-family:'Inter',sans-serif">పూర్తి రాష్ట్ర విస్తరణ · CM పూర్తి అనలిటిక్స్ · సచివాలయం అనుసంధానం · అన్ని నవీకరించబడిన AP పథకాలు అన్ని పోర్టళ్ళలో · పూర్తి అభిప్రాయ వ్యవస్థ<br>175 MLAs + 25 MPs · CM full analytics · Sachivalayam integration · All updated AP schemes · Full feedback system</div>
+    </div>
+  </div>
+
+  <div class="g2" style="margin-bottom:14px">
+    <div class="card card-blue">
+      <div class="card-head">ప్రభుత్వం అందించేది · What government provides</div>
+      <div class="fi"><div class="fi-ico">📋</div><div><div class="fi-t">అన్ని MLAల జాబితా నియోజకవర్గ కోడ్‌లతో</div><div class="fi-e">All MLAs and MPs with constituency codes</div></div></div>
+      <div class="fi"><div class="fi-ico">📞</div><div><div class="fi-t">MLA కార్యాలయ WhatsApp నంబర్</div><div class="fi-e">MLA office contact and WhatsApp number</div></div></div>
+      <div class="fi"><div class="fi-ico">✅</div><div><div class="fi-t">పౌర లింక్ పంచుకోవడానికి అధికారిక ఆమోదం</div><div class="fi-e">Official endorsement to share citizen portal links</div></div></div>
+    </div>
+    <div class="card card-green">
+      <div class="card-head">MPower అందించేది — ఉచితంగా · MPower provides free</div>
+      <div class="fi"><div class="fi-ico">⚙️</div><div><div class="fi-t">175 పోర్టళ్ళు + నవీకరించబడిన AP పథకాలు</div><div class="fi-e">All 175 portals with updated official AP scheme categories</div></div></div>
+      <div class="fi"><div class="fi-ico">🎓</div><div><div class="fi-t">సిబ్బంది శిక్షణ తెలుగు + ఇంగ్లీషు</div><div class="fi-e">Staff training in Telugu and English</div></div></div>
+      <div class="fi"><div class="fi-ico">⭐</div><div><div class="fi-t">పౌర అభిప్రాయ వ్యవస్థ నిర్మాణం</div><div class="fi-e">Citizen feedback system built and maintained free</div></div></div>
+      <div class="fi"><div class="fi-ico">📊</div><div><div class="fi-t">CM రాష్ట్ర డాష్‌బోర్డ్ + నిరంతర మద్దతు</div><div class="fi-e">CM state dashboard + ongoing support forever free</div></div></div>
+    </div>
+  </div>
+
+  <div class="free-box">
+    <div class="free-amt">₹0</div>
+    <div>
+      <div style="font-size:14px;font-weight:700;color:#15803d;margin-bottom:3px">ఆంధ్రప్రదేశ్ ప్రభుత్వానికి ఎప్పటికీ మొత్తం ఖర్చు — సున్న</div>
+      <div style="font-size:11px;color:#374151;font-family:'Inter',sans-serif">175 portals ₹0 · Updated AP schemes ₹0 · Feedback system ₹0 · CM dashboard ₹0 · Minister dashboards ₹0 · Maintenance ₹0 · Upgrades ₹0</div>
+      <div style="font-size:11px;color:#64748b;margin-top:2px">175 పోర్టళ్ళు ₹0 · నవీకరించబడిన AP పథకాలు ₹0 · అభిప్రాయ వ్యవస్థ ₹0 · నిర్వహణ ₹0 · అప్‌గ్రేడ్‌లు ₹0</div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS · రాష్ట్ర విస్తరణ · నవీకరించబడిన AP పథకాలు · అభిప్రాయ వ్యవస్థ · ₹0</div>
+    <div class="pfr">Page 3 of 3 · mpowerapp.in</div>
+  </div>
+</div>
+
+</body>
+</html>

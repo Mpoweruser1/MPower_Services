@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MPower CTS — Technical Supplement</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#d0d0d0;padding:24px}
+.a4{background:#fff;width:794px;margin:0 auto 32px;padding:50px 54px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-height:1123px;position:relative}
+@media print{
+  body{background:#fff;padding:0}
+  .a4{box-shadow:none;margin:0;page-break-after:always;min-height:0}
+  .noprint{display:none!important}
+  @page{size:A4 portrait;margin:0}
+}
+.noprint{text-align:center;margin-bottom:20px}
+.btn{background:#1a1a2e;color:#e8a020;border:none;border-radius:30px;padding:12px 28px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
+.lbl{display:inline-block;background:#1a1a2e;color:#e8a020;font-size:9px;font-weight:700;padding:3px 10px;border-radius:4px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+.lbl-b{background:#1d4ed8;color:#fff}
+.lbl-g{background:#15803d;color:#fff}
+.lbl-r{background:#dc2626;color:#fff}
+.lbl-p{background:#7c3aed;color:#fff}
+.h1{font-size:26px;font-weight:800;color:#1a1a2e;letter-spacing:-0.5px;margin-bottom:4px}
+.sub{font-size:13px;color:#64748b;margin-bottom:6px}
+.div{width:44px;height:3px;background:#e8a020;border-radius:2px;margin-bottom:20px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}
+.card{border:1px solid #e2e8f0;border-radius:10px;padding:14px}
+.card-gold{border-left:4px solid #e8a020}
+.card-green{border-left:4px solid #22c55e}
+.card-blue{border-left:4px solid #3b82f6}
+.card-red{border-left:4px solid #dc2626}
+.card-purple{border-left:4px solid #7c3aed}
+.card-head{font-size:12px;font-weight:700;color:#1a1a2e;margin-bottom:6px}
+.card-sub{font-size:10px;color:#64748b;margin-bottom:8px}
+.row{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #f1f5f9}
+.row:last-child{border:none}
+.dot{width:6px;height:6px;border-radius:50%;background:#e8a020;flex-shrink:0;margin-top:5px}
+.dot-g{background:#22c55e}
+.dot-b{background:#3b82f6}
+.dot-r{background:#dc2626}
+.rt{font-size:11px;color:#374151;line-height:1.6}
+.rt-sm{font-size:10px;color:#64748b;line-height:1.5}
+.qa-block{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.qa-q{font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:5px}
+.qa-a{font-size:11px;color:#374151;line-height:1.65}
+.qa-te{font-size:10px;color:#64748b;margin-top:3px;font-family:'Noto Sans Telugu',sans-serif}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center}
+.stat-n{font-size:28px;font-weight:800;color:#1a1a2e;line-height:1}
+.stat-l{font-size:10px;color:#64748b;margin-top:4px;line-height:1.3}
+.stat-te{font-size:9px;color:#94a3b8;font-family:'Noto Sans Telugu',sans-serif}
+.phase-row{display:flex;gap:0;margin-bottom:14px}
+.phase{flex:1;padding:12px;text-align:center;border:1px solid #e2e8f0;position:relative}
+.phase:first-child{border-radius:8px 0 0 8px}
+.phase:last-child{border-radius:0 8px 8px 0}
+.phase-n{font-size:9px;font-weight:700;letter-spacing:0.5px;margin-bottom:3px}
+.phase-t{font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:2px}
+.phase-te{font-size:10px;color:#64748b;font-family:'Noto Sans Telugu',sans-serif;margin-bottom:3px}
+.phase-c{font-size:10px;color:#94a3b8}
+table.tbl{width:100%;border-collapse:collapse;font-size:11px}
+table.tbl th{background:#1a1a2e;color:#fff;padding:7px 9px;text-align:left;font-size:10px}
+table.tbl td{padding:7px 9px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+table.tbl tr:nth-child(even) td{background:#f8fafc}
+.ck{color:#16a34a;font-weight:600}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700}
+.badge-live{background:#dcfce7;color:#15803d}
+.badge-plan{background:#fef9c3;color:#92400e}
+.free-box{background:#f0fdf4;border:2px solid #22c55e;border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:14px}
+.free-amt{font-size:44px;font-weight:800;color:#15803d;flex-shrink:0}
+.pf{position:absolute;bottom:24px;left:54px;right:54px;display:flex;justify-content:space-between;border-top:1px solid #e2e8f0;padding-top:8px}
+.pfl,.pfr{font-size:9px;color:#94a3b8}
+.arch-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:14px}
+.arch-layer{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f1f5f9}
+.arch-layer:last-child{border:none}
+.arch-tag{width:120px;font-size:10px;font-weight:700;color:#fff;padding:4px 8px;border-radius:5px;text-align:center;flex-shrink:0}
+.arch-desc{font-size:11px;color:#374151;line-height:1.5}
+.arch-te{font-size:10px;color:#64748b;font-family:'Noto Sans Telugu',sans-serif}
+</style>
+</head>
+<body>
+
+<div class="noprint"><button class="btn" onclick="window.print()">🖨 Print / Save as PDF</button></div>
+
+<!-- PAGE 1: ARCHITECTURE -->
+<div class="a4">
+  <div class="lbl">Technical Supplement — Page 1 of 4</div>
+  <div class="h1">MPower CTS — Multi-tenant Architecture</div>
+  <div class="sub">How 175 MLAs share one platform with zero data mixing — బహు-అద్దె నిర్మాణం</div>
+  <div class="div"></div>
+
+  <div class="stat-grid">
+    <div class="stat">
+      <div class="stat-n">175</div>
+      <div class="stat-l">AP MLAs</div>
+      <div class="stat-te">AP MLAలు</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">25</div>
+      <div class="stat-l">MPs (Lok Sabha)</div>
+      <div class="stat-te">లోక్‌సభ MPs</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">₹0</div>
+      <div class="stat-l">Govt cost — ever</div>
+      <div class="stat-te">ఎప్పటికీ ఖర్చు లేదు</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n">1</div>
+      <div class="stat-l">Day to go live</div>
+      <div class="stat-te">లైవ్ అవ్వడానికి ఒక్క రోజు</div>
+    </div>
+  </div>
+
+  <div class="lbl lbl-b" style="margin-bottom:10px">Technology Stack — సాంకేతిక వేదిక</div>
+  <div class="arch-box">
+    <div class="arch-layer">
+      <div class="arch-tag" style="background:#0ea5e9">Frontend</div>
+      <div>
+        <div class="arch-desc">React 18 + Vite — deployed on Netlify CDN (200+ global edge nodes)</div>
+        <div class="arch-te">React అనువర్తనం Netlify CDN ద్వారా — 200+ వేగవంతమైన గ్లోబల్ నోడ్‌లు</div>
+      </div>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-tag" style="background:#3b82f6">Auth</div>
+      <div>
+        <div class="arch-desc">Supabase Auth — JWT RS256 tokens, OTP via WhatsApp, email confirmation</div>
+        <div class="arch-te">WhatsApp OTP లేదా email ద్వారా సురక్షిత లాగిన్</div>
+      </div>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-tag" style="background:#1a1a2e">Database</div>
+      <div>
+        <div class="arch-desc">PostgreSQL on Supabase — Row Level Security (RLS) enforced per app_id. Every query filtered at the database engine level — no application-layer trust.</div>
+        <div class="arch-te">PostgreSQL — ప్రతి అడుగు app_id తో వేర్పాటు. అప్లికేషన్ స్థాయిలో కాదు, డేటాబేస్ స్థాయిలో అమలు.</div>
+      </div>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-tag" style="background:#7c3aed">Edge Functions</div>
+      <div>
+        <div class="arch-desc">6 Supabase Edge Functions — WhatsApp OTP, ABHA verification, translation, complaint print, audit stamp, report generation</div>
+        <div class="arch-te">WhatsApp OTP, అనువాదం, ముద్రణ, ఆడిట్ — 6 ఎడ్జ్ ఫంక్షన్‌లు</div>
+      </div>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-tag" style="background:#15803d">WhatsApp</div>
+      <div>
+        <div class="arch-desc">Twilio WhatsApp Business API — OTP delivery, complaint status updates, citizen notifications in Telugu</div>
+        <div class="arch-te">OTP, ఫిర్యాదు స్థితి అప్‌డేట్‌లు తెలుగులో WhatsApp ద్వారా</div>
+      </div>
+    </div>
+    <div class="arch-layer">
+      <div class="arch-tag" style="background:#dc2626">Security</div>
+      <div>
+        <div class="arch-desc">TLS 1.3 in transit · AES-256 at rest · SHA-256 audit trail · India data residency (Mumbai AWS ap-south-1)</div>
+        <div class="arch-te">TLS 1.3 ప్రసారణలో · AES-256 నిల్వలో · భారత డేటా నివాసం Mumbai AWS</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lbl lbl-r" style="margin-bottom:10px">Data Isolation — RLS Architecture — డేటా వేర్పాటు</div>
+  <div class="g2">
+    <div class="card card-red">
+      <div class="card-head">How RLS works — ఇది ఎలా పని చేస్తుంది</div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Every table has an <strong>app_id</strong> column identifying which MLA the row belongs to</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">On login, Supabase sets <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:10px">app.current_app_id</code> in the session</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Every SELECT/INSERT/UPDATE is filtered: <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:10px">USING (app_id = current_setting('app.current_app_id'))</code></div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Even if application code has a bug, the database engine itself blocks cross-tenant access</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">MLA-001 query physically cannot return MLA-002 rows — impossible at engine level</div></div>
+    </div>
+    <div class="card card-blue">
+      <div class="card-head">Tenant identification — అద్దెదారు గుర్తింపు</div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt"><strong>app_id</strong> — UUID assigned to each MLA/MP at registration time</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Stored in <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:10px">apps</code> table with constituency name, state, and contact</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Loaded into React context on login — <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:10px">TenantContext.jsx</code></div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Passed to every Supabase query automatically — no manual filtering needed in UI code</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">AP CTS app_id: <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;font-size:10px">8e05b7cc-3488-41f5-b177-5a45ee0bca8b</code></div></div>
+    </div>
+  </div>
+
+  <div class="free-box">
+    <div class="free-amt">₹0</div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#15803d;margin-bottom:3px">Total infrastructure cost to AP government — setup to maintenance</div>
+      <div style="font-size:11px;color:#374151">Netlify free tier handles 175 portals · Supabase free tier handles all database queries · WhatsApp API cost covered by MPower · No server costs · No licensing fees</div>
+      <div style="font-size:10px;color:#64748b;margin-top:3px;font-family:'Noto Sans Telugu',sans-serif">175 పోర్టళ్ళు, అన్ని డేటాబేస్ క్వెరీలు, WhatsApp API — అన్నీ MPower కవర్ చేస్తుంది. ప్రభుత్వానికి సున్న ఖర్చు.</div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS — Technical Supplement · Multi-tenant Architecture · RLS Data Isolation</div>
+    <div class="pfr">Page 1 of 4</div>
+  </div>
+</div>
+
+<!-- PAGE 2: CITIZEN FLOW + COMPLAINT LIFECYCLE -->
+<div class="a4">
+  <div class="lbl">Technical Supplement — Page 2 of 4</div>
+  <div class="h1">Citizen Flow + Complaint Lifecycle</div>
+  <div class="sub">How a citizen files a grievance and how the MLA office processes it — పౌర ఫిర్యాదు ప్రక్రియ</div>
+  <div class="div"></div>
+
+  <div class="lbl lbl-g" style="margin-bottom:10px">Citizen filing flow — పౌరుడు ఫిర్యాదు దాఖలు చేసే విధానం</div>
+  <div class="g3" style="margin-bottom:16px">
+    <div class="card">
+      <div style="font-size:22px;text-align:center;margin-bottom:6px">1</div>
+      <div class="card-head" style="text-align:center">పోర్టల్ తెరుచు</div>
+      <div class="card-sub" style="text-align:center">Open portal</div>
+      <div class="rt-sm">MLA shares unique WhatsApp link. Citizen clicks — opens on any mobile browser. No app download needed.</div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:4px;font-family:'Noto Sans Telugu',sans-serif">MLA WhatsApp లింక్ పంచుకుంటారు. పౌరుడు క్లిక్ చేస్తే తెరుచుకుంటుంది.</div>
+    </div>
+    <div class="card">
+      <div style="font-size:22px;text-align:center;margin-bottom:6px">2</div>
+      <div class="card-head" style="text-align:center">OTP ధృవీకరణ</div>
+      <div class="card-sub" style="text-align:center">OTP verification</div>
+      <div class="rt-sm">Citizen enters mobile number. OTP sent via WhatsApp in 5 seconds. One-time login — no password required.</div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:4px;font-family:'Noto Sans Telugu',sans-serif">మొబైల్ నంబర్ ఇస్తే WhatsApp OTP వస్తుంది. పాస్‌వర్డ్ అవసరం లేదు.</div>
+    </div>
+    <div class="card">
+      <div style="font-size:22px;text-align:center;margin-bottom:6px">3</div>
+      <div class="card-head" style="text-align:center">వర్గం ఎంచుకోండి</div>
+      <div class="card-sub" style="text-align:center">Select category</div>
+      <div class="rt-sm">Choose scheme category: Amma Vodi, NTR Bharosa Pension, housing, roads, water, electricity, etc.</div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:4px;font-family:'Noto Sans Telugu',sans-serif">అమ్మ ఒడి, NTR భరోసా పెన్షన్, గృహాలు, రోడ్లు, నీరు, విద్యుత్తు వర్గాలు.</div>
+    </div>
+    <div class="card">
+      <div style="font-size:22px;text-align:center;margin-bottom:6px">4</div>
+      <div class="card-head" style="text-align:center">వివరాలు నమోదు</div>
+      <div class="card-sub" style="text-align:center">Enter details</div>
+      <div class="rt-sm">Village, mandal, district auto-detected from constituency. Citizen types complaint in Telugu or English. Photo upload optional.</div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:4px;font-family:'Noto Sans Telugu',sans-serif">గ్రామం, మండలం, జిల్లా స్వయంగా గుర్తించబడతాయి. తెలుగు లేదా ఇంగ్లీషులో ఫిర్యాదు రాయండి.</div>
+    </div>
+    <div class="card">
+      <div style="font-size:22px;text-align:center;margin-bottom:6px">5</div>
+      <div class="card-head" style="text-align:center">సమర్పించు</div>
+      <div class="card-sub" style="text-align:center">Submit</div>
+      <div class="rt-sm">Complaint registered. Unique token generated. WhatsApp confirmation sent instantly. Token used to track status later.</div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:4px;font-family:'Noto Sans Telugu',sans-serif">ఫిర్యాదు నమోదైంది. ప్రత్యేక టోకెన్ వస్తుంది. WhatsApp ద్వారా నిర్ధారణ.</div>
+    </div>
+    <div class="card">
+      <div style="font-size:22px;text-align:center;margin-bottom:6px">6</div>
+      <div class="card-head" style="text-align:center">స్థితి ట్రాక్</div>
+      <div class="card-sub" style="text-align:center">Track status</div>
+      <div class="rt-sm">Citizen re-opens portal, enters token — sees real-time status: pending / under review / resolved / closed.</div>
+      <div style="font-size:10px;color:#94a3b8;margin-top:4px;font-family:'Noto Sans Telugu',sans-serif">టోకెన్ తో పోర్టల్ తెరిస్తే పెండింగ్ / పరిష్కారంలో / పూర్తి స్థితి కనపడుతుంది.</div>
+    </div>
+  </div>
+
+  <div class="lbl lbl-b" style="margin-bottom:10px">Complaint lifecycle — staff dashboard — సిబ్బంది నిర్వహణ</div>
+  <table class="tbl" style="margin-bottom:16px">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>స్థితి (Telugu)</th>
+        <th>Who acts</th>
+        <th>What happens</th>
+        <th>Citizen notified?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge" style="background:#fef3c7;color:#92400e">Pending</span></td>
+        <td style="font-family:'Noto Sans Telugu',sans-serif">పెండింగ్</td>
+        <td>Auto</td>
+        <td>Complaint filed — waiting for staff to pick up</td>
+        <td class="ck">✓ Confirmation WhatsApp</td>
+      </tr>
+      <tr>
+        <td><span class="badge" style="background:#dbeafe;color:#1d4ed8">Under Review</span></td>
+        <td style="font-family:'Noto Sans Telugu',sans-serif">పరిశీలనలో</td>
+        <td>Staff</td>
+        <td>Staff assigns to self, adds notes, contacts relevant dept</td>
+        <td class="ck">✓ Status update WhatsApp</td>
+      </tr>
+      <tr>
+        <td><span class="badge" style="background:#f3e8ff;color:#7c3aed">Escalated</span></td>
+        <td style="font-family:'Noto Sans Telugu',sans-serif">పై స్థాయికి పంపబడింది</td>
+        <td>Senior staff</td>
+        <td>Flagged for MLA direct attention — priority complaint</td>
+        <td class="ck">✓ Escalation WhatsApp</td>
+      </tr>
+      <tr>
+        <td><span class="badge" style="background:#dcfce7;color:#15803d">Resolved</span></td>
+        <td style="font-family:'Noto Sans Telugu',sans-serif">పరిష్కరించబడింది</td>
+        <td>Staff</td>
+        <td>Resolution details added — citizen can print resolution certificate</td>
+        <td class="ck">✓ Resolution WhatsApp</td>
+      </tr>
+      <tr>
+        <td><span class="badge" style="background:#f1f5f9;color:#64748b">Closed</span></td>
+        <td style="font-family:'Noto Sans Telugu',sans-serif">మూసివేయబడింది</td>
+        <td>Admin</td>
+        <td>Confirmed closed — appears in monthly reports</td>
+        <td class="ck">✓ Closure WhatsApp</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="lbl lbl-p" style="margin-bottom:10px">Privacy + Data Protection — గోప్యత మరియు డేటా రక్షణ</div>
+  <div class="g2">
+    <div class="card card-purple">
+      <div class="card-head">What is stored — నిల్వ చేయబడేది</div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Mobile number (hashed, not plaintext) — ఫోన్ నంబర్ ఎన్‌క్రిప్ట్ అయి నిల్వ</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Complaint text, category, village, mandal, district — ఫిర్యాదు వివరాలు</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Status history with timestamps — స్థితి చరిత్ర</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Staff notes (internal, not shown to citizen) — సిబ్బంది గమనికలు</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Audit trail — who changed what and when — ఆడిట్ ట్రైల్</div></div>
+    </div>
+    <div class="card card-red">
+      <div class="card-head">What is NOT stored — నిల్వ చేయబడనిది</div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Aadhaar number — ఆధార్ నంబర్ నిల్వ చేయబడదు</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Bank account details — బ్యాంక్ వివరాలు</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Caste, religion, income — కులం, మతం, ఆదాయం</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Location GPS data — GPS స్థాన డేటా</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Any biometric data — బయోమెట్రిక్ సమాచారం ఏదీ లేదు</div></div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS — Technical Supplement · Citizen Flow · Complaint Lifecycle · Privacy</div>
+    <div class="pfr">Page 2 of 4</div>
+  </div>
+</div>
+
+<!-- PAGE 3: Q&A -->
+<div class="a4">
+  <div class="lbl">Technical Supplement — Page 3 of 4</div>
+  <div class="h1">Technical Q&amp;A — సాధారణ సాంకేతిక ప్రశ్నలు</div>
+  <div class="sub">12 most common technical questions from MLA offices and IT departments</div>
+  <div class="div"></div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q1. If one MLA's portal is hacked, can the attacker see other MLAs' data?</div>
+    <div class="qa-a">No. Data isolation is enforced at the PostgreSQL database engine level using Row Level Security (RLS). Even if an attacker gained full application access for MLA-001, the database physically blocks any query that tries to read MLA-002's rows. Application code is never trusted for isolation — the database itself enforces it.</div>
+    <div class="qa-te">లేదు. PostgreSQL RLS డేటాబేస్ ఇంజిన్ స్థాయిలో అమలవుతుంది. అప్లికేషన్ కోడ్ హ్యాక్ అయినా, డేటాబేస్ వేరే MLA డేటాను అందించదు.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q2. What happens if the internet is down in the MLA office?</div>
+    <div class="qa-a">Citizens can still file complaints on mobile data. Staff dashboard requires internet but the React app is cached via Netlify CDN — it loads instantly even on slow connections. Complaint data syncs automatically when connection restores.</div>
+    <div class="qa-te">పౌరులు మొబైల్ డేటా ద్వారా ఫిర్యాదులు దాఖలు చేయవచ్చు. అప్లికేషన్ CDN ద్వారా కాష్ చేయబడుతుంది.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q3. Can a citizen from MLA A's constituency file a complaint in MLA B's portal?</div>
+    <div class="qa-a">Each portal URL is unique to the MLA. When a citizen opens the URL, the app_id is embedded — complaints can only go to that specific MLA's database partition. There is no way for a citizen to accidentally reach the wrong MLA's portal through the shared URL system.</div>
+    <div class="qa-te">ప్రతి URL ఒక నిర్దిష్ట MLA కి మాత్రమే సంబంధించినది. తప్పు పోర్టల్‌కు పోవడం సాధ్యం కాదు.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q4. How is the WhatsApp OTP system protected against fraud?</div>
+    <div class="qa-a">OTP is 6 digits, valid for 5 minutes only, single-use. Rate limited to 3 attempts per mobile number per hour via Supabase Edge Function. OTP is never stored in plaintext — only a bcrypt hash is kept. The Twilio WhatsApp Business API requires verified business registration.</div>
+    <div class="qa-te">OTP 5 నిమిషాలు మాత్రమే చెల్లుబాటు అవుతుంది, ఒకే ఉపయోగం, గంటకు 3 ప్రయత్నాలు మాత్రమే.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q5. Where is the data physically stored? Is it in India?</div>
+    <div class="qa-a">Yes. Supabase database is hosted on AWS ap-south-1 (Mumbai). Netlify serves the frontend from Indian edge nodes for Indian users. No data leaves Indian jurisdiction. This complies with India's IT Act 2000 and aligns with the PDPB 2023 framework.</div>
+    <div class="qa-te">అవును. AWS Mumbai (ap-south-1) లో నిల్వ చేయబడుతుంది. భారతదేశంలోనే — IT చట్టం 2000 కు అనుగుణంగా.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q6. How long does it take to add a new MLA to the system?</div>
+    <div class="qa-a">1 business day. MPower runs the onboarding wizard in the Control Panel: creates the app record, seeds geographic data (villages, mandals, constituencies), sets up RLS policies, generates the unique citizen portal URL, and sends WhatsApp credentials to the MLA office. No coding required per MLA.</div>
+    <div class="qa-te">1 పని దినం. Control Panel లో Onboarding Wizard అన్నీ స్వయంగా చేస్తుంది. ప్రతి MLAకి కోడింగ్ అవసరం లేదు.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q7. Can the CM's office see individual citizens' personal details?</div>
+    <div class="qa-a">No. The CM office dashboard (planned) shows only aggregated statistics — total complaints per constituency, resolution rates, category breakdowns, pending counts. Individual citizen mobile numbers and complaint texts are never visible at state level. This is enforced by a separate read-only SQL view that strips PII before returning data.</div>
+    <div class="qa-te">లేదు. CM డాష్‌బోర్డ్ మొత్తం గణాంకాలు మాత్రమే చూపిస్తుంది. వ్యక్తిగత పౌర వివరాలు కనిపించవు — SQL view స్థాయిలో తొలగించబడతాయి.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q8. What if MPower closes down — does the government lose all data?</div>
+    <div class="qa-a">No. The government can export the entire Supabase PostgreSQL database as a standard SQL dump at any time. The schema and all data are portable to any PostgreSQL-compatible hosting. We also provide monthly encrypted backups to a government-designated storage location on request.</div>
+    <div class="qa-te">లేదు. ప్రభుత్వం ఎప్పుడైనా PostgreSQL SQL dump ఎగుమతి చేయవచ్చు. డేటా ఎప్పుడూ ప్రభుత్వానికి చెందినదే.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q9. Does the system work on basic Android phones with 2G/3G?</div>
+    <div class="qa-a">Yes. The citizen portal is a lightweight React app — initial load under 180KB gzipped. Tested on Android 8+ devices with 2G (EDGE) connections. WhatsApp OTP works on any network. Staff dashboard requires 3G or better for real-time updates.</div>
+    <div class="qa-te">అవును. పౌర పోర్టల్ 180KB కంటే తక్కువ. 2G నెట్‌వర్క్‌లో Android 8+ ఫోన్‌లలో పరీక్షించబడింది.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q10. Is the source code auditable by the government?</div>
+    <div class="qa-a">Yes. Full source code access can be provided to an authorized government IT audit team under an NDA. The codebase is React + Node.js — standard, auditable, no obfuscation. We also provide a security audit report from an independent firm on request.</div>
+    <div class="qa-te">అవును. NDA కింద ప్రభుత్వ IT ఆడిట్ బృందానికి పూర్తి సోర్స్ కోడ్ అందుబాటు చేయవచ్చు.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q11. How many concurrent users can the system handle?</div>
+    <div class="qa-a">Netlify CDN handles unlimited concurrent frontend users globally. Supabase free tier handles up to 500 concurrent database connections — sufficient for all 175 MLAs' offices simultaneously. If usage scales beyond free tier, Supabase Pro ($25/month) handles 10,000+ concurrent connections. MPower covers this cost.</div>
+    <div class="qa-te">175 MLAల కార్యాలయాలు ఒకేసారి వాడినా Supabase ఉచిత tier సరిపోతుంది. అదనపు ఖర్చు అయినా MPower భరిస్తుంది.</div>
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">Q12. What is the Minister role and when will it be available?</div>
+    <div class="qa-a"><span class="badge badge-plan">PLANNED</span> Minister view is designed but not yet built. It will show complaints categorized by department (irrigation, roads, health, education etc.) filtered to the Minister's assigned portfolio — reading only, no PII exposed. Timeline: 2 weeks after Mandapeta pilot confirms stable operation.</div>
+    <div class="qa-te">ప్లాన్ చేయబడింది — మండపేట పైలట్ స్థిరపడిన 2 వారాల తర్వాత నిర్మించబడుతుంది. మంత్రి వారి విభాగ గణాంకాలు మాత్రమే చూస్తారు.</div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS — Technical Supplement · 12 Technical Q&A · Security · Architecture</div>
+    <div class="pfr">Page 3 of 4</div>
+  </div>
+</div>
+
+<!-- PAGE 4: ROLLOUT + WELFARE SCHEMES -->
+<div class="a4">
+  <div class="lbl">Technical Supplement — Page 4 of 4</div>
+  <div class="h1">AP Welfare Schemes + State Rollout</div>
+  <div class="sub">Complaint categories pre-loaded for Andhra Pradesh — రాష్ట్ర విస్తరణ పద్ధతి</div>
+  <div class="div"></div>
+
+  <div class="lbl lbl-g" style="margin-bottom:10px">AP Welfare Scheme Categories — ఆంధ్రప్రదేశ్ సంక్షేమ పథకాల వర్గాలు (pre-loaded in portal)</div>
+  <div class="g2" style="margin-bottom:16px">
+    <div class="card card-green">
+      <div class="card-head">Pension &amp; Financial Aid — పెన్షన్లు మరియు ఆర్థిక సహాయం</div>
+      <div class="row"><div class="dot dot-g"></div><div class="rt">NTR Bharosa Pension — వృద్ధాప్య, వికలాంగ, విధవ పెన్షన్లు</div></div>
+      <div class="row"><div class="dot dot-g"></div><div class="rt">YSR Rythu Bharosa — రైతు పెట్టుబడి సహాయం ₹13,500/year</div></div>
+      <div class="row"><div class="dot dot-g"></div><div class="rt">YSR PM Kisan — కేంద్ర రైతు సహాయం</div></div>
+      <div class="row"><div class="dot dot-g"></div><div class="rt">YSR Cheyutha — BC/SC/ST/minority women support</div></div>
+      <div class="row"><div class="dot dot-g"></div><div class="rt">YSR Asara — SHG women loan waiver</div></div>
+    </div>
+    <div class="card card-blue">
+      <div class="card-head">Education &amp; Housing — విద్య మరియు గృహాలు</div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Amma Vodi — తల్లులకు పిల్లల చదువు సహాయం ₹15,000</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Jagananna Vasati Deevena — hostel fee reimbursement</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Jagananna Vidya Kanuka — school kit scheme</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">Pedalandariki Illu — housing scheme for poor</div></div>
+      <div class="row"><div class="dot dot-b"></div><div class="rt">YSR Housing (Urban) — నగర పేదలకు గృహాలు</div></div>
+    </div>
+    <div class="card card-gold">
+      <div class="card-head">Health — ఆరోగ్యం</div>
+      <div class="row"><div class="dot"></div><div class="rt">YSR Aarogyasri — health insurance up to ₹5 lakh</div></div>
+      <div class="row"><div class="dot"></div><div class="rt">YSR Village Health Clinics — గ్రామ ఆరోగ్య కేంద్రాలు</div></div>
+      <div class="row"><div class="dot"></div><div class="rt">Amma Vodi (health component) — mother-child health</div></div>
+      <div class="row"><div class="dot"></div><div class="rt">NFSA / Ration card issues — రేషన్ కార్డు సమస్యలు</div></div>
+    </div>
+    <div class="card card-red">
+      <div class="card-head">Infrastructure — మౌలిక సదుపాయాలు</div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Roads and drainage — రోడ్లు మరియు డ్రైనేజీ</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Drinking water — తాగునీరు సమస్యలు</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Electricity — విద్యుత్తు సమస్యలు</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Street lights — వీధి దీపాలు</div></div>
+      <div class="row"><div class="dot dot-r"></div><div class="rt">Other government services — ఇతర ప్రభుత్వ సేవలు</div></div>
+    </div>
+  </div>
+
+  <div class="lbl" style="margin-bottom:10px">State rollout plan — 6 months — రాష్ట్ర విస్తరణ ప్రణాళిక</div>
+  <div class="phase-row" style="margin-bottom:16px">
+    <div class="phase" style="background:#f0fdf4;border-color:#22c55e">
+      <div class="phase-n" style="color:#22c55e">PHASE 1 — NOW</div>
+      <div class="phase-t">Mandapeta Pilot</div>
+      <div class="phase-te">మండపేట పైలట్</div>
+      <div class="phase-c">1 constituency · 1 MLA · Month 1</div>
+    </div>
+    <div class="phase" style="background:#fffbeb;border-color:#e8a020">
+      <div class="phase-n" style="color:#e8a020">PHASE 2</div>
+      <div class="phase-t">East Godavari</div>
+      <div class="phase-te">తూర్పు గోదావరి</div>
+      <div class="phase-c">16 constituencies · Months 2–3</div>
+    </div>
+    <div class="phase" style="background:#eff6ff;border-color:#3b82f6">
+      <div class="phase-n" style="color:#3b82f6">PHASE 3</div>
+      <div class="phase-t">Coastal AP</div>
+      <div class="phase-te">తీరాంధ్ర</div>
+      <div class="phase-c">60 constituencies · Months 3–4</div>
+    </div>
+    <div class="phase" style="background:#faf5ff;border-color:#7c3aed">
+      <div class="phase-n" style="color:#7c3aed">PHASE 4</div>
+      <div class="phase-t">All 175 AP</div>
+      <div class="phase-te">పూర్తి ఆంధ్రప్రదేశ్</div>
+      <div class="phase-c">175 MLAs + 25 MPs · Months 5–6</div>
+    </div>
+  </div>
+
+  <div class="lbl lbl-b" style="margin-bottom:10px">Deliverables at each phase — ప్రతి దశలో అందించేది</div>
+  <table class="tbl" style="margin-bottom:16px">
+    <thead>
+      <tr>
+        <th>Phase</th>
+        <th>Portals live</th>
+        <th>New features unlocked</th>
+        <th>AP Govt cost</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-live">Phase 1</span></td>
+        <td>1</td>
+        <td>Citizen filing · Staff dashboard · WhatsApp OTP · Telugu UI · Reports · Print</td>
+        <td class="ck">₹0</td>
+      </tr>
+      <tr>
+        <td>Phase 2</td>
+        <td>17</td>
+        <td>District-level reports · CM office read access · MP portals · Staff bulk training</td>
+        <td class="ck">₹0</td>
+      </tr>
+      <tr>
+        <td>Phase 3</td>
+        <td>77</td>
+        <td>Minister department dashboards · State analytics · Sachivalayam integration begins</td>
+        <td class="ck">₹0</td>
+      </tr>
+      <tr>
+        <td>Phase 4</td>
+        <td>200+</td>
+        <td>All 175 MLAs + 25 MPs · CM full state dashboard · Complete Telugu · Auto-escalation</td>
+        <td class="ck">₹0</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="free-box">
+    <div class="free-amt">₹0</div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#15803d;margin-bottom:3px">Total cost to Andhra Pradesh government — all 4 phases — ever</div>
+      <div style="font-size:11px;color:#374151">200 portals · CM dashboard · Minister dashboards · Staff training · Telugu localization · Security audits · Ongoing maintenance · Future upgrades</div>
+      <div style="font-size:11px;color:#64748b;margin-top:3px;font-family:'Noto Sans Telugu',sans-serif">200 పోర్టళ్ళు, CM డాష్‌బోర్డ్, మంత్రి డాష్‌బోర్డ్‌లు, శిక్షణ, నిర్వహణ — అన్నీ ఉచితంగా</div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS — Technical Supplement · AP Welfare Schemes · State Rollout · ₹0 Cost</div>
+    <div class="pfr">Page 4 of 4 · mpowerapp.in</div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,4 @@
+SUPABASE SQL NEW PROJ
+user: suri.kommana@gmail.com
+
+pass:Campsys123@@

@@ -1,0 +1,550 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Telugu:wght@400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#e0e0e0;padding:24px}
+.te{font-family:'Noto Sans Telugu',sans-serif}
+.a4{background:#fff;width:794px;margin:0 auto 32px;padding:48px 52px;position:relative;box-shadow:0 4px 24px rgba(0,0,0,0.15);min-height:1123px}
+@media print{
+  body{background:#fff;padding:0}
+  .a4{box-shadow:none;margin:0;page-break-after:always;min-height:0}
+  .no-print{display:none!important}
+  @page{size:A4 portrait;margin:0}
+}
+.sec-num{font-size:10px;font-weight:700;color:#e8a020;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px}
+.sec-h{font-size:25px;font-weight:800;color:#1a1a2e;letter-spacing:-0.5px;margin-bottom:4px}
+.sec-h-te{font-size:14px;color:#64748b;margin-bottom:8px}
+.sec-sub{font-size:12px;color:#64748b;line-height:1.65;margin-bottom:22px}
+.sec-div{width:44px;height:3px;background:#e8a020;border-radius:2px;margin-bottom:22px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px}
+.card-gold{border-left:4px solid #e8a020}
+.card-blue{border-left:4px solid #3b82f6}
+.card-green{border-left:4px solid #22c55e}
+.card-purple{border-left:4px solid #8b5cf6}
+.card-red{border-left:4px solid #ef4444}
+.card-orange{border-left:4px solid #f97316}
+.fi{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f1f5f9}
+.fi:last-child{border:none}
+.fi-ico{width:28px;height:28px;border-radius:6px;background:#f8fafc;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.fi-t{font-size:11px;font-weight:600;color:#1a1a2e;margin-bottom:1px}
+.fi-te{font-size:10px;color:#64748b;line-height:1.4}
+.ltag{display:inline-block;background:#1a1a2e;color:#e8a020;font-size:9px;font-weight:700;padding:3px 9px;border-radius:4px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.ltag-b{background:#1d4ed8;color:#fff}
+.ltag-g{background:#15803d;color:#fff}
+.ltag-p{background:#7c3aed;color:#fff}
+.ltag-r{background:#dc2626;color:#fff}
+.ltag-o{background:#ea580c;color:#fff}
+.built{display:inline-block;background:#dcfce7;color:#15803d;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px}
+.planned{display:inline-block;background:#fef3c7;color:#92400e;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px}
+.pf{position:absolute;bottom:24px;left:52px;right:52px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e2e8f0;padding-top:9px}
+.pfl{font-size:9px;color:#94a3b8}
+.pfr{font-size:9px;color:#94a3b8}
+.pfdot{display:inline-block;width:3px;height:3px;border-radius:50%;background:#e8a020;margin:0 4px;vertical-align:middle}
+.print-btn{position:fixed;bottom:20px;right:20px;background:#1a1a2e;color:#e8a020;border:none;border-radius:30px;padding:12px 24px;font-size:13px;font-weight:700;cursor:pointer;z-index:100;font-family:'Inter',sans-serif}
+.step-row{display:flex;align-items:center;gap:0;margin:12px 0}
+.step{flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 6px;text-align:center}
+.step-num{width:22px;height:22px;border-radius:50%;background:#1a1a2e;color:#e8a020;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 5px}
+.step-t{font-size:10px;font-weight:600;color:#1a1a2e}
+.step-te{font-size:9px;color:#94a3b8;margin-top:2px}
+.arrow{font-size:14px;color:#e8a020;padding:0 3px;font-weight:700;flex-shrink:0}
+.role-table{width:100%;border-collapse:collapse;font-size:10.5px;margin-top:8px}
+.role-table th{background:#1a1a2e;color:#fff;padding:7px 8px;text-align:left;font-size:10px}
+.role-table th:first-child{border-radius:5px 0 0 0}
+.role-table th:last-child{border-radius:0 5px 0 0}
+.role-table td{padding:7px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.role-table tr:nth-child(even) td{background:#f8fafc}
+.ck{color:#16a34a;font-weight:600}
+.cx{color:#94a3b8;font-size:10px}
+.concern-box{border:1px solid #e2e8f0;border-radius:9px;padding:12px 14px;margin-bottom:9px}
+.concern-q{font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:5px;display:flex;align-items:flex-start;gap:6px}
+.concern-a{font-size:11px;color:#374151;line-height:1.65;padding-left:4px}
+.concern-tech{font-size:10px;color:#1d4ed8;font-weight:600;margin-top:4px;padding:4px 8px;background:#e6f1fb;border-radius:5px;display:inline-block}
+.concern-status{font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;display:inline-block;margin-top:4px}
+.status-built{background:#dcfce7;color:#15803d}
+.status-planned{background:#fef3c7;color:#92400e}
+</style>
+
+<button class="print-btn no-print" onclick="window.print()">🖨 Print / Save PDF</button>
+
+<!-- PAGE 1: MLA/MP REGISTRATION + ROLES -->
+<div class="a4">
+  <div class="sec-num">A — MLA / MP Registration &bull; MLA నమోదు ప్రక్రియ</div>
+  <div class="sec-h">How each MLA and MP gets their own portal</div>
+  <div class="sec-h-te te">ప్రతి MLA మరియు MP తమ స్వంత పోర్టల్‌ను ఎలా పొందుతారు</div>
+  <div class="sec-sub">Every MLA and MP gets a completely isolated portal — separate data, separate staff, separate reports. One platform, 175+ independent portals, zero data mixing. &bull; ప్రతి MLA/MP కి విడిగా డేటా, సిబ్బంది, నివేదికలు.</div>
+  <div class="sec-div"></div>
+
+  <div class="ltag ltag-b" style="margin-bottom:10px">Registration flow — 6 steps &bull; నమోదు దశలు <span class="built">BUILT ✓</span></div>
+  <div class="step-row">
+    <div class="step"><div class="step-num">1</div><div class="step-t">MLA office applies</div><div class="step-te te">MLA కార్యాలయం దరఖాస్తు</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="step-num">2</div><div class="step-t">Identity verified</div><div class="step-te te">గుర్తింపు ధృవీకరణ</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="step-num">3</div><div class="step-t">Portal created</div><div class="step-te te">పోర్టల్ సిద్ధం — 1 day</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="step-num">4</div><div class="step-t">Staff accounts</div><div class="step-te te">సిబ్బంది ఖాతాలు</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="step-num">5</div><div class="step-t">Citizen link</div><div class="step-te te">పౌర లింక్ WhatsApp</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="step-num">6</div><div class="step-t">Live — Free</div><div class="step-te te">అందుబాటులో</div></div>
+  </div>
+
+  <div class="g2" style="margin:14px 0">
+    <div>
+      <div class="ltag" style="margin-bottom:8px">What each MLA/MP gets <span class="built">BUILT ✓</span></div>
+      <div class="card card-gold">
+        <div class="fi"><div class="fi-ico">🔗</div><div><div class="fi-t">Unique citizen portal URL per constituency</div><div class="fi-te">mpowerapp.in/grievance/andhra-pradesh/citizen?mla=vegulla-mandapeta</div></div></div>
+        <div class="fi"><div class="fi-ico">📊</div><div><div class="fi-t">Private staff dashboard — no other MLA can see</div><div class="fi-te te">విడి సిబ్బంది డాష్‌బోర్డ్ — వేరే MLA చూడలేరు</div></div></div>
+        <div class="fi"><div class="fi-ico">👥</div><div><div class="fi-t">Add unlimited staff — grievance_staff / grievance_admin roles</div><div class="fi-te te">అపరిమిత సిబ్బందిని జోడించవచ్చు</div></div></div>
+        <div class="fi"><div class="fi-ico">📈</div><div><div class="fi-t">Own constituency reports only — village to mandal level</div><div class="fi-te te">తమ నియోజకవర్గం నివేదికలు మాత్రమే</div></div></div>
+        <div class="fi" style="border:none"><div class="fi-ico">🔒</div><div><div class="fi-t">Complete data isolation — RLS enforced at database level</div><div class="fi-te te">సంపూర్ణ డేటా వేర్పాటు — RLS డేటాబేస్ స్థాయిలో</div></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="ltag ltag-o" style="margin-bottom:8px">Minister role <span class="planned">PLANNED — next phase</span></div>
+      <div class="card card-orange">
+        <div style="font-size:11px;color:#374151;line-height:1.7;margin-bottom:10px">Ministers (e.g. Water Resources Minister, Education Minister) need a cross-constituency view of their department's complaints — without access to other departments or other MLAs' full data.</div>
+        <div class="fi"><div class="fi-ico">👁️</div><div><div class="fi-t">Department-filtered read-only view</div><div class="fi-te">e.g. Water Minister sees only Water Supply complaints across all constituencies &bull; <span class="te" style="font-size:10px">జల వనరుల మంత్రి — రాష్ట్రమంతటా నీటి ఫిర్యాదులు మాత్రమే</span></div></div></div>
+        <div class="fi"><div class="fi-ico">🗺️</div><div><div class="fi-t">District and constituency breakdown for their dept</div><div class="fi-te te">వారి విభాగానికి సంబంధించిన జిల్లా నివేదికలు</div></div></div>
+        <div class="fi"><div class="fi-ico">🚨</div><div><div class="fi-t">Escalation alerts — critical complaints in their dept</div><div class="fi-te te">తమ విభాగంలో క్రిటికల్ ఫిర్యాదుల హెచ్చరికలు</div></div></div>
+        <div class="fi" style="border:none"><div class="fi-ico">🔐</div><div><div class="fi-t">Cannot see: other departments, citizen personal data</div><div class="fi-te te">వేరే విభాగాలు మరియు వ్యక్తిగత పౌర డేటా చూడలేరు</div></div></div>
+      </div>
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 12px;margin-top:8px">
+        <div style="font-size:11px;font-weight:600;color:#c2410c;margin-bottom:3px">What needs to be built for Minister role</div>
+        <div style="font-size:10px;color:#374151;line-height:1.7">1. New <code>minister</code> role added to RBAC system<br/>2. Minister profile linked to one or more categories<br/>3. Aggregate view filtered by category + minister's department<br/>4. PII masked — only statistics visible, no individual names<br/><span class="te" style="font-size:10px">మంత్రి పాత్ర RBAC కి జోడించడం — విభాగం-ఫిల్టర్డ్ వీక్షణ నిర్మించడం</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Role table -->
+  <div class="ltag ltag-p" style="margin-bottom:8px">Who sees what — complete access matrix &bull; సంపూర్ణ యాక్సెస్ మాతృక</div>
+  <table class="role-table">
+    <thead>
+      <tr>
+        <th>Role &bull; పాత్ర</th>
+        <th>Their constituency</th>
+        <th>Other MLAs</th>
+        <th>Their dept only</th>
+        <th>State-wide</th>
+        <th>Citizen PII</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>MLA / MP Admin</strong><div class="te" style="font-size:9px;color:#64748b">MLA / MP అడ్మిన్</div></td>
+        <td class="ck">✓ Full</td>
+        <td class="cx">✗ Never</td>
+        <td class="cx">—</td>
+        <td class="cx">✗ Never</td>
+        <td class="ck">✓ Own only</td>
+        <td><span class="built">BUILT ✓</span></td>
+      </tr>
+      <tr>
+        <td><strong>Grievance staff</strong><div class="te" style="font-size:9px;color:#64748b">ఫిర్యాదు సిబ్బంది</div></td>
+        <td class="ck">✓ Queue only</td>
+        <td class="cx">✗ Never</td>
+        <td class="cx">—</td>
+        <td class="cx">✗ Never</td>
+        <td class="ck">✓ Own only</td>
+        <td><span class="built">BUILT ✓</span></td>
+      </tr>
+      <tr>
+        <td><strong>Grievance admin</strong><div class="te" style="font-size:9px;color:#64748b">ఫిర్యాదు అడ్మిన్</div></td>
+        <td class="ck">✓ Full + verify</td>
+        <td class="cx">✗ Never</td>
+        <td class="cx">—</td>
+        <td class="cx">✗ Never</td>
+        <td class="ck">✓ Own only</td>
+        <td><span class="built">BUILT ✓</span></td>
+      </tr>
+      <tr style="background:#fff7ed">
+        <td><strong>Minister</strong><div class="te" style="font-size:9px;color:#ea580c">మంత్రి</div></td>
+        <td class="ck">✓ Read-only</td>
+        <td class="ck">✓ Read-only</td>
+        <td class="ck">✓ Dept only</td>
+        <td class="ck">✓ Dept stats</td>
+        <td class="cx">✗ Masked</td>
+        <td><span class="planned">PLANNED</span></td>
+      </tr>
+      <tr>
+        <td><strong>State Govt — CM office</strong><div class="te" style="font-size:9px;color:#64748b">రాష్ట్ర ప్రభుత్వం</div></td>
+        <td class="ck">✓ Read-only</td>
+        <td class="ck">✓ Read-only all</td>
+        <td class="cx">—</td>
+        <td class="ck">✓ Full stats</td>
+        <td class="cx">✗ Masked</td>
+        <td><span class="planned">PLANNED</span></td>
+      </tr>
+      <tr>
+        <td><strong>MPower admin</strong><div class="te" style="font-size:9px;color:#64748b">MPower అడ్మిన్</div></td>
+        <td class="ck">✓ Support</td>
+        <td class="ck">✓ Support</td>
+        <td class="cx">—</td>
+        <td class="ck">✓ Full</td>
+        <td class="ck">✓ Logged access</td>
+        <td><span class="built">BUILT ✓</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:10px;display:flex;gap:12px;align-items:center">
+    <span class="built">BUILT ✓</span><span style="font-size:11px;color:#374151">Fully implemented in current system</span>
+    <span style="margin-left:12px" class="planned">PLANNED</span><span style="font-size:11px;color:#374151">Designed and ready to build — 2–3 weeks development</span>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS &bull; MLA/MP Registration &bull; Role Access Matrix</div>
+    <div class="pfr">Technical Supplement — Page 1</div>
+  </div>
+</div>
+
+<!-- PAGE 2: MULTI-TENANT ARCHITECTURE -->
+<div class="a4">
+  <div class="sec-num">B — Multi-tenant Architecture &bull; బహు-అద్దె నిర్మాణం</div>
+  <div class="sec-h">175 MLAs + MPs — one platform, zero data mixing</div>
+  <div class="sec-h-te te">175 MLAలు + MPలు — ఒక వేదిక, శూన్య డేటా కలయిక</div>
+  <div class="sec-sub">Each elected representative gets a completely isolated data space. Technically impossible for one to see another's data. Ministers and CM office get separate filtered views. &bull; ప్రతి నేతకు సంపూర్ణంగా వేర్పాటు డేటా స్థలం.</div>
+  <div class="sec-div"></div>
+
+  <svg width="100%" viewBox="0 0 682 360" style="display:block;margin-bottom:16px">
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+    <!-- Shared platform -->
+    <rect x="1" y="1" width="680" height="358" rx="12" fill="none" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="4 3"/>
+    <text font-family="Inter,sans-serif" font-size="10" font-weight="500" fill="#64748b" x="340" y="17" text-anchor="middle">MPower CTS Platform — Shared infrastructure, isolated data per constituency via app_id + RLS</text>
+
+    <!-- Shared infra bar -->
+    <rect x="20" y="24" width="640" height="38" rx="7" fill="#E6F1FB" stroke="#85B7EB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="10" font-weight="500" fill="#0C447C" x="340" y="39" text-anchor="middle">Netlify CDN · Supabase Auth (JWT RS256) · Edge Functions · WhatsApp API</text>
+    <text font-family="Inter,sans-serif" font-size="9" fill="#185FA5" x="340" y="53" text-anchor="middle">One shared infrastructure layer — data isolation enforced entirely at PostgreSQL RLS level below</text>
+
+    <!-- MLA 1 -->
+    <rect x="20" y="76" width="124" height="152" rx="7" fill="#E1F5EE" stroke="#5DCAA5" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="#085041" x="82" y="92" text-anchor="middle">MLA 1</text>
+    <text font-family="Inter,sans-serif" font-size="9" fill="#0F6E56" x="82" y="105" text-anchor="middle">Mandapeta</text>
+    <rect x="30" y="112" width="104" height="20" rx="4" fill="#fff" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#085041" x="82" y="125" text-anchor="middle">app_id: mla-001</text>
+    <rect x="30" y="136" width="104" height="18" rx="4" fill="#f0fdf4" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#15803d" x="82" y="148" text-anchor="middle">Staff: private</text>
+    <rect x="30" y="158" width="104" height="18" rx="4" fill="#f0fdf4" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#15803d" x="82" y="170" text-anchor="middle">Complaints: private</text>
+    <rect x="30" y="180" width="104" height="18" rx="4" fill="#f0fdf4" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#15803d" x="82" y="192" text-anchor="middle">Reports: own only</text>
+    <rect x="30" y="200" width="104" height="20" rx="4" fill="#1a1a2e" stroke="#1a1a2e" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" font-weight="600" fill="#e8a020" x="82" y="213" text-anchor="middle">BUILT ✓</text>
+
+    <!-- MLA 2 -->
+    <rect x="152" y="76" width="124" height="152" rx="7" fill="#E1F5EE" stroke="#5DCAA5" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="#085041" x="214" y="92" text-anchor="middle">MLA 2</text>
+    <text font-family="Inter,sans-serif" font-size="9" fill="#0F6E56" x="214" y="105" text-anchor="middle">Rajahmundry</text>
+    <rect x="162" y="112" width="104" height="20" rx="4" fill="#fff" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#085041" x="214" y="125" text-anchor="middle">app_id: mla-002</text>
+    <rect x="162" y="136" width="104" height="18" rx="4" fill="#f0fdf4" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#15803d" x="214" y="148" text-anchor="middle">Staff: private</text>
+    <rect x="162" y="158" width="104" height="18" rx="4" fill="#f0fdf4" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#15803d" x="214" y="170" text-anchor="middle">Complaints: private</text>
+    <rect x="162" y="180" width="104" height="18" rx="4" fill="#f0fdf4" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#15803d" x="214" y="192" text-anchor="middle">Reports: own only</text>
+    <rect x="162" y="200" width="104" height="20" rx="4" fill="#1a1a2e" stroke="#1a1a2e" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" font-weight="600" fill="#e8a020" x="214" y="213" text-anchor="middle">BUILT ✓</text>
+
+    <!-- dots -->
+    <text font-family="Inter,sans-serif" font-size="22" fill="#94a3b8" x="310" y="168" text-anchor="middle">· · ·</text>
+    <text font-family="Inter,sans-serif" font-size="9" fill="#64748b" x="310" y="188" text-anchor="middle">171 more</text>
+    <text font-family="Inter,sans-serif" font-size="9" fill="#64748b" x="310" y="200" text-anchor="middle">MLAs + MPs</text>
+
+    <!-- MLA 175 -->
+    <rect x="364" y="76" width="124" height="152" rx="7" fill="#E1F5EE" stroke="#5DCAA5" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="#085041" x="426" y="92" text-anchor="middle">MP / MLA 175</text>
+    <text font-family="Inter,sans-serif" font-size="9" fill="#0F6E56" x="426" y="105" text-anchor="middle">Tirupati</text>
+    <rect x="374" y="112" width="104" height="20" rx="4" fill="#fff" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#085041" x="426" y="125" text-anchor="middle">app_id: mla-175</text>
+    <rect x="374" y="136" width="104" height="18" rx="4" fill="#f0fdf4" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#15803d" x="426" y="148" text-anchor="middle">Staff: private</text>
+    <rect x="374" y="158" width="104" height="18" rx="4" fill="#f0fdf4" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#15803d" x="426" y="170" text-anchor="middle">Complaints: private</text>
+    <rect x="374" y="180" width="104" height="18" rx="4" fill="#f0fdf4" stroke="#9FE1CB" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#15803d" x="426" y="192" text-anchor="middle">Reports: own only</text>
+    <rect x="374" y="200" width="104" height="20" rx="4" fill="#1a1a2e" stroke="#1a1a2e" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" font-weight="600" fill="#e8a020" x="426" y="213" text-anchor="middle">BUILT ✓</text>
+
+    <!-- RLS walls -->
+    <line x1="146" y1="76" x2="146" y2="228" stroke="#ef4444" stroke-width="1" stroke-dasharray="3 2"/>
+    <line x1="358" y1="76" x2="358" y2="228" stroke="#ef4444" stroke-width="1" stroke-dasharray="3 2"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#dc2626" x="146" y="244" text-anchor="middle">RLS wall</text>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#dc2626" x="358" y="244" text-anchor="middle">RLS wall</text>
+
+    <!-- Minister box (planned) -->
+    <rect x="498" y="76" width="80" height="152" rx="7" fill="#fff7ed" stroke="#f97316" stroke-width="1" stroke-dasharray="3 2"/>
+    <text font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="#c2410c" x="538" y="95" text-anchor="middle">Minister</text>
+    <rect x="506" y="102" width="64" height="18" rx="4" fill="#fed7aa" stroke="#f97316" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#c2410c" x="538" y="114" text-anchor="middle">Dept-filtered</text>
+    <rect x="506" y="124" width="64" height="18" rx="4" fill="#fff7ed" stroke="#f97316" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#c2410c" x="538" y="136" text-anchor="middle">Read-only</text>
+    <rect x="506" y="146" width="64" height="18" rx="4" fill="#fff7ed" stroke="#f97316" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#c2410c" x="538" y="158" text-anchor="middle">No PII</text>
+    <rect x="506" y="168" width="64" height="18" rx="4" fill="#fff7ed" stroke="#f97316" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#c2410c" x="538" y="180" text-anchor="middle">All constits.</text>
+    <rect x="506" y="196" width="64" height="24" rx="4" fill="#fef3c7" stroke="#f97316" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" font-weight="600" fill="#92400e" x="538" y="211" text-anchor="middle">PLANNED</text>
+    <line x1="492" y1="76" x2="492" y2="228" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="3 2"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#7c3aed" x="492" y="244" text-anchor="middle">Read-only</text>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#7c3aed" x="492" y="254" text-anchor="middle">boundary</text>
+
+    <!-- CM box (planned) -->
+    <rect x="588" y="76" width="80" height="152" rx="7" fill="#EEEDFE" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="3 2"/>
+    <text font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="#3C3489" x="628" y="95" text-anchor="middle">CM Office</text>
+    <rect x="596" y="102" width="64" height="18" rx="4" fill="#fff" stroke="#AFA9EC" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#3C3489" x="628" y="114" text-anchor="middle">All-AP view</text>
+    <rect x="596" y="124" width="64" height="18" rx="4" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#534AB7" x="628" y="136" text-anchor="middle">Read-only</text>
+    <rect x="596" y="146" width="64" height="18" rx="4" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#534AB7" x="628" y="158" text-anchor="middle">Stats only</text>
+    <rect x="596" y="168" width="64" height="18" rx="4" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" fill="#534AB7" x="628" y="180" text-anchor="middle">No PII</text>
+    <rect x="596" y="196" width="64" height="24" rx="4" fill="#fef3c7" stroke="#AFA9EC" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" font-weight="600" fill="#92400e" x="628" y="211" text-anchor="middle">PLANNED</text>
+
+    <!-- Shared DB -->
+    <rect x="20" y="262" width="640" height="80" rx="7" fill="#FAEEDA" stroke="#EF9F27" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="10" font-weight="500" fill="#412402" x="340" y="280" text-anchor="middle">Single PostgreSQL database — every row tagged with app_id</text>
+    <text font-family="Inter,sans-serif" font-size="9" fill="#633806" x="340" y="296" text-anchor="middle">RLS policy: USING (app_id = current_setting('app.current_app_id')) — enforced at database engine level</text>
+    <text font-family="Inter,sans-serif" font-size="9" fill="#633806" x="340" y="311" text-anchor="middle">MLA-001 query returns only MLA-001 rows. Bug in app code cannot leak data — DB refuses cross-tenant access.</text>
+    <rect x="30" y="322" width="100" height="14" rx="4" fill="#1a1a2e"/>
+    <text font-family="Inter,sans-serif" font-size="8" font-weight="600" fill="#e8a020" x="80" y="332" text-anchor="middle">AES-256 at rest</text>
+    <rect x="140" y="322" width="100" height="14" rx="4" fill="#1a1a2e"/>
+    <text font-family="Inter,sans-serif" font-size="8" font-weight="600" fill="#e8a020" x="190" y="332" text-anchor="middle">India data residency</text>
+    <rect x="250" y="322" width="100" height="14" rx="4" fill="#1a1a2e"/>
+    <text font-family="Inter,sans-serif" font-size="8" font-weight="600" fill="#e8a020" x="300" y="332" text-anchor="middle">Daily backups</text>
+    <rect x="360" y="322" width="110" height="14" rx="4" fill="#1a1a2e"/>
+    <text font-family="Inter,sans-serif" font-size="8" font-weight="600" fill="#e8a020" x="415" y="332" text-anchor="middle">SHA-256 audit trail</text>
+    <rect x="480" y="322" width="120" height="14" rx="4" fill="#fef3c7" stroke="#f97316" stroke-width="0.5"/>
+    <text font-family="Inter,sans-serif" font-size="8" font-weight="600" fill="#92400e" x="540" y="332" text-anchor="middle">Minister view — PLANNED</text>
+  </svg>
+
+  <!-- CM + Minister dashboards -->
+  <div class="g2">
+    <div>
+      <div class="ltag ltag-p" style="margin-bottom:8px">CM Office dashboard <span class="planned">PLANNED</span></div>
+      <div class="card card-purple">
+        <div class="fi"><div class="fi-ico">📊</div><div><div class="fi-t">All-AP complaint summary — live</div><div class="fi-te te">175 నియోజకవర్గాల మొత్తం సారాంశం — నేరుగా</div></div></div>
+        <div class="fi"><div class="fi-ico">🏆</div><div><div class="fi-t">MLA performance ranking by resolution rate</div><div class="fi-te te">పరిష్కార రేటు ప్రకారం MLA ర్యాంకింగ్</div></div></div>
+        <div class="fi"><div class="fi-ico">🚨</div><div><div class="fi-t">Escalation alerts — complaints &gt; 30 days unresolved</div><div class="fi-te te">30 రోజులకు పైగా పెండింగ్ ఫిర్యాదుల హెచ్చరికలు</div></div></div>
+        <div class="fi" style="border:none"><div class="fi-ico">🔏</div><div><div class="fi-t">Citizen names / phones never shown — stats only</div><div class="fi-te te">పౌరుల వ్యక్తిగత సమాచారం కనపడదు — గణాంకాలు మాత్రమే</div></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="ltag ltag-o" style="margin-bottom:8px">Minister dashboard <span class="planned">PLANNED</span></div>
+      <div class="card card-orange">
+        <div class="fi"><div class="fi-ico">💧</div><div><div class="fi-t">Only their department's complaints — state-wide</div><div class="fi-te te">వారి విభాగం ఫిర్యాదులు మాత్రమే — రాష్ట్రమంతటా<br/>e.g. Water Minister → only Water Supply category</div></div></div>
+        <div class="fi"><div class="fi-ico">📍</div><div><div class="fi-t">District-wise breakdown of dept complaints</div><div class="fi-te te">జిల్లా వారీగా తమ విభాగం ఫిర్యాదుల విభజన</div></div></div>
+        <div class="fi"><div class="fi-ico">🚨</div><div><div class="fi-t">Critical complaints in their dept — urgent flag</div><div class="fi-te te">తమ విభాగంలో క్రిటికల్ ఫిర్యాదులు</div></div></div>
+        <div class="fi" style="border:none"><div class="fi-ico">🔏</div><div><div class="fi-t">Cannot see: other departments, MLA full data, PII</div><div class="fi-te te">వేరే విభాగాలు, MLA డేటా, వ్యక్తిగత వివరాలు కనపడవు</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS &bull; Multi-tenant Architecture &bull; Minister + CM Dashboard</div>
+    <div class="pfr">Technical Supplement — Page 2</div>
+  </div>
+</div>
+
+<!-- PAGE 3: TECHNICAL CONCERNS Q&A -->
+<div class="a4">
+  <div class="sec-num">C — Technical Q&amp;A &bull; సాంకేతిక ప్రశ్నలు &amp; సమాధానాలు</div>
+  <div class="sec-h">Questions the government IT team will raise</div>
+  <div class="sec-h-te te">ప్రభుత్వ IT బృందం అడిగే ప్రశ్నలు — సమాధానాలు</div>
+  <div class="sec-sub">Every concern a government technical team would raise — answered with exact technical specifications and honest build status. &bull; ప్రతి సాంకేతిక సమస్యకు నిజాయితీగా సమాధానం.</div>
+  <div class="sec-div"></div>
+
+  <div class="g2">
+    <div>
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>Can one MLA see another MLA's complaints?</div>
+        <div class="concern-a">Technically impossible. PostgreSQL RLS enforces app_id isolation at the database engine level. Even if application code has a bug, the database refuses to return cross-tenant data before the query completes.</div>
+        <div><span class="concern-tech">PostgreSQL RLS · app_id on every row · USING (app_id = current_setting(...))</span></div>
+        <div><span class="concern-status status-built">BUILT AND LIVE ✓</span></div>
+      </div>
+
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>What if an MLA loses an election?</div>
+        <div class="concern-a">All complaint data is retained permanently. The new MLA inherits the constituency portal with full history. The outgoing MLA's staff accounts are deactivated immediately. Complaint records belong to the constituency — not the individual MLA.</div>
+        <div><span class="concern-tech">Soft-delete on staff accounts · constituency_id not linked to MLA person · audit log immutable</span></div>
+        <div><span class="concern-status status-built">BUILT ✓</span></div>
+      </div>
+
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>What if internet goes down in a village?</div>
+        <div class="concern-a">Citizens file complaints when connectivity returns — the link works on 2G and above. Staff dashboard caches complaint queue for offline viewing. SMS OTP fallback available for low-connectivity areas. No data is ever lost.</div>
+        <div><span class="concern-tech">PWA service worker · React offline cache · SMS OTP fallback · 2G optimised bundle</span></div>
+        <div><span class="concern-status status-built">BUILT ✓ (PWA partial — SMS fallback planned)</span></div>
+      </div>
+
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>Can the system handle 175 MLAs + MPs simultaneously?</div>
+        <div class="concern-a">Yes. Netlify CDN serves the React app from global edge nodes — unlimited concurrent users. Supabase PostgreSQL auto-scales. No single server. Deno edge functions are stateless and scale independently. Designed for 50,000+ daily active users.</div>
+        <div><span class="concern-tech">Netlify CDN · Supabase auto-scaling PostgreSQL · stateless Deno edge functions</span></div>
+        <div><span class="concern-status status-built">ARCHITECTURE BUILT ✓ — load test planned before state rollout</span></div>
+      </div>
+
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>Where is citizen data stored — India or abroad?</div>
+        <div class="concern-a">All data stored in Supabase India region (Mumbai — AWS ap-south-1). No data leaves Indian territory. Compliant with IT Act 2000 and data localisation requirements. No foreign government access possible.</div>
+        <div><span class="concern-tech">Supabase ap-south-1 (Mumbai AWS) · India data residency · IT Act 2000 compliant</span></div>
+        <div><span class="concern-status status-built">BUILT ✓</span></div>
+      </div>
+
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>Can a citizen submit the same complaint multiple times?</div>
+        <div class="concern-a">Each citizen has one verified profile per phone number (OTP enforced). Duplicate submissions are flagged automatically. Staff can merge duplicates. Citizens see their own open complaints before filing — preventing re-submission.</div>
+        <div><span class="concern-tech">Unique constraint on citizen_phone · duplicate check on submit · history visible to citizen</span></div>
+        <div><span class="concern-status status-built">BUILT ✓</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>What if a staff member is dismissed — can they still access data?</div>
+        <div class="concern-a">Admin deactivates the account in one click. JWT tokens are blacklisted immediately — active sessions terminated within 60 seconds. All past actions remain in the audit log permanently. Deactivated accounts cannot log in again.</div>
+        <div><span class="concern-tech">Supabase auth.users disabled · JWT max-age 1hr · audit log immutable · instant deactivation</span></div>
+        <div><span class="concern-status status-built">BUILT ✓</span></div>
+      </div>
+
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>How does the Minister see only their department's complaints?</div>
+        <div class="concern-a">The minister role is linked to one or more complaint categories (e.g. Water Resources Minister → category: water_supply). A PostgreSQL view filters complaints by category before returning to the minister's dashboard. Personal citizen data is masked in the view.</div>
+        <div><span class="concern-tech">minister_categories table · filtered SQL view · PII masked at DB view · category-scoped RLS</span></div>
+        <div><span class="concern-status status-planned">PLANNED — 2 weeks development after pilot</span></div>
+      </div>
+
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>How does the CM's office see all complaints without PII?</div>
+        <div class="concern-a">The state_admin role gets a separate read-only aggregate view — counts, categories, resolution rates, MLA rankings. Individual citizen names and phone numbers are never returned. Aggregation happens at the database view level, not the application.</div>
+        <div><span class="concern-tech">state_admin role · aggregate-only SQL views · PII stripped at DB view level · read-only RLS policy</span></div>
+        <div><span class="concern-status status-planned">PLANNED — ready after Mandapeta pilot</span></div>
+      </div>
+
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>Is the WhatsApp integration secure?</div>
+        <div class="concern-a">WhatsApp Business API via Twilio uses end-to-end encryption. MPower sends outbound template messages only — no citizen data stored at Twilio beyond phone number and approved message text. API keys stored in Supabase vault, never in source code.</div>
+        <div><span class="concern-tech">Twilio WhatsApp Business API · E2E encryption · outbound only · secrets in Supabase vault</span></div>
+        <div><span class="concern-status status-built">BUILT ✓</span></div>
+      </div>
+
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>What happens to data if MPower shuts down?</div>
+        <div class="concern-a">Government receives full database export in standard PostgreSQL format monthly. All data exportable at any time by the state government. No proprietary formats. Government can migrate to any PostgreSQL-compatible system independently.</div>
+        <div><span class="concern-tech">Monthly pg_dump · government-controlled S3 bucket · open PostgreSQL format · no vendor lock-in</span></div>
+        <div><span class="concern-status status-planned">PLANNED — data export agreement before state rollout</span></div>
+      </div>
+
+      <div class="concern-box">
+        <div class="concern-q"><span>❓</span>How is security audited and certified?</div>
+        <div class="concern-a">Supabase infrastructure is SOC 2 Type II certified. All security events are logged to an immutable audit table with SHA-256 hashes. MPower will undergo CERT-In empanelled VAPT before state rollout. Government IT team can audit independently.</div>
+        <div><span class="concern-tech">SOC 2 Type II (Supabase) · SHA-256 audit trail · VAPT before rollout · open audit rights</span></div>
+        <div><span class="concern-status status-planned">SOC 2 inherited ✓ · VAPT planned before state rollout</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS &bull; Technical Q&A &bull; Government IT Team</div>
+    <div class="pfr">Technical Supplement — Page 3</div>
+  </div>
+</div>
+
+<!-- PAGE 4: STATE ROLLOUT PLAN -->
+<div class="a4">
+  <div class="sec-num">D — State-wide Rollout &bull; రాష్ట్ర స్థాయి విస్తరణ</div>
+  <div class="sec-h">Rolling out to all 175 AP constituencies</div>
+  <div class="sec-h-te te">ఆంధ్రప్రదేశ్ లోని అన్ని 175 నియోజకవర్గాలకు విస్తరణ</div>
+  <div class="sec-sub">Phased rollout — Mandapeta pilot first, then full AP within 6 months. Minister and CM dashboards ready before Phase 3. &bull; మండపేట పైలట్ తో మొదలు, 6 నెలల్లో అన్ని నియోజకవర్గాలకు.</div>
+  <div class="sec-div"></div>
+
+  <!-- Timeline -->
+  <div class="ltag ltag-g" style="margin-bottom:10px">Rollout phases &bull; విస్తరణ దశలు</div>
+  <div style="position:relative;padding-left:20px;margin-bottom:20px">
+    <div style="position:absolute;left:6px;top:4px;bottom:4px;width:1.5px;background:#e2e8f0"></div>
+
+    <div style="position:relative;margin-bottom:16px">
+      <div style="position:absolute;left:-17px;top:5px;width:10px;height:10px;border-radius:50%;background:#22c55e;border:2px solid #fff;box-shadow:0 0 0 1.5px #22c55e"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+        <div style="font-size:10px;color:#22c55e;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Phase 1 — Month 1 — NOW</div>
+        <span class="built">READY TO DEPLOY ✓</span>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#1a1a2e;margin-bottom:2px">Mandapeta Pilot — 1 constituency</div>
+      <div style="font-size:11px;color:#64748b;line-height:1.6">Live deployment in Mandapeta. Real citizen complaints filed. Staff trained. Metrics collected — resolution time, citizen satisfaction, complaint categories. Bug fixes based on real usage. <span class="te" style="font-size:10px">మండపేట పైలట్ — నిజమైన ఫిర్యాదులు — పనితీరు కొలత</span></div>
+    </div>
+
+    <div style="position:relative;margin-bottom:16px">
+      <div style="position:absolute;left:-17px;top:5px;width:10px;height:10px;border-radius:50%;background:#e8a020;border:2px solid #fff;box-shadow:0 0 0 1.5px #e8a020"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+        <div style="font-size:10px;color:#e8a020;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Phase 2 — Months 2–3</div>
+        <span class="built">SYSTEM READY ✓</span>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#1a1a2e;margin-bottom:2px">East Godavari District — 16 constituencies</div>
+      <div style="font-size:11px;color:#64748b;line-height:1.6">Expand to all East Godavari MLAs and MPs. District-level reporting enabled. Each constituency gets own portal in 1 working day each. CM office given read-only access. <span class="te" style="font-size:10px">తూర్పు గోదావరి జిల్లా అన్ని నియోజకవర్గాలు</span></div>
+    </div>
+
+    <div style="position:relative;margin-bottom:16px">
+      <div style="position:absolute;left:-17px;top:5px;width:10px;height:10px;border-radius:50%;background:#3b82f6;border:2px solid #fff;box-shadow:0 0 0 1.5px #3b82f6"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+        <div style="font-size:10px;color:#3b82f6;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Phase 3 — Months 3–4</div>
+        <span class="planned">Minister dashboards built in this phase</span>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#1a1a2e;margin-bottom:2px">Godavari + Krishna region — 60 constituencies</div>
+      <div style="font-size:11px;color:#64748b;line-height:1.6">Full coastal AP coverage. MP portals added. Minister-level department dashboards go live. State-level analytics dashboard activated. <span class="te" style="font-size:10px">గోదావరి + కృష్ణా ప్రాంతం — మంత్రుల డాష్‌బోర్డ్ అందుబాటు</span></div>
+    </div>
+
+    <div style="position:relative">
+      <div style="position:absolute;left:-17px;top:5px;width:10px;height:10px;border-radius:50%;background:#7c3aed;border:2px solid #fff;box-shadow:0 0 0 1.5px #7c3aed"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+        <div style="font-size:10px;color:#7c3aed;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Phase 4 — Months 5–6</div>
+        <span class="planned">CM full dashboard + Sachivalayam integration</span>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#1a1a2e;margin-bottom:2px">All 175 AP constituencies + MPs</div>
+      <div style="font-size:11px;color:#64748b;line-height:1.6">Full state rollout. 175 MLAs, 25 MPs. CM full analytics dashboard. Sachivalayam integration for on-ground follow-up. Telugu language complete throughout. <span class="te" style="font-size:10px">పూర్తి రాష్ట్ర విస్తరణ — సచివాలయం అనుసంధానం — CM పూర్తి డాష్‌బోర్డ్</span></div>
+    </div>
+  </div>
+
+  <div class="g2" style="margin-bottom:16px">
+    <div>
+      <div class="ltag ltag-b" style="margin-bottom:8px">What government provides &bull; ప్రభుత్వం అందించేది</div>
+      <div class="card card-blue">
+        <div class="fi"><div class="fi-ico">📋</div><div><div class="fi-t">List of all MLAs + MPs with constituency codes</div><div class="fi-te te">అన్ని MLAల + MPల జాబితా — నియోజకవర్గ కోడ్‌లతో</div></div></div>
+        <div class="fi"><div class="fi-ico">📞</div><div><div class="fi-t">MLA office contact person and WhatsApp number</div><div class="fi-te te">MLA కార్యాలయ సంప్రదింపు వ్యక్తి నంబర్</div></div></div>
+        <div class="fi"><div class="fi-ico">📋</div><div><div class="fi-t">List of Ministers with their department assignments</div><div class="fi-te te">మంత్రుల జాబితా — వారి విభాగ కేటాయింపులతో</div></div></div>
+        <div class="fi" style="border:none"><div class="fi-ico">✅</div><div><div class="fi-t">Official endorsement to share citizen portal link</div><div class="fi-te te">పౌర పోర్టల్ లింక్ పంచుకోవడానికి అధికారిక ఆమోదం</div></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="ltag ltag-g" style="margin-bottom:8px">What MPower provides — free &bull; MPower అందించేది</div>
+      <div class="card card-green">
+        <div class="fi"><div class="fi-ico">⚙️</div><div><div class="fi-t">All 175 constituency portals setup — free</div><div class="fi-te te">175 నియోజకవర్గ పోర్టళ్ళ సెటప్ — ఉచితంగా</div></div></div>
+        <div class="fi"><div class="fi-ico">🎓</div><div><div class="fi-t">Staff training — Telugu + English — free</div><div class="fi-te te">సిబ్బంది శిక్షణ — తెలుగు + ఇంగ్లీషు — ఉచితంగా</div></div></div>
+        <div class="fi"><div class="fi-ico">👔</div><div><div class="fi-t">Minister dashboards built — free — Phase 3</div><div class="fi-te te">మంత్రుల డాష్‌బోర్డ్ నిర్మాణం — ఉచితంగా — దశ 3 లో</div></div></div>
+        <div class="fi" style="border:none"><div class="fi-ico">📊</div><div><div class="fi-t">CM full state dashboard + ongoing support — free</div><div class="fi-te te">CM రాష్ట్ర డాష్‌బోర్డ్ + నిరంతర మద్దతు — ఉచితంగా</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cost box -->
+  <div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:16px">
+    <div style="font-size:44px;font-weight:800;color:#15803d;flex-shrink:0">₹0</div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#15803d;margin-bottom:3px">Total cost to Andhra Pradesh government — ever &bull; <span class="te" style="font-size:11px">ఆంధ్రప్రదేశ్ ప్రభుత్వానికి మొత్తం ఖర్చు</span></div>
+      <div style="font-size:11px;color:#374151;line-height:1.7">Setup ₹0 &bull; Training ₹0 &bull; 175 portals ₹0 &bull; Minister dashboards ₹0 &bull; CM dashboard ₹0 &bull; Maintenance ₹0 &bull; Upgrades ₹0</div>
+      <div class="te" style="font-size:10px;color:#64748b;margin-top:2px">సెటప్ ఉచితం &bull; శిక్షణ ఉచితం &bull; 175 పోర్టళ్ళు ఉచితం &bull; మంత్రి డాష్‌బోర్డ్ ఉచితం &bull; నిర్వహణ ఉచితం</div>
+    </div>
+  </div>
+
+  <div class="pf">
+    <div class="pfl">MPower CTS &bull; State Rollout &bull; 175 Constituencies + MPs &bull; Free Service</div>
+    <div class="pfr">Technical Supplement — Page 4</div>
+  </div>
+</div>
+

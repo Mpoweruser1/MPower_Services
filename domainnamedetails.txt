@@ -1,0 +1,73 @@
+
+namespace account details
+rightchoice2k2@gmail.com
+
+rightcamp
+
+Campsys@@123
+
+Whois Contact Information
+ICANN requires the Whois database to store owners' contact information for all domains registered. Learn more →
+
+netlify details for future reference
+____________________________________
+Create a new DNS record
+Record type
+
+Name:mpowerind.in
+TTL:3600 seconds
+Type:MX
+Priority:1
+Value:aspmx.l.google.com
+
+Name:mpowerind.in
+TTL:3600 seconds
+Type:MX
+Priority:5
+Value:alt1.aspmx.l.google.com
+
+Name:mpowerind.in
+TTL:3600 seconds
+Type:MX
+Priority:5
+Value:alt2.aspmx.l.google.com
+
+Name:mpowerind.in
+TTL:3600 seconds
+Type:MX
+Priority:10
+Value:alt3.aspmx.l.google.com
+
+Name:mpowerind.in
+TTL:3600 seconds
+Type:MX
+Priority:10
+Value:alt4.aspmx.l.google.com
+
+out going authentication of google workspace 
+email. out going authentication
+
+Namegoogle._domainkey.mpowerind.inTTL3600 secondsTypeTXTValuev=DKIM1;k=rsa;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsNSfy764JQPcNjFzySDFpEL4uE6g8Fn3tj21xf9reT7wvvWdHF+A+p43O5AV+6uTnGUQgGhzNbu63CaLwRNasI11ZtKxDigX+V5nyaGY3KtoHzNjEdRLX/R/CJgnGSeXH0u+sL3SbQPO0nQ0LQ6zZi/w2G0joRyWWiZDceQSr9Z4eD9apVMkYPrrC5iZWVY+CX4bIs+FPnyuqBAETwe4c8E0IK0HdrplSwcZyYqY1OO9bTxVFrYqnSCNkigUD1eIjKbyC9Y0l9S+C9jJilBsbhbvEpnGgBgjJQSK+bkp5I7CjYyc58O6HyYzfXBl2iNwb19JtwAjo7djc3l5O3t+dwIDAQAB
+
+
+
+
+
+
+kommana suribabu
+SHOP NO A-57, MGNCC, CLOTHMARKET
+DWARAPUDI, ANDHRA PRADESH 533341
+IN
+tel: +91.8297358567
+fax:
+rightchoice2k2@gmail.com
+Billing Contact
+User default account contact
+
+User default account contact
+kommana suribabu
+SHOP NO A-57, MGNCC, CLOTHMARKET
+DWARAPUDI, ANDHRA PRADESH 533341
+IN
+tel: +91.8297358567
+fax:
