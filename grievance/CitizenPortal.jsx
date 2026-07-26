@@ -251,7 +251,7 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t, onSignOu
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 600 }}>{citizen.full_name}</h1>
+        <h1 style={{ fontSize: 18, fontWeight: 600 }}>{citizen?.full_name || 'Welcome'}</h1>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: '#15213A', background: 'none', border: 'none', fontWeight: 600 }}>
             💬 Feedback
