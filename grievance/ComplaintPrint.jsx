@@ -3,11 +3,12 @@
 // 1. Citizen representation letter to MLA/MP
 // 2. Staff — single complaint print for official reference
 // 3. Staff — batch complaint list for minister/collector submission
-
+import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 // ─── Shared print styles ───────────────────────────────────
+
 const PRINT_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Telugu:wght@400;600;700&family=Times+New+Roman&display=swap');
   
@@ -460,6 +461,10 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId }) {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchParams] = useSearchParams();
+  const urlCaseNo = caseNo || searchParams.get('case') || searchParams.get('id') || '';
+  const [manualCaseNo, setManualCaseNo] = useState('');
+  console.log('searchParams case:', searchParams.get('case'), 'id:', searchParams.get('id'), 'full URL:', window.location.href);
 
   // Addressee config
   const [mlaName, setMlaName] = useState('');
@@ -475,36 +480,55 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId }) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+
   useEffect(() => {
-    if (printType === 'citizen' || printType === 'staff_single') {
-      loadSingleComplaint();
-    } else {
-      loadBatchComplaints();
-    }
-  }, [printType, caseNo, appId]);
+  if (printType === 'citizen' || printType === 'staff_single') {
+    loadSingleComplaint();
+  } else {
+    loadBatchComplaints();
+  }
+}, [printType, appId]);
+
+useEffect(() => {
+  if (urlCaseNo && (printType === 'citizen' || printType === 'staff_single')) {
+    loadSingleComplaint();
+  }
+}, [urlCaseNo]);
 
   async function loadSingleComplaint() {
-    if (!caseNo) { setLoading(false); return; }
-    setLoading(true);
-    const { data, error: err } = await supabase
-      .from('complaints')
-      .select('*')
-      .eq('case_no', caseNo)
-      .single();
-    if (err) { setError('Complaint not found.'); setLoading(false); return; }
+  if (!urlCaseNo) { setLoading(false); return; }
+  setLoading(true);
+  
+  const { data, error: err } = await supabase
+    .from('complaints')
+    .select('*')
+    .eq('case_no', urlCaseNo)
+    .single();
+  
+  if (err) { setError('Complaint not found.'); setLoading(false); return; }
 
-    // Load history
-    const { data: history } = await supabase
-      .from('complaint_history')
-      .select('*')
-      .eq('complaint_id', data.id)
-      .order('changed_at');
+  // Fetch related data separately
+  const [constData, mandalData, villageData, citizenData, historyData] = await Promise.all([
+    data.constituency_id ? supabase.from('constituencies').select('name, rep_name').eq('id', data.constituency_id).single() : { data: null },
+    data.mandal_id ? supabase.from('mandals').select('name').eq('id', data.mandal_id).single() : { data: null },
+    data.village_id ? supabase.from('villages').select('name').eq('id', data.village_id).single() : { data: null },
+    data.citizen_id ? supabase.from('citizens').select('full_name, phone, address, father_husband_name').eq('id', data.citizen_id).single() : { data: null },
+    supabase.from('complaint_history').select('*').eq('complaint_id', data.id).order('created_at'),
+  ]);
+  console.log('COMPLAINT DATA:', data, constData.data, citizenData.data);
+  setComplaint({
+    ...data,
+    constituencies: constData.data,
+    mandals: mandalData.data,
+    villages: villageData.data,
+    citizens: citizenData.data,
+    history: historyData.data || [],
+  });
 
-    setComplaint({ ...data, history: history || [] });
-    setConstituency(data.constituency_name || '');
-    setLoading(false);
-  }
-
+  setConstituency(constData.data?.name || '');
+  setMlaName(constData.data?.rep_name || '');
+  setLoading(false);
+}
   async function loadBatchComplaints() {
     if (!appId) { setLoading(false); return; }
     setLoading(true);
@@ -563,7 +587,27 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId }) {
             ))}
           </div>
         </div>
-
+      {!urlCaseNo && (
+      <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>
+          Case Number / Complaint ID
+           </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={manualCaseNo}
+                onChange={e => setManualCaseNo(e.target.value)}
+              placeholder="GR/2026/000001"
+            style={{ flex: 1, padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }}
+              />
+              <button
+                onClick={() => { window.location.href = `/grievance/print?case=${manualCaseNo}`; }}
+                style={{ padding: '8px 16px', background: '#185FA5', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                  Load
+              </button>
+            </div>
+        </div>
+)}
         {/* Config panel */}
         <div style={S.card}>
           <p style={{ ...S.label, marginBottom: 12 }}>Configuration / సెట్టింగ్స్</p>
@@ -589,7 +633,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId }) {
               </div>
               <div>
                 <label style={S.label}>Case Number</label>
-                <input value={caseNo || ''} readOnly style={{ ...S.input, opacity: 0.6 }} />
+                <input value={urlCaseNo || ''} readOnly style={{ ...S.input, opacity: 0.6 }} />
               </div>
             </div>
           )}
