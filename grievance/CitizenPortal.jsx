@@ -663,7 +663,22 @@ function ComplaintDetail({ complaint, citizenId, onClose }) {
         <h3 style={{ fontSize: 16, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 22 }}>{CATEGORY_EMOJI[complaint.category] || '📄'}</span>{complaint.title}
         </h3>
-        <div style={{ margin: '8px 0' }}><StageBadge stage={complaint.stage} /></div>
+        // In ComplaintDetail function — after StageBadge line, add:
+<div style={{ margin: '8px 0' }}><StageBadge stage={complaint.stage} /></div>
+
+{/* ADD THIS — print button */}
+<button
+  onClick={() => window.open(`/grievance/print?case=${complaint.case_no}`, '_blank')}
+  style={{
+    width: '100%', padding: '10px 14px', marginBottom: 12,
+    background: '#fff', border: '1px solid #D9D5C8', borderRadius: 8,
+    fontSize: 13, fontWeight: 600, color: '#15213A', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+  }}
+>
+  🖨️ Print Representation Letter
+</button>
+
         <p style={{ fontSize: 13, color: '#3A4250', margin: '10px 0' }}>{complaint.description}</p>
         <h4 style={{ fontSize: 13, fontWeight: 600, marginTop: 20 }}>History</h4>
         {/* Only 'public' visibility rows ever reach this list — RLS enforces

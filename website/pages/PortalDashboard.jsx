@@ -39,14 +39,15 @@ const CONTROL_LINKS = [
 ];
 
 function grievanceLinks(role) {
+  const slug = 'andhra-pradesh';
   const links = [
-    { label: 'Complaint Queue', path: '/grievance/staff',   icon: '📋' },
-    { label: 'Reports',         path: '/grievance/reports', icon: '📈' },
+    { label: 'Complaint Queue', path: `/grievance/${slug}/staff`,   icon: '📋' },
+    { label: 'Reports',         path: `/grievance/${slug}/reports`, icon: '📈' },
   ];
   if (role === 'grievance_admin') {
     links.splice(1, 0, {
       label: 'Verification Queue',
-      path:  '/grievance/verify-queue',
+      path:  `/grievance/${slug}/admin`,
       icon:  '✅',
     });
   }

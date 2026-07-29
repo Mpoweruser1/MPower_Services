@@ -43,6 +43,7 @@ import HospitalBilling from './hospital/HospitalBilling';
 import IPDManagement from './hospital/IPDManagement';
 
 // Grievance
+import CtsLanding from './grievance/CtsLanding';
 import CitizenPortal from './grievance/CitizenPortal';
 import StaffDashboard from './grievance/StaffDashboard';
 import ReportsDashboard from './grievance/ReportsDashboard';
@@ -167,15 +168,24 @@ function AppRoutes() {
       {/* ── Payment — public ── */}
       <Route path="/pay/:token"      element={<PayFee />} />
 
-      {/* ── Grievance — public (citizens, no login needed) ── */}
-      <Route path="/grievance/:stateSlug/citizen"
-        element={<CitizenPortalWrapper />} />
-      <Route path="/grievance/:stateSlug/request-access"
-        element={<RequestStaffAccessWrapper />} />
-      <Route path="/grievance/print"
-        element={<ComplaintPrint />} />
 
-      {/* ── Portal — auth required ── */}
+{/* ── Grievance — public (citizens, no login needed) ── */}
+<Route path="/grievance/:stateSlug" element={<CtsLanding />} />
+<Route path="/grievance/:stateSlug/citizen"
+  element={<CitizenPortalWrapper />} />
+<Route path="/grievance/:stateSlug/staff"
+  element={<StaffDashboard />} />
+<Route path="/grievance/:stateSlug/admin"
+  element={<AdminVerificationQueue />} />
+<Route path="/grievance/:stateSlug/reports"
+  element={<ReportsDashboard />} />
+<Route path="/grievance/:stateSlug/request-access"
+  element={<RequestStaffAccess />} />
+<Route path="/grievance/print"
+  element={<ComplaintPrint />} />
+  
+  
+        {/* ── Portal — auth required ── */}
       <Route path="/portal/dashboard"
         element={<RequireAuth><PortalDashboard /></RequireAuth>} />
       <Route path="/portal/account"

@@ -1,18 +1,23 @@
-// grievance/GrievanceNav.jsx — FINAL
+// grievance/GrievanceNav.jsx — FIXED dynamic slug paths
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { useTenant } from '../context/TenantContext';
 
 export default function GrievanceNav() {
-  const location  = useLocation();
+  const location = useLocation();
   const { tenant } = useTenant();
+  const { stateSlug } = useParams();
+
+  // Extract slug from URL if useParams returns nothing
+  // (when rendered from a component that doesn't own the :stateSlug param)
+  const slug = stateSlug || location.pathname.split('/')[2] || 'andhra-pradesh';
 
   const NAV_ITEMS = [
-    { path: '/grievance/staff',       icon: '📋', label: 'Queue' },
-    { path: '/grievance/reports',     icon: '📈', label: 'Reports' },
-    { path: '/portal/dashboard',      icon: '🏠', label: 'Home' },
+    { path: `/grievance/${slug}/staff`,       icon: '📋', label: 'Queue' },
+    { path: `/grievance/${slug}/reports`,     icon: '📈', label: 'Reports' },
+    { path: '/portal/dashboard',              icon: '🏠', label: 'Home' },
     ...(tenant?.role === 'grievance_admin' ? [
-      { path: '/grievance/verify-queue', icon: '✅', label: 'Verify' },
+      { path: `/grievance/${slug}/verify-queue`, icon: '✅', label: 'Verify' },
     ] : []),
   ];
 
@@ -28,8 +33,11 @@ export default function GrievanceNav() {
       {NAV_ITEMS.map((item) => {
         const active = location.pathname === item.path;
         return (
-          <Link key={item.path} to={item.path}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, textDecoration: 'none', minWidth: 56, padding: '4px 0' }}>
+          <Link
+            key={item.path}
+            to={item.path}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, textDecoration: 'none', minWidth: 56, padding: '4px 0' }}
+          >
             <span style={{ fontSize: 20, lineHeight: 1 }}>{item.icon}</span>
             <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? '#E8A020' : 'rgba(255,255,255,0.4)' }}>
               {item.label}
