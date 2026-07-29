@@ -73,61 +73,66 @@ export default function ReportsDashboard() {
   );
 
   return (
+    // FIX 2: div now properly wraps all content — closing tag moved to end
     <div style={{ background: '#1C1C1E', minHeight: '100vh', fontFamily: "'Inter', sans-serif", color: '#333' }}>
-<div style={{ maxWidth: 800, margin: '0 auto', padding: 24 }}></div>
-    
-      <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Grievance Reports</h1>
-      <p style={{ fontSize: 12.5, color: '#5B6473', marginBottom: 18 }}>
-        {tenant.fullName} — showing only what you're scoped to see.
-      </p>
+      <div style={{ maxWidth: 800, margin: '0 auto', padding: 24 }}>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
-        {LEVELS.map((l) => (
-          <button
-            key={l.key}
-            onClick={() => setLevel(l.key)}
-            style={{
-              fontSize: 12.5, fontWeight: 600, padding: '7px 13px', borderRadius: 20,
-              border: `1px solid ${level === l.key ? '#15213A' : '#D9D5C8'}`,
-              background: level === l.key ? '#15213A' : '#fff',
-              color: level === l.key ? '#fff' : '#3A4250',
-            }}
-          >
-            {l.label}
-          </button>
-        ))}
-      </div>
+        <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Grievance Reports</h1>
+        <p style={{ fontSize: 12.5, color: '#5B6473', marginBottom: 18 }}>
+          {tenant.fullName} — showing only what you're scoped to see.
+        </p>
 
-      <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
-        <Stat label="Total" value={totals.total} color="#15213A" />
-        <Stat label="Open" value={totals.open} color="#9B3C2E" />
-        <Stat label="Resolved" value={totals.resolved} color="#3E5C45" />
-        <Stat label="Urgent" value={totals.urgent} color="#A8762C" />
-      </div>
-
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 12, color: '#5B6473' }}>
-          Sort by:{' '}
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ fontSize: 12.5, padding: '4px 6px' }}>
-            <option value="open_count">Open count</option>
-            <option value="total">Total complaints</option>
-            <option value="urgent_count">Urgent count</option>
-            <option value="avg_resolution_hours">Avg resolution time</option>
-          </select>
-        </label>
-      </div>
-
-      {loading ? (
-        <CenteredNote>Loading…</CenteredNote>
-      ) : sorted.length === 0 ? (
-        <CenteredNote>No data at this level yet.</CenteredNote>
-      ) : (
-        <div style={{ display: 'grid', gap: 8 }}>
-          {sorted.map((row, i) => (
-            <RollupRow key={i} row={row} nameCol={nameCol} sortBy={sortBy} maxValue={maxValue} />
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
+          {LEVELS.map((l) => (
+            <button
+              key={l.key}
+              onClick={() => setLevel(l.key)}
+              style={{
+                fontSize: 12.5, fontWeight: 600, padding: '7px 13px', borderRadius: 20,
+                border: `1px solid ${level === l.key ? '#15213A' : '#D9D5C8'}`,
+                background: level === l.key ? '#15213A' : '#fff',
+                color: level === l.key ? '#fff' : '#3A4250',
+              }}
+            >
+              {l.label}
+            </button>
           ))}
         </div>
-      )}
+
+        <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
+          <Stat label="Total" value={totals.total} color="#15213A" />
+          <Stat label="Open" value={totals.open} color="#9B3C2E" />
+          <Stat label="Resolved" value={totals.resolved} color="#3E5C45" />
+          <Stat label="Urgent" value={totals.urgent} color="#A8762C" />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, color: '#5B6473' }}>
+            Sort by:{' '}
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ fontSize: 12.5, padding: '4px 6px' }}>
+              <option value="open_count">Open count</option>
+              <option value="total">Total complaints</option>
+              <option value="urgent_count">Urgent count</option>
+              <option value="avg_resolution_hours">Avg resolution time</option>
+            </select>
+          </label>
+        </div>
+
+        {loading ? (
+          <CenteredNote>Loading…</CenteredNote>
+        ) : sorted.length === 0 ? (
+          <CenteredNote>No data at this level yet.</CenteredNote>
+        ) : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {sorted.map((row, i) => (
+              <RollupRow key={i} row={row} nameCol={nameCol} sortBy={sortBy} maxValue={maxValue} />
+            ))}
+          </div>
+        )}
+
+      </div>
+      {/* FIX 1: GrievanceNav moved outside RollupRow — renders once at bottom */}
+      <GrievanceNav />
     </div>
   );
 }
@@ -148,7 +153,6 @@ function RollupRow({ row, nameCol, sortBy, maxValue }) {
       <div style={{ height: 6, background: '#EFEDE6', borderRadius: 3, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${widthPct}%`, background: '#15213A', borderRadius: 3 }} />
       </div>
-      <GrievanceNav />
     </div>
   );
 }
