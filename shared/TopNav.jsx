@@ -67,9 +67,9 @@ export default function TopNav({ screen }) {
     justifyContent:  'space-between',
     height:          48,
     padding:         '0 16px',
-    background:      '#fff',
-    borderBottom:    '1px solid #e2e8f0',
-    fontFamily:      'sans-serif',
+    background:      '#111113',
+    borderBottom:    '1px solid rgba(255,255,255,0.08)',
+    fontFamily:      "'Inter', -apple-system, sans-serif",
     position:        'sticky',
     top:             0,
     zIndex:          100,
@@ -77,6 +77,7 @@ export default function TopNav({ screen }) {
 
   return (
     <>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
       <nav style={NAV_STYLE}>
         {/* Left: logo + module badge + screen */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -96,8 +97,8 @@ export default function TopNav({ screen }) {
 
           {screen && (
             <>
-              <span style={{ color: '#cbd5e1', fontSize: 13 }}>›</span>
-              <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{screen}</span>
+              <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>›</span>
+              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{screen}</span>
             </>
           )}
         </div>
@@ -106,14 +107,14 @@ export default function TopNav({ screen }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 30, height: 30, borderRadius: '50%',
-            background: '#E6F1FB', display: 'flex',
+            background: 'rgba(232,160,32,0.12)', display: 'flex',
             alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 600, color: '#185FA5',
+            fontSize: 11, fontWeight: 600, color: '#E8A020',
           }}>{initials}</div>
 
           <div style={{ lineHeight: 1.3 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#1a1a2e' }}>{name}</div>
-            <div style={{ fontSize: 10, color: '#94a3b8' }}>{roleLabel}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>{name}</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{roleLabel}</div>
           </div>
 
           <button
@@ -124,11 +125,12 @@ export default function TopNav({ screen }) {
               padding: '5px 12px',
               fontSize: 11,
               fontWeight: 600,
-              border: '1px solid #e2e8f0',
+              border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: 6,
-              background: '#fff',
-              color: '#64748b',
+              background: 'transparent',
+              color: 'rgba(255,255,255,0.5)',
               cursor: 'pointer',
+              fontFamily: 'inherit',
             }}
           >
             {loggingOut ? 'Signing out...' : 'Sign out'}
@@ -139,8 +141,8 @@ export default function TopNav({ screen }) {
       {/* Confirm dialog — inline, no fixed position */}
       {showConfirm && (
         <div style={{
-          background: '#fff',
-          border: '1px solid #e2e8f0',
+          background: '#161618',
+          border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 10,
           padding: 20,
           margin: '8px 16px',
@@ -148,16 +150,17 @@ export default function TopNav({ screen }) {
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 12,
+          fontFamily: "'Inter', -apple-system, sans-serif",
         }}>
-          <span style={{ fontSize: 13, color: '#374151' }}>Sign out of MPower?</span>
+          <span style={{ fontSize: 13, color: '#fff' }}>Sign out of MPower?</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={() => setShowConfirm(false)}
-              style={{ padding: '6px 14px', fontSize: 12, border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff', color: '#64748b', cursor: 'pointer' }}
+              style={{ padding: '6px 14px', fontSize: 12, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontFamily: 'inherit' }}
             >Cancel</button>
             <button
               onClick={handleLogout}
-              style={{ padding: '6px 14px', fontSize: 12, border: 'none', borderRadius: 6, background: '#dc2626', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+              style={{ padding: '6px 14px', fontSize: 12, border: 'none', borderRadius: 6, background: '#E05A5A', color: '#fff', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             >Sign out</button>
           </div>
         </div>

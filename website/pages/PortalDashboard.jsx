@@ -38,8 +38,12 @@ const CONTROL_LINKS = [
   { label: 'Security',     path: '/control/security',      icon: '🛡️' },
 ];
 
-function grievanceLinks(role) {
-  const slug = 'andhra-pradesh';
+// In PortalDashboard.jsx — replace grievanceLinks function
+function grievanceLinks(role, appInfo) {
+  // Get state slug from app info
+  const stateName = appInfo?.state_name || 'Andhra Pradesh';
+  const slug = stateName.toLowerCase().replace(/ /g, '-');
+  
   const links = [
     { label: 'Complaint Queue', path: `/grievance/${slug}/staff`,   icon: '📋' },
     { label: 'Reports',         path: `/grievance/${slug}/reports`, icon: '📈' },

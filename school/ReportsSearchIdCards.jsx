@@ -1,5 +1,6 @@
 // school/ReportsSearchIdCards.jsx — FINAL (Supabase wired)
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
@@ -35,13 +36,22 @@ const REPORT_CATALOG = [
 async function runReportQuery(reportId, appId) {
   const today = new Date().toISOString().slice(0, 10);
 
+  // .in() needs an actual array of ids, not an unresolved query builder —
+  // resolve this app's student ids once, only when a report actually
+  // needs to filter by them.
+  async function getStudentIds() {
+    const { data } = await supabase.from('students').select('id').eq('app_id', appId);
+    return (data || []).map((s) => s.id);
+  }
+
   switch (reportId) {
     case 'daily_attendance': {
+      const studentIds = await getStudentIds();
       const { data } = await supabase
         .from('attendance')
         .select('status, students(full_name, sid, section, classes(class_name))')
         .eq('date', today)
-        .in('student_id', supabase.from('students').select('id').eq('app_id', appId));
+        .in('student_id', studentIds);
       return { data: data || [], columns: ['Name', 'SID', 'Class', 'Status'] };
     }
     case 'low_attendance': {
@@ -60,19 +70,21 @@ async function runReportQuery(reportId, appId) {
       return { data: results, columns: ['Name', 'SID', 'Class', 'Attendance %'] };
     }
     case 'fee_defaulters': {
+      const studentIds = await getStudentIds();
       const { data } = await supabase
         .from('fee_dues')
         .select('amount_due, amount_paid, fee_type, due_date, students(full_name, sid, parent_phone, classes(class_name))')
         .lt('due_date', today)
-        .in('student_id', supabase.from('students').select('id').eq('app_id', appId));
+        .in('student_id', studentIds);
       const filtered = (data || []).filter((d) => Number(d.amount_due) > Number(d.amount_paid));
       return { data: filtered, columns: ['Name', 'SID', 'Class', 'Fee type', 'Balance', 'Due date'] };
     }
     case 'class_rank': {
+      const studentIds = await getStudentIds();
       const { data } = await supabase
         .from('marks')
         .select('percentage, students(full_name, sid, classes(class_name))')
-        .in('student_id', supabase.from('students').select('id').eq('app_id', appId))
+        .in('student_id', studentIds)
         .order('percentage', { ascending: false })
         .limit(100);
       return { data: data || [], columns: ['Name', 'SID', 'Class', 'Percentage'] };
@@ -457,6 +469,10 @@ export function UniversalSearch() {
                     {s.status}
                   </span>
                 </div>
+                <Link to={`/school/students/${s.id}`}
+                  style={{ display: 'inline-block', marginTop: 10, fontSize: 12, fontWeight: 600, color: '#E8A020', textDecoration: 'none' }}>
+                  View →
+                </Link>
               </div>
             ))}
             {tab === 'staff' && results.map((s) => (

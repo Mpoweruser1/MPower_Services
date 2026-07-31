@@ -104,6 +104,18 @@ export function usePowerSearch(appId, userId) {
       try {
         const combined = [];
 
+        // .in() needs an actual array of ids, not an unresolved query
+        // builder — resolve this app's student ids once, cached so the
+        // attendance and fee-due blocks below share one fetch if a
+        // single search triggers both intents at once.
+        let studentIds = null;
+        async function getStudentIds() {
+          if (studentIds) return studentIds;
+          const { data } = await supabase.from('students').select('id').eq('app_id', appId);
+          studentIds = (data || []).map((s) => s.id);
+          return studentIds;
+        }
+
         // ── Intent: attendance ────────────────────────────
         const attendanceIntent = intents.find((i) => i.type === 'attendance');
         if (attendanceIntent) {
@@ -112,9 +124,7 @@ export function usePowerSearch(appId, userId) {
             .from('attendance')
             .select('student_id, status, students(id, full_name, sid, section, parent_phone, class_id)')
             .eq('date', today)
-            .in('student_id',
-              supabase.from('students').select('id').eq('app_id', appId)
-            );
+            .in('student_id', await getStudentIds());
 
           if (attendanceIntent.filter === 'absent') attendanceQuery = attendanceQuery.eq('status', 'A');
           if (attendanceIntent.filter === 'present') attendanceQuery = attendanceQuery.eq('status', 'P');
@@ -145,9 +155,7 @@ export function usePowerSearch(appId, userId) {
             .from('fee_dues')
             .select('id, fee_type, amount_due, amount_paid, students(id, full_name, sid, section)')
             .eq('status', 'pending')
-            .in('student_id',
-              supabase.from('students').select('id').eq('app_id', appId)
-            )
+            .in('student_id', await getStudentIds())
             .limit(20);
 
           (dueData || []).forEach((d) => {

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MPower Hospital — Complete Hospital Management Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:#f8fafc;color:#1e293b}
+.nav{position:fixed;top:0;left:0;right:0;background:#185FA5;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;z-index:1000;box-shadow:0 2px 12px rgba(24,95,165,0.3)}
+.nav-logo{display:flex;align-items:center;gap:10px}
+.nav-icon{width:32px;height:32px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#185FA5;font-size:14px}
+.nav-title{font-size:15px;font-weight:700;color:#fff}
+.nav-links{display:flex;gap:2px}
+.nav-btn{padding:6px 12px;border-radius:6px;font-size:11px;color:rgba(255,255,255,0.8);cursor:pointer;border:none;background:none;font-family:inherit;font-weight:500;transition:all 0.2s}
+.nav-btn:hover,.nav-btn.active{color:#fff;background:rgba(255,255,255,0.15)}
+.slide{min-height:100vh;padding:80px 48px 60px;max-width:1200px;margin:0 auto;display:flex;flex-direction:column;justify-content:center}
+.hero{min-height:100vh;background:linear-gradient(135deg,#185FA5 0%,#0a3d6b 60%,#061f38 100%);color:#fff;display:flex;align-items:center}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.9);padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;letter-spacing:0.5px;margin-bottom:20px}
+.hero-title{font-size:clamp(38px,6vw,70px);font-weight:900;line-height:1.05;margin-bottom:16px}
+.hero-title span{color:#bfdbfe}
+.hero-sub{font-size:17px;color:rgba(255,255,255,0.7);max-width:580px;line-height:1.7;margin-bottom:36px}
+.hero-te{font-family:'Noto Sans Telugu',sans-serif;font-size:18px;color:rgba(255,255,255,0.5);margin-bottom:6px}
+.stat-row{display:flex;gap:40px;flex-wrap:wrap}
+.stat-num{font-size:34px;font-weight:800;color:#bfdbfe}
+.stat-label{font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px}
+.badge-section{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#185FA5;background:rgba(24,95,165,0.08);padding:5px 12px;border-radius:20px;margin-bottom:14px}
+.section-title{font-size:clamp(26px,4vw,44px);font-weight:800;line-height:1.1;margin-bottom:10px;color:#1e293b}
+.section-title span{color:#185FA5}
+.section-sub{font-size:15px;color:#64748b;max-width:600px;line-height:1.7;margin-bottom:36px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.25s}
+.card:hover{border-color:#185FA5;box-shadow:0 4px 20px rgba(24,95,165,0.1);transform:translateY(-2px)}
+.card-icon{font-size:28px;margin-bottom:12px}
+.card-title{font-size:15px;font-weight:700;color:#1e293b;margin-bottom:6px}
+.card-desc{font-size:13px;color:#64748b;line-height:1.6}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.flist{list-style:none;display:grid;gap:10px}
+.fitem{display:flex;gap:10px;align-items:flex-start}
+.fcheck{color:#185FA5;font-size:14px;flex-shrink:0;margin-top:2px;font-weight:700}
+.ftext{font-size:13px;color:#475569;line-height:1.5}
+.ctable{width:100%;border-collapse:collapse;font-size:12px}
+.ctable th{padding:11px 14px;text-align:left;background:#eff6ff;color:#1e40af;font-weight:700;font-size:10px;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid #bfdbfe}
+.ctable td{padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#475569}
+.ctable tr:hover td{background:#f8fafc}
+.ctable .us{color:#185FA5;font-weight:700}
+.cy{color:#185FA5;font-weight:600}
+.cn{color:#cbd5e1}
+.cp{color:#f59e0b;font-weight:600}
+.metric{background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:14px;padding:20px;text-align:center}
+.metric-num{font-size:34px;font-weight:800;color:#185FA5}
+.metric-label{font-size:12px;color:#64748b;margin-top:4px;line-height:1.4}
+.quote{background:#eff6ff;border-left:4px solid #185FA5;border-radius:0 12px 12px 0;padding:18px 22px;font-size:15px;color:#1e3a5f;font-style:italic;line-height:1.7}
+.quote-src{font-size:12px;color:#185FA5;margin-top:8px;font-style:normal;font-weight:600}
+.cta{background:linear-gradient(135deg,#185FA5,#0a3d6b);border-radius:20px;padding:48px;text-align:center;color:#fff;margin-top:60px}
+.cta-title{font-size:30px;font-weight:800;margin-bottom:10px}
+.cta-sub{font-size:15px;color:rgba(255,255,255,0.6);margin-bottom:28px}
+.btn-primary{display:inline-block;padding:13px 30px;background:#fff;color:#185FA5;border-radius:10px;font-size:14px;font-weight:800;text-decoration:none}
+.btn-outline{display:inline-block;padding:13px 30px;background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:10px;font-size:14px;font-weight:600;text-decoration:none;margin-left:10px}
+.bg-light{background:#f8fafc}
+.bg-white{background:#fff}
+.divider{height:1px;background:#e2e8f0}
+.tier{background:#fff;border:2px solid #e2e8f0;border-radius:14px;overflow:hidden}
+.tier-header{padding:18px;text-align:center}
+.tier-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.tier-price{font-size:28px;font-weight:800}
+.tier-sub{font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px}
+.tier-body{padding:16px}
+.tier.featured{border-color:#185FA5;box-shadow:0 4px 20px rgba(24,95,165,0.15)}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:3px 10px;border-radius:10px}
+.improve-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;border-left:4px solid #e8a020}
+.improve-tag{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#e8a020;margin-bottom:8px}
+.improve-title{font-size:14px;font-weight:700;color:#1e293b;margin-bottom:6px}
+.improve-desc{font-size:12px;color:#64748b;line-height:1.6}
+.p-high{background:#fee2e2;color:#991b1b;display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-top:8px}
+.p-med{background:#fef3c7;color:#92400e;display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-top:8px}
+.p-low{background:#f0fdf4;color:#166534;display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-top:8px}
+@media(max-width:768px){.slide{padding:80px 20px 40px}.nav-links{display:none}.stat-row{gap:20px}.btn-outline{margin-left:0;margin-top:10px;display:block}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="nav-icon">M</div>
+    <span class="nav-title">MPower Hospital</span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-btn active" onclick="go('s1')">Overview</button>
+    <button class="nav-btn" onclick="go('s2')">Problem</button>
+    <button class="nav-btn" onclick="go('s3')">Features</button>
+    <button class="nav-btn" onclick="go('s4')">World Standards</button>
+    <button class="nav-btn" onclick="go('s5')">ABHA & Schemes</button>
+    <button class="nav-btn" onclick="go('s6')">Pricing</button>
+    <button class="nav-btn" onclick="go('s7')">Roadmap</button>
+    <button class="nav-btn" onclick="go('s8')">Start</button>
+  </div>
+</nav>
+
+<!-- SLIDE 1: HERO -->
+<section id="s1" class="hero">
+  <div class="slide">
+    <p style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;letter-spacing:2px;margin-bottom:28px;">01 / 08 · MPower Hospital Presentation</p>
+    <div class="hero-eyebrow">🏥 For Hospital Owners, Medical Directors & Administrators</div>
+    <p class="hero-te">MPower Hospital — ఆసుపత్రి నిర్వహణ డిజిటల్‌గా</p>
+    <h1 class="hero-title">Run Your Hospital<br><span>Smarter. Safer.</span><br>Fully Digital.</h1>
+    <p class="hero-sub">From patient registration to discharge summary — every hospital workflow digitized, ABHA-linked, GST-compliant, and connected to patients via WhatsApp. Built for AP and Telangana hospitals.</p>
+    <div class="stat-row">
+      <div><div class="stat-num">₹1,499</div><div class="stat-label">Starting per month</div></div>
+      <div><div class="stat-num">6 Mo</div><div class="stat-label">Free trial on Basic</div></div>
+      <div><div class="stat-num">ABHA</div><div class="stat-label">National Digital Health ready</div></div>
+      <div><div class="stat-num">Telugu</div><div class="stat-label">Full bilingual support</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 2: PROBLEM -->
+<section id="s2" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">02 / 08 · THE PROBLEM</p>
+    <div class="badge-section">⚠️ Current Reality</div>
+    <h2 class="section-title">Paper Prescriptions.<br><span>Manual Billing. Lost Reports.</span></h2>
+    <p class="section-sub">Every hospital administrator in AP and Telangana faces the same daily challenges — paper-based workflows that cost time, money, and patient trust.</p>
+
+    <div class="grid-3" style="margin-bottom:36px;">
+      <div class="card" style="border-left:4px solid #ef4444;">
+        <div class="card-icon">📋</div>
+        <div class="card-title">Patient files on paper</div>
+        <div class="card-desc">Case sheets, prescriptions, lab reports — all on paper. Files get lost, previous history unavailable when patient returns. Doctor wastes 10 minutes searching for old records every visit.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #f59e0b;">
+        <div class="card-icon">🧾</div>
+        <div class="card-title">Manual billing errors</div>
+        <div class="card-desc">Bills calculated on paper or basic Excel. GST computation wrong, drug charges missed, lab fees forgotten. Revenue leakage of 8-15% common in manual billing hospitals.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #8b5cf6;">
+        <div class="card-icon">🔬</div>
+        <div class="card-title">Lab reports misplaced</div>
+        <div class="card-desc">Lab technician gives printed report, patient takes it home, doctor never sees it next visit. No centralised lab result history. Critical reports lost in transit.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #06b6d4;">
+        <div class="card-icon">🛏️</div>
+        <div class="card-title">No bed visibility</div>
+        <div class="card-desc">Ward staff maintains manual bed register. Admission desk calls ward to check availability. Patient waits 30-45 minutes while beds are manually checked across floors.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #10b981;">
+        <div class="card-icon">💊</div>
+        <div class="card-title">Pharmacy stock unknown</div>
+        <div class="card-desc">Pharmacist maintains stock in notebook. Expiry dates missed. Out-of-stock discovered only when prescription arrives. Patient sent to buy medicine outside.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #f43f5e;">
+        <div class="card-icon">🏛️</div>
+        <div class="card-title">ABHA & scheme compliance gaps</div>
+        <div class="card-desc">National Digital Health Mission requires ABHA ID linking. Arogyasri, Cheyutha, PMJAY patients need digital records for claims. Manual systems cause delays and rejections.</div>
+      </div>
+    </div>
+
+    <div class="quote">
+      "Healthcare facilities in India are under pressure to update their digital systems. They need to be ready for ABDM-readiness and improve patient care. The best Hospital Management Software combines clinical, operational, and financial workflows within a single platform."
+      <div class="quote-src">— Indian Healthcare IT Market Report 2026</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 3: FEATURES -->
+<section id="s3" class="bg-light">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">03 / 08 · FEATURES</p>
+    <div class="badge-section">⚡ MPower Hospital</div>
+    <h2 class="section-title">Complete Hospital Management<br><span>From OPD to Discharge.</span></h2>
+    <p class="section-sub">8 fully integrated modules covering every department — clinical, administrative, and financial — in one connected platform.</p>
+
+    <div class="grid-3" style="margin-bottom:32px;">
+      <div class="card">
+        <div class="card-icon">👤</div>
+        <div class="card-title">Patient Registration + ABHA</div>
+        <div class="card-desc">Complete patient profile captured once. ABHA ID linked — health records portable across India. OPD and IPD number auto-generated. WhatsApp confirmation sent instantly.</div>
+        <div style="margin-top:10px;font-size:12px;color:#185FA5;font-weight:600;">National Digital Health Mission compliant</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🩺</div>
+        <div class="card-title">OPD + Digital Prescriptions</div>
+        <div class="card-desc">Doctor-wise queue management. Digital prescription with drug database auto-complete. Previous visit history visible instantly. WhatsApp prescription to patient.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🛏️</div>
+        <div class="card-title">IPD + Bed Management</div>
+        <div class="card-desc">Real-time bed availability across all wards. Admission from OPD in one click. Ward-wise patient list for nurses. Daily bed occupancy reports for management.</div>
+        <div style="margin-top:10px;font-size:12px;color:#185FA5;font-weight:600;">Live bed availability — zero phone calls to ward</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔬</div>
+        <div class="card-title">Lab Reports + Test Management</div>
+        <div class="card-desc">Test ordered from OPD. Lab technician enters results. Report linked to patient file automatically. WhatsApp delivery of report to patient and referring doctor.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💊</div>
+        <div class="card-title">Pharmacy + Drug Inventory</div>
+        <div class="card-desc">Prescription directly received in pharmacy. Drug stock management with expiry alerts. Controlled substance tracking with audit log. Stock reorder alerts.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧾</div>
+        <div class="card-title">GST Billing + Payments</div>
+        <div class="card-desc">GST-compliant invoice generation. All services, drugs, lab charges auto-populated. UPI, cash, card — all modes. WhatsApp bill to patient. Zero calculation errors.</div>
+        <div style="margin-top:10px;font-size:12px;color:#185FA5;font-weight:600;">Revenue leakage eliminated — every charge captured</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">Multi-Branch Dashboard</div>
+        <div class="card-desc">Compare OPD count, revenue, bed occupancy, lab volumes across branches. Daily, weekly, monthly analytics. Top doctors by revenue. Department-wise performance.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏥</div>
+        <div class="card-title">Department Management</div>
+        <div class="card-desc">Create departments, assign doctors and nurses. Department-wise patient routing. Specialist referral within same system. Doctor availability calendar.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📄</div>
+        <div class="card-title">Reports + MIS</div>
+        <div class="card-desc">Daily OPD report, revenue report, doctor-wise summary, bed occupancy, lab report volumes. Export to Excel or PDF. Share via WhatsApp to management.</div>
+      </div>
+    </div>
+
+    <!-- Patient journey -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px;">
+      <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;">Complete Patient Journey — How MPower Hospital works</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
+        <div style="text-align:center;padding:14px;background:#eff6ff;border-radius:10px;">
+          <div style="font-size:18px;margin-bottom:6px;">📝</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px;">Registration</div>
+          <div style="font-size:11px;color:#475569;">ABHA linked. WhatsApp confirmation sent.</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:#f0fdf4;border-radius:10px;">
+          <div style="font-size:18px;margin-bottom:6px;">🩺</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px;">OPD Visit</div>
+          <div style="font-size:11px;color:#475569;">Digital prescription. History visible.</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:#fef3c7;border-radius:10px;">
+          <div style="font-size:18px;margin-bottom:6px;">🔬</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px;">Lab Tests</div>
+          <div style="font-size:11px;color:#475569;">Report linked to file. WhatsApp delivery.</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:#fff7ed;border-radius:10px;">
+          <div style="font-size:18px;margin-bottom:6px;">💊</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px;">Pharmacy</div>
+          <div style="font-size:11px;color:#475569;">Prescription received. Stock updated.</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:#f5f3ff;border-radius:10px;">
+          <div style="font-size:18px;margin-bottom:6px;">🛏️</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px;">Admission</div>
+          <div style="font-size:11px;color:#475569;">Bed allocated in seconds. Ward notified.</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:#fdf2f8;border-radius:10px;">
+          <div style="font-size:18px;margin-bottom:6px;">🧾</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px;">Billing</div>
+          <div style="font-size:11px;color:#475569;">GST bill auto-generated. WhatsApp receipt.</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:#f0fdf4;border-radius:10px;">
+          <div style="font-size:18px;margin-bottom:6px;">🏠</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px;">Discharge</div>
+          <div style="font-size:11px;color:#475569;">Summary generated. Follow-up scheduled.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 4: WORLD STANDARDS -->
+<section id="s4" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">04 / 08 · WORLD STANDARDS</p>
+    <div class="badge-section">🌍 Global Benchmark</div>
+    <h2 class="section-title">Built to World Standards.<br><span>Priced for Indian Hospitals.</span></h2>
+    <p class="section-sub">World-class hospital management systems define what great looks like. MPower Hospital brings those same standards — adapted for India's healthcare reality.</p>
+
+    <div class="grid-3" style="margin-bottom:36px;">
+      <div class="card">
+        <div style="font-size:22px;margin-bottom:10px;">🇺🇸</div>
+        <div class="card-title">What world-class looks like</div>
+        <div class="card-desc" style="margin-bottom:12px;">Global leaders use integrated platforms covering every department — OPD, IPD, pharmacy, lab, billing — in one connected system with real-time dashboards and AI analytics.</div>
+        <div style="font-size:12px;color:#94a3b8;">Challenge: Enterprise pricing starts at ₹50 lakh+/year. Not built for Indian workflows, compliance, or languages.</div>
+      </div>
+      <div class="card">
+        <div style="font-size:22px;margin-bottom:10px;">🌏</div>
+        <div class="card-title">What India needs</div>
+        <div class="card-desc" style="margin-bottom:12px;">ABHA integration for National Digital Health Mission. GST-compliant billing. Arogyasri and PMJAY scheme support. WhatsApp for patient communication. Telugu for AP/TG hospitals.</div>
+        <div style="font-size:12px;color:#94a3b8;">Challenge: Local systems often miss world-class features like real-time bed management, integrated lab-to-pharmacy workflow, and multi-branch dashboards.</div>
+      </div>
+      <div class="card" style="border-color:#185FA5;border-width:2px;background:#eff6ff;">
+        <div style="font-size:22px;margin-bottom:10px;">✅</div>
+        <div class="card-title" style="color:#185FA5;">MPower Hospital</div>
+        <div class="card-desc" style="margin-bottom:12px;">World-class integrated workflow + India-specific compliance + WhatsApp native + Telugu bilingual + ABHA ready + GST billing + transparent pricing.</div>
+        <div style="font-size:12px;color:#185FA5;font-weight:600;">Best of global standards. Built for AP and Telangana.</div>
+      </div>
+    </div>
+
+    <!-- Feature comparison -->
+    <div style="overflow-x:auto;border-radius:14px;border:1px solid #e2e8f0;margin-bottom:28px;">
+      <table class="ctable">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>World Standard</th>
+            <th>Typical India HMS</th>
+            <th style="background:#eff6ff;color:#1e40af;">MPower Hospital</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Patient registration + ABHA</td><td class="cy">✓</td><td class="cp">Partial</td><td class="us">✓ Full ABHA linking</td></tr>
+          <tr><td>Real-time bed management</td><td class="cy">✓</td><td class="cp">Manual in most</td><td class="us">✓ Live across all wards</td></tr>
+          <tr><td>Digital prescriptions</td><td class="cy">✓</td><td class="cp">Basic</td><td class="us">✓ + WhatsApp delivery</td></tr>
+          <tr><td>Lab-to-patient-file integration</td><td class="cy">✓</td><td class="cn">Usually separate</td><td class="us">✓ Automatic linking</td></tr>
+          <tr><td>GST-compliant billing</td><td class="cn">N/A (US)</td><td class="cp">Add-on often</td><td class="us">✓ Native, auto-calculated</td></tr>
+          <tr><td>WhatsApp integration</td><td class="cn">✗</td><td class="cn">Rare</td><td class="us">✓ Every module</td></tr>
+          <tr><td>Telugu language UI</td><td class="cn">✗</td><td class="cn">✗</td><td class="us">✓ Full bilingual</td></tr>
+          <tr><td>Arogyasri / PMJAY support</td><td class="cn">N/A</td><td class="cp">Partial</td><td class="us">✓ Built in</td></tr>
+          <tr><td>Multi-branch dashboard</td><td class="cy">✓</td><td class="cp">Enterprise only</td><td class="us">✓ All plans</td></tr>
+          <tr><td>Pharmacy drug inventory</td><td class="cy">✓</td><td class="cy">✓</td><td class="us">✓ + expiry alerts</td></tr>
+          <tr><td>Works in browser — no app</td><td class="cn">✗</td><td class="cn">App required</td><td class="us">✓ Any device</td></tr>
+          <tr><td>UPI payment integration</td><td class="cn">N/A</td><td class="cp">Add-on</td><td class="us">✓ Native</td></tr>
+          <tr><td>Starting price</td><td style="color:#94a3b8;">₹50L+/year</td><td style="color:#94a3b8;">₹30K-2L/year</td><td class="us">₹17,988/year</td></tr>
+          <tr><td>Free trial</td><td class="cn">✗</td><td class="cp">30 days max</td><td class="us">✓ 6 months</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:20px;text-align:center;">
+      <p style="font-size:16px;font-weight:700;color:#1e40af;margin-bottom:6px;">MPower Hospital brings world-class hospital management to every hospital in AP and Telangana</p>
+      <p style="font-size:13px;color:#1d4ed8;">ABHA ready · WhatsApp native · Telugu bilingual · GST billing · Arogyasri support · Starts ₹1,499/month</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 5: ABHA + GOVERNMENT SCHEMES -->
+<section id="s5" class="bg-light">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">05 / 08 · INDIA SPECIFIC</p>
+    <div class="badge-section">🏛️ Government Scheme Integration</div>
+    <h2 class="section-title">No Other Platform Understands<br><span>India's Health Schemes</span></h2>
+    <p class="section-sub">MPower Hospital is the only platform with AP and Telangana government health schemes and National Digital Health Mission compliance built directly into clinical workflow.</p>
+
+    <div class="grid-2" style="margin-bottom:32px;">
+      <div>
+        <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">National Digital Health Mission</p>
+        <div style="display:grid;gap:12px;">
+          <div class="card" style="border-left:4px solid #185FA5;">
+            <div class="card-title">ABHA ID Integration</div>
+            <div class="card-desc">Every patient gets ABHA (Ayushman Bharat Health Account) ID linked at registration. Health records portable across India. Patient visits any hospital — history available instantly. Mandatory compliance for ABDM.</div>
+            <div style="margin-top:8px;font-size:12px;color:#185FA5;font-weight:600;">Mandatory for government empanelment</div>
+          </div>
+          <div class="card" style="border-left:4px solid #1D9E75;">
+            <div class="card-title">Arogyasri / NTR Vaidya Seva</div>
+            <div class="card-desc">Empanelled hospital workflow — beneficiary verification, package selection, pre-authorization tracking, claim submission. Complete cashless admission to discharge in one system.</div>
+          </div>
+          <div class="card" style="border-left:4px solid #8b5cf6;">
+            <div class="card-title">PMJAY / Ayushman Bharat</div>
+            <div class="card-desc">Central health scheme beneficiary identification. Pre-auth workflow, package rates, claim tracking. No separate system needed — integrated into patient admission flow.</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">AP & Telangana Specific</p>
+        <div style="display:grid;gap:12px;">
+          <div class="card" style="border-left:4px solid #f59e0b;">
+            <div class="card-title">Cheyutha Pension — Hospital Interface</div>
+            <div class="card-desc">Identify Cheyutha beneficiaries at registration. Apply concessional rates where applicable. Maintain records for district health office reporting.</div>
+          </div>
+          <div class="card" style="border-left:4px solid #ef4444;">
+            <div class="card-title">NABH Compliance Readiness</div>
+            <div class="card-desc">Audit trail for all clinical entries. Department-wise quality indicators. Incident reporting. Discharge summary format as per NABH standards. Hospitals seeking accreditation start from an advantage.</div>
+          </div>
+          <div class="card" style="border-left:4px solid #06b6d4;">
+            <div class="card-title">Telangana & AP Government Reporting</div>
+            <div class="card-desc">Disease surveillance reports for district health office. Birth and death certificate data. Monthly MIS to DMHO in prescribed format. Zero manual compilation.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;">
+      <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">📊 What this means for your hospital</p>
+      <div class="grid-4">
+        <div style="text-align:center;padding:16px;background:#eff6ff;border-radius:10px;">
+          <div style="font-size:22px;font-weight:800;color:#185FA5;">Zero</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Arogyasri claim rejections due to incomplete records</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#f0fdf4;border-radius:10px;">
+          <div style="font-size:22px;font-weight:800;color:#1D9E75;">100%</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">ABHA compliance from day one</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#fef3c7;border-radius:10px;">
+          <div style="font-size:22px;font-weight:800;color:#92400e;">1 click</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Government MIS reports generated instantly</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#f5f3ff;border-radius:10px;">
+          <div style="font-size:22px;font-weight:800;color:#6d28d9;">NABH</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Accreditation documentation auto-maintained</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 6: PRICING -->
+<section id="s6" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">06 / 08 · PRICING</p>
+    <div class="badge-section">💰 Transparent Pricing</div>
+    <h2 class="section-title">One Price. All Departments.<br><span>No Hidden Costs.</span></h2>
+    <p class="section-sub">No per-patient charges. No per-department add-ons. One monthly fee covers your entire hospital. 6 months free on Basic.</p>
+
+    <div class="grid-4" style="margin-bottom:28px;">
+      <div class="tier">
+        <div class="tier-header" style="background:#185FA5;color:#fff;">
+          <div class="tier-name">Basic</div>
+          <div class="tier-price">₹1,499<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">6 months FREE trial</div>
+        </div>
+        <div class="tier-body">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">Up to 300 OPD/month · 2,000 SMS</div>
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Patient registration + ABHA</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">OPD + prescriptions</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Basic billing</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">WhatsApp notifications</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Basic reports</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier featured">
+        <div style="background:#185FA5;color:#bfdbfe;text-align:center;font-size:10px;font-weight:700;padding:4px;letter-spacing:1px;">MOST POPULAR</div>
+        <div class="tier-header" style="background:#0a3d6b;color:#fff;">
+          <div class="tier-name">Standard</div>
+          <div class="tier-price">₹2,999<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">Up to 1,000 OPD/month</div>
+        </div>
+        <div class="tier-body">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">5,000 SMS/month included</div>
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Everything in Basic</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">IPD + bed management</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Lab reports</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Pharmacy management</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Email support 48hrs</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier">
+        <div class="tier-header" style="background:#1D9E75;color:#fff;">
+          <div class="tier-name">Advanced</div>
+          <div class="tier-price">₹4,999<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">Up to 3,000 OPD/month</div>
+        </div>
+        <div class="tier-body">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">10,000 SMS/month included</div>
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Everything in Standard</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">ABHA full integration</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">GST billing</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Analytics dashboard</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Phone support 24hrs</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier">
+        <div class="tier-header" style="background:#854F0B;color:#fff;">
+          <div class="tier-name">Enterprise</div>
+          <div class="tier-price">₹7,999<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">Unlimited OPD</div>
+        </div>
+        <div class="tier-body">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">25,000 SMS/month included</div>
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Everything in Advanced</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Multi-branch management</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Custom reports</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">24×7 dedicated support</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;">
+      <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">📊 Your ROI — 50-bed hospital on Standard plan</p>
+      <div class="grid-3">
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#185FA5;">8-15%</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Revenue recovered from billing leakage eliminated</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#185FA5;">3 hrs/day</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Staff time saved on manual billing, file searching, bed coordination</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#185FA5;">₹2,999</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Monthly investment — less than one day's OPD revenue</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 7: ROADMAP -->
+<section id="s7" class="bg-light">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">07 / 08 · ROADMAP</p>
+    <div class="badge-section">🚀 What's Coming</div>
+    <h2 class="section-title">We Are Building More.<br><span>Every Month.</span></h2>
+    <p class="section-sub">Inspired by global standards and feedback from Indian hospitals — here is what is coming next in MPower Hospital.</p>
+
+    <div class="grid-3">
+      <div class="improve-card">
+        <div class="improve-tag">⚡ Phase 2 — Month 2</div>
+        <div class="improve-title">OT / Operation Theatre Management</div>
+        <div class="improve-desc">Surgery scheduling, OT availability, surgeon notes, instrument checklist, OT utilization report. Surgical hospitals can manage their most revenue-critical department digitally.</div>
+        <span class="p-high">High Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">📺 Phase 2 — Month 2</div>
+        <div class="improve-title">Patient Token Display System</div>
+        <div class="improve-desc">Token number called on waiting room TV screen. Patient knows their turn without crowding reception. Reduces noise and confusion in OPD area. Standard feature in every modern hospital.</div>
+        <span class="p-high">High Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">📋 Phase 2 — Month 3</div>
+        <div class="improve-title">Discharge Summary</div>
+        <div class="improve-desc">Structured discharge summary — diagnosis, treatment given, medicines, follow-up date. Required for insurance claims, NABH audit, and patient records. WhatsApp delivery to patient.</div>
+        <span class="p-high">High Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">🏦 Phase 3 — Month 4</div>
+        <div class="improve-title">TPA & Insurance Management</div>
+        <div class="improve-desc">Pre-authorisation tracking, claim submission, TPA rate management. Hospitals with cashless patients currently manage this manually. Integration eliminates 2-3 hours of daily admin work.</div>
+        <span class="p-med">Medium Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">📦 Phase 3 — Month 4</div>
+        <div class="improve-title">Inventory & Central Store</div>
+        <div class="improve-desc">Consumables stock, surgical items, ward indent management, purchase orders, stock alerts. Hospitals lose significant revenue to untracked consumables. Central store visibility prevents this.</div>
+        <span class="p-med">Medium Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">🩸 Phase 4 — Month 6</div>
+        <div class="improve-title">Blood Bank Management</div>
+        <div class="improve-desc">Donor registration, blood inventory by group and type, cross-matching records, expiry alerts. Hospitals with blood banks currently manage this manually with serious risk.</div>
+        <span class="p-low">Future</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 8: CTA -->
+<section id="s8" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">08 / 08 · GET STARTED</p>
+    <div class="badge-section">🎯 Start Today</div>
+    <h2 class="section-title">Your Hospital Deserves<br><span>World-Class Tools.</span></h2>
+    <p class="section-sub">6 months free on Basic plan. Setup in one day. Our team helps you migrate from paper to digital — step by step.</p>
+
+    <div class="grid-4" style="margin-bottom:36px;">
+      <div class="metric"><div class="metric-num">1 day</div><div class="metric-label">Setup time from registration to first OPD</div></div>
+      <div class="metric"><div class="metric-num">6 months</div><div class="metric-label">Free trial on Basic — no payment needed</div></div>
+      <div class="metric"><div class="metric-num">₹0</div><div class="metric-label">Setup fee, training fee, hidden charges</div></div>
+      <div class="metric"><div class="metric-num">Telugu</div><div class="metric-label">Full bilingual from day one</div></div>
+    </div>
+
+    <div class="cta">
+      <div style="font-size:13px;color:rgba(255,255,255,0.6);font-weight:600;letter-spacing:2px;margin-bottom:14px;">READY TO GO DIGITAL?</div>
+      <div class="cta-title">Start Your Free 6-Month Trial</div>
+      <div class="cta-sub">No payment. No credit card. No setup fee.<br>Telugu support available. Our team comes to your hospital for setup.</div>
+      <a href="https://mpowerind.in/registration" class="btn-primary">🏥 Start Free Trial →</a>
+      <a href="https://mpowerind.in" class="btn-outline">See Live Demo</a>
+      <div style="margin-top:20px;font-size:12px;color:rgba(255,255,255,0.4);">mpowerind.in · support@mpowerind.in · Telugu support available</div>
+    </div>
+  </div>
+</section>
+
+<script>
+function go(id){document.getElementById(id).scrollIntoView({behavior:'smooth'});document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));event.target.classList.add('active')}
+const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){const id=e.target.id;const idx=['s1','s2','s3','s4','s5','s6','s7','s8'].indexOf(id);document.querySelectorAll('.nav-btn').forEach((b,i)=>b.classList.toggle('active',i===idx))}})},{threshold:0.3});
+document.querySelectorAll('section[id]').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

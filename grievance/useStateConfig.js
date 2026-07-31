@@ -1,48 +1,37 @@
 // grievance/useStateConfig.js
-// Reads state config from cts_states table by slug
-// Cached in memory — no repeated DB calls
-
+// Loads state configuration dynamically from URL slug
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
-const cache = {};
+const STATE_CACHE = {};
 
-export function useStateConfig(stateSlug) {
-  const [config, setConfig] = useState(cache[stateSlug] || null);
-  const [loading, setLoading] = useState(!cache[stateSlug]);
-  const [error, setError] = useState(null);
+export function useStateConfig() {
+  const { stateSlug } = useParams();
+  const slug = stateSlug || 'andhra-pradesh';
+  const [stateConfig, setStateConfig] = useState(STATE_CACHE[slug] || null);
+  const [loading, setLoading] = useState(!STATE_CACHE[slug]);
 
   useEffect(() => {
-    if (!stateSlug) return;
-    if (cache[stateSlug]) {
-      setConfig(cache[stateSlug]);
+    if (STATE_CACHE[slug]) {
+      setStateConfig(STATE_CACHE[slug]);
       setLoading(false);
       return;
     }
 
-    async function load() {
-      setLoading(true);
-      setError(null);
-      const { data, error: err } = await supabase
-        .from('cts_states')
-        .select('*')
-        .eq('state_slug', stateSlug)
-        .eq('is_active', true)
-        .single();
-
-      if (err || !data) {
-        setError('State not found or not active.');
+    supabase
+      .from('cts_states')
+      .select('*')
+      .eq('slug', slug)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          STATE_CACHE[slug] = data;
+          setStateConfig(data);
+        }
         setLoading(false);
-        return;
-      }
+      });
+  }, [slug]);
 
-      cache[stateSlug] = data;
-      setConfig(data);
-      setLoading(false);
-    }
-
-    load();
-  }, [stateSlug]);
-
-  return { config, loading, error };
+  return { stateConfig, loading, slug };
 }

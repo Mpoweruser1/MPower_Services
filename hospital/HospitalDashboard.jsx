@@ -57,6 +57,16 @@ export default function HospitalDashboard() {
     const today      = new Date().toISOString().slice(0, 10);
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 
+    // .in() needs an actual array of ids, not an unresolved query builder —
+    // resolve the two id lists these stats depend on before the parallel
+    // batch below.
+    const [patientIdsRes, wardIdsRes] = await Promise.allSettled([
+      supabase.from('patients').select('id').eq('app_id', tenant.appId),
+      supabase.from('wards').select('id').eq('app_id', tenant.appId),
+    ]);
+    const patientIds = patientIdsRes.status === 'fulfilled' ? (patientIdsRes.value.data || []).map((p) => p.id) : [];
+    const wardIds    = wardIdsRes.status === 'fulfilled'    ? (wardIdsRes.value.data || []).map((w) => w.id)    : [];
+
     const [
       opdRes, revenueRes, pendingRes,
       abhaRes, totalPatientsRes,
@@ -68,26 +78,20 @@ export default function HospitalDashboard() {
       supabase.from('opd_visits')
         .select('id', { count: 'exact', head: true })
         .eq('visit_date', today)
-        .in('patient_id',
-          supabase.from('patients').select('id').eq('app_id', tenant.appId)
-        ),
+        .in('patient_id', patientIds),
 
       // Revenue today
       supabase.from('billing_invoices')
         .select('total_amount')
         .eq('invoice_date', today)
         .eq('payment_status', 'paid')
-        .in('patient_id',
-          supabase.from('patients').select('id').eq('app_id', tenant.appId)
-        ),
+        .in('patient_id', patientIds),
 
       // Pending payments
       supabase.from('billing_invoices')
         .select('id', { count: 'exact', head: true })
         .eq('payment_status', 'pending')
-        .in('patient_id',
-          supabase.from('patients').select('id').eq('app_id', tenant.appId)
-        ),
+        .in('patient_id', patientIds),
 
       // ABHA linked patients
       supabase.from('patients')
@@ -109,17 +113,13 @@ export default function HospitalDashboard() {
       supabase.from('ipd_admissions')
         .select('id', { count: 'exact', head: true })
         .is('discharge_date', null)
-        .in('ward_id',
-          supabase.from('wards').select('id').eq('app_id', tenant.appId)
-        ),
+        .in('ward_id', wardIds),
 
       // Pending lab results
       supabase.from('lab_tests')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'pending')
-        .in('patient_id',
-          supabase.from('patients').select('id').eq('app_id', tenant.appId)
-        ),
+        .in('patient_id', patientIds),
     ]);
 
     const opdCount       = opdRes.status === 'fulfilled'          ? (opdRes.value.count || 0) : 0;

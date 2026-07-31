@@ -1,191 +1,207 @@
-// src/pages/grievance/RequestStaffAccess.jsx
-//
-// Where someone who's already created a normal Supabase Auth account
-// (email/password, elsewhere in your app) requests representative or
-// authority access. Submitting this does NOT grant access by itself —
-// see AdminVerificationQueue.jsx for the approval step. This screen
-// exists so there's a legitimate, auditable on-ramp at all — before
-// migration 11, nobody could even submit a request.
+// grievance/RequestStaffAccess.jsx
+// MLA/MP office requests access to the grievance portal
+import { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 
-import { useState, useEffect } from 'react';
-import { fetchAppIdBySlug, fetchConstituencies, fetchExpectedAuthorities } from './grievanceApi';
-import { submitVerificationRequest, fetchMyVerificationRequest } from './verificationApi';
-
-export default function RequestStaffAccess({ stateSlug }) {
-  const [appId, setAppId] = useState(undefined);
-  const [existingRequest, setExistingRequest] = useState(undefined); // undefined = loading
-  const [requestedRole, setRequestedRole] = useState('representative');
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [constituencies, setConstituencies] = useState([]);
-  const [constituencyId, setConstituencyId] = useState('');
-  const [expectedAuthorities, setExpectedAuthorities] = useState([]);
-  const [authorityTitle, setAuthorityTitle] = useState('');
+export default function RequestStaffAccess() {
+  const { stateSlug } = useParams();
+  const [form, setForm] = useState({
+    officeName: '',
+    constituencyName: '',
+    contactPerson: '',
+    phone: '',
+    email: '',
+    role: 'MLA',
+  });
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchAppIdBySlug(stateSlug).then(setAppId);
-  }, [stateSlug]);
-
-  useEffect(() => {
-    if (!appId) return;
-    fetchMyVerificationRequest().then(setExistingRequest);
-    fetchConstituencies(appId).then((list) => {
-      setConstituencies(list);
-      if (list.length) setConstituencyId(list[0].id);
-    });
-    fetchExpectedAuthorities(appId).then((list) => {
-      setExpectedAuthorities(list);
-      if (list.length) setAuthorityTitle(list[0].authority_title);
-    });
-  }, [appId]);
-
-  const selectedConstituency = constituencies.find((c) => c.id === constituencyId);
-  const selectedAuthority = expectedAuthorities.find((a) => a.authority_title === authorityTitle);
+  function update(field, value) {
+    setForm(prev => ({ ...prev, [field]: value }));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!form.officeName || !form.constituencyName || !form.contactPerson || !form.phone) {
+      setError('Please fill all required fields.');
+      return;
+    }
     setBusy(true);
-    setError(null);
+    setError('');
+
     try {
-      const created = await submitVerificationRequest({
-        appId,
-        requestedRole,
-        fullName,
-        phone,
-        claimedConstituencyId: requestedRole === 'representative' ? constituencyId : null,
-        claimedAuthorityTitle: requestedRole === 'authority' ? authorityTitle : null,
+      const { error: err } = await supabase.from('staff_access_requests').insert({
+        state_slug: stateSlug || 'andhra-pradesh',
+        office_name: form.officeName,
+        constituency_name: form.constituencyName,
+        contact_person: form.contactPerson,
+        phone: form.phone,
+        email: form.email || null,
+        role_requested: form.role,
+        status: 'pending',
       });
-      setExistingRequest(created);
-    } catch (err) {
-      setError(err.message);
+
+      if (err) throw err;
+      setDone(true);
+    } catch (e) {
+      setError('Submission failed. Please try again or contact MPower support.');
     } finally {
       setBusy(false);
     }
   }
 
-  if (appId === undefined) return <CenteredNote>Loading…</CenteredNote>;
-  if (appId === null) {
-    return <CenteredNote>This state isn't set up on this platform yet. Check the link you were given.</CenteredNote>;
-  }
-  if (existingRequest === undefined) return <CenteredNote>Loading…</CenteredNote>;
-
-  if (existingRequest) {
+  if (done) {
     return (
-      <div style={{ maxWidth: 420, margin: '60px auto', padding: 24, textAlign: 'center' }}>
-        <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 8 }}>Request submitted</h2>
-        <StatusPill status={existingRequest.status} />
-        <p style={{ fontSize: 13, color: '#5B6473', marginTop: 14 }}>
-          {existingRequest.status === 'pending' &&
-            "An admin will verify your identity before this is approved — you'll be able to sign in with full access once that's done."}
-          {existingRequest.status === 'approved' && 'Approved — sign out and back in to pick up your new access.'}
-          {existingRequest.status === 'rejected' && "This request wasn't approved. Contact your party's Mpower administrator."}
-        </p>
+      <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 400, width: '100%', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>Request Submitted</div>
+          <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, marginBottom: 20 }}>
+            Thank you. MPower team will verify your details and activate your portal within 1 working day. You will receive a confirmation on WhatsApp at {form.phone}.
+          </div>
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#15803d' }}>
+            Reference: {form.constituencyName} · {new Date().toLocaleDateString('en-IN')}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: '40px auto', padding: 24 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 4 }}>Request representative access</h2>
-      <p style={{ fontSize: 12.5, color: '#5B6473', marginBottom: 18 }}>
-        This doesn't grant access on its own — an admin verifies your identity first.
-      </p>
-      <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
-        <Field label="I am requesting access as">
-          <select value={requestedRole} onChange={(e) => setRequestedRole(e.target.value)} style={inputStyle}>
-            <option value="representative">Representative (MLA / MP / MLC)</option>
-            <option value="authority">Authority (Minister / Dy.CM / CM)</option>
-          </select>
-        </Field>
-        <Field label="Full name">
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)} required style={inputStyle} />
-        </Field>
-        <Field label="Contact number">
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} required style={inputStyle} />
-        </Field>
+    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
 
-        {requestedRole === 'representative' && (
-          <>
-            <Field label="Constituency you represent">
-              <select value={constituencyId} onChange={(e) => setConstituencyId(e.target.value)} style={inputStyle}>
-                {constituencies.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.tier})</option>)}
-              </select>
-            </Field>
-            {selectedConstituency?.rep_name && (
-              <p style={{ fontSize: 12, color: '#5B6473', background: '#F7F6F2', padding: '8px 11px', borderRadius: 6 }}>
-                📋 On record, this seat's expected representative is <strong>{selectedConstituency.rep_name}</strong> — the admin will confirm this matches you.
-              </p>
-            )}
-          </>
-        )}
+      {/* Header */}
+      <div style={{ background: '#1a1a2e', padding: '14px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#e8a020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1a1a2e', fontSize: 15 }}>M</div>
+          <div>
+            <div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>MPower CTS</div>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>MLA / MP Office Registration</div>
+          </div>
+        </div>
+      </div>
 
-        {requestedRole === 'authority' && (
-          <>
-            <Field label="Your title">
-              {expectedAuthorities.length > 0 ? (
-                <select value={authorityTitle} onChange={(e) => setAuthorityTitle(e.target.value)} style={inputStyle}>
-                  {expectedAuthorities.map((a) => (
-                    <option key={a.id} value={a.authority_title}>
-                      {a.authority_title}{a.claimed_by_user_id ? ' (already claimed)' : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  value={authorityTitle}
-                  onChange={(e) => setAuthorityTitle(e.target.value)}
-                  placeholder="e.g. Minister — Rural Development"
-                  required
-                  style={inputStyle}
-                />
-              )}
-            </Field>
-            {selectedAuthority?.expected_name && (
-              <p style={{ fontSize: 12, color: '#5B6473', background: '#F7F6F2', padding: '8px 11px', borderRadius: 6 }}>
-                📋 On record, this position is expected to be <strong>{selectedAuthority.expected_name}</strong> — the admin will confirm this matches you.
-              </p>
-            )}
-            {selectedAuthority?.claimed_by_user_id && (
-              <p style={{ fontSize: 12, color: '#9B3C2E' }}>
-                ⚠️ This position already has an approved holder — your request may need extra review.
-              </p>
-            )}
-          </>
-        )}
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px 40px' }}>
 
-        {error && <p style={{ fontSize: 12, color: '#9B3C2E' }}>{error}</p>}
+        {/* Info box */}
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '14px 16px', marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 }}>🏛️ Register your constituency portal</div>
+          <div style={{ fontSize: 12, color: '#1e40af', lineHeight: 1.6 }}>
+            Fill this form to get your free grievance management portal. MPower team will verify and activate within 1 working day. Setup is completely free.
+          </div>
+        </div>
 
-        <button type="submit" disabled={busy} style={buttonStyle}>
-          {busy ? 'Submitting…' : 'Submit for verification'}
-        </button>
-      </form>
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
+
+          {/* Role */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>I am an *</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {['MLA', 'MP', 'MLC'].map(r => (
+                <button
+                  key={r} type="button"
+                  onClick={() => update('role', r)}
+                  style={{
+                    flex: 1, padding: '10px 8px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                    border: `2px solid ${form.role === r ? '#1a1a2e' : '#e2e8f0'}`,
+                    background: form.role === r ? '#1a1a2e' : '#fff',
+                    color: form.role === r ? '#e8a020' : '#64748b',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >{r}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Office name */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Office / Organisation Name *</label>
+            <input
+              value={form.officeName}
+              onChange={e => update('officeName', e.target.value)}
+              placeholder="e.g. Office of MLA Mandapeta"
+              required
+              style={{ width: '100%', padding: '11px 14px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, color: '#1e293b', background: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+          </div>
+
+          {/* Constituency */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Constituency Name *</label>
+            <input
+              value={form.constituencyName}
+              onChange={e => update('constituencyName', e.target.value)}
+              placeholder="e.g. Mandapeta"
+              required
+              style={{ width: '100%', padding: '11px 14px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, color: '#1e293b', background: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+          </div>
+
+          {/* Contact person */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Contact Person Name *</label>
+            <input
+              value={form.contactPerson}
+              onChange={e => update('contactPerson', e.target.value)}
+              placeholder="Name of MLA/MP or office in-charge"
+              required
+              style={{ width: '100%', padding: '11px 14px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, color: '#1e293b', background: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>WhatsApp Mobile Number *</label>
+            <input
+              value={form.phone}
+              onChange={e => update('phone', e.target.value)}
+              placeholder="+91XXXXXXXXXX"
+              required
+              type="tel"
+              style={{ width: '100%', padding: '11px 14px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, color: '#1e293b', background: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+          </div>
+
+          {/* Email optional */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Email (Optional)</label>
+            <input
+              value={form.email}
+              onChange={e => update('email', e.target.value)}
+              placeholder="office@example.com"
+              type="email"
+              style={{ width: '100%', padding: '11px 14px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, color: '#1e293b', background: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', color: '#dc2626', fontSize: 13 }}>{error}</div>
+          )}
+
+          <button
+            type="submit"
+            disabled={busy}
+            style={{
+              width: '100%', padding: '13px 16px',
+              background: busy ? '#94a3b8' : '#1a1a2e',
+              color: busy ? '#fff' : '#e8a020',
+              border: 'none', borderRadius: 10,
+              fontSize: 15, fontWeight: 700,
+              cursor: busy ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            {busy ? 'Submitting...' : '🏛️ Submit Registration Request'}
+          </button>
+
+          <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', lineHeight: 1.6 }}>
+            Setup is completely free · mpowerind.in · support@mpowerind.in
+          </div>
+
+        </form>
+      </div>
     </div>
   );
 }
-
-function CenteredNote({ children }) {
-  return <div style={{ padding: 40, textAlign: 'center', color: '#5B6473', fontSize: 14 }}>{children}</div>;
-}
-
-function StatusPill({ status }) {
-  const colors = { pending: '#5B6473', approved: '#3E5C45', rejected: '#9B3C2E' };
-  return (
-    <span style={{ fontSize: 12, fontWeight: 700, color: colors[status], border: `1px solid ${colors[status]}`, borderRadius: 20, padding: '4px 12px' }}>
-      {status.toUpperCase()}
-    </span>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <label style={{ display: 'grid', gap: 5 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: '#5B6473' }}>{label}</span>
-      {children}
-    </label>
-  );
-}
-
-const inputStyle = { border: '1px solid #D9D5C8', borderRadius: 6, padding: '9px 11px', fontSize: 13.5, width: '100%' };
-const buttonStyle = { background: '#15213A', color: '#fff', border: 'none', borderRadius: 7, padding: '11px 16px', fontSize: 14, fontWeight: 600 };

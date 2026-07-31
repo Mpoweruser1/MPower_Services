@@ -184,6 +184,8 @@ export default function ManageClasses() {
       return;
     }
 
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+
     await supabase.from('classes').delete().eq('id', id);
     loadClasses();
   }

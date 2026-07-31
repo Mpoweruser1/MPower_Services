@@ -51,12 +51,13 @@ export async function fetchAppSettings(appId) {
   };
 }
 
-export async function fetchConstituencies(appId) {
-  const { data, error } = await supabase
+export async function fetchConstituencies(appId, tier) {
+  let query = supabase
     .from('constituencies')
     .select('id, name, tier, rep_name, branch_id')
-    .eq('app_id', appId)
-    .order('name');
+    .eq('app_id', appId);
+  if (tier) query = query.eq('tier', tier);
+  const { data, error } = await query.order('name');
   if (error) throw error;
   return data;
 }
@@ -64,9 +65,41 @@ export async function fetchConstituencies(appId) {
 export async function fetchMandals(constituencyId) {
   const { data, error } = await supabase
     .from('mandals')
-    .select('id, name')
+    .select('id, name, user_suggested')
     .eq('constituency_id', constituencyId)
     .order('name');
+  if (error) throw error;
+  return data;
+}
+
+// Adds a mandal a citizen typed but didn't find in the list. Checks for a
+// case-insensitive duplicate first (two citizens typing "Pedana" and
+// "pedana" should land on the same row, not create two). Anything created
+// this way is flagged user_suggested — not authoritative LGD data, just
+// enough for the citizen to keep filing their complaint right away.
+export async function createMandal({ constituencyId, name, suggestedBy }) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) throw new Error('Mandal name is required');
+
+  const { data: existing, error: lookupError } = await supabase
+    .from('mandals')
+    .select('id, name, user_suggested')
+    .eq('constituency_id', constituencyId)
+    .ilike('name', trimmed)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from('mandals')
+    .insert({
+      constituency_id: constituencyId,
+      name: trimmed,
+      user_suggested: true,
+      suggested_by: suggestedBy || null,
+    })
+    .select('id, name, user_suggested')
+    .single();
   if (error) throw error;
   return data;
 }
@@ -74,9 +107,37 @@ export async function fetchMandals(constituencyId) {
 export async function fetchVillages(mandalId) {
   const { data, error } = await supabase
     .from('villages')
-    .select('id, name')
+    .select('id, name, user_suggested')
     .eq('mandal_id', mandalId)
     .order('name');
+  if (error) throw error;
+  return data;
+}
+
+// Same pattern as createMandal, scoped to a village within its mandal.
+export async function createVillage({ mandalId, name, suggestedBy }) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) throw new Error('Village name is required');
+
+  const { data: existing, error: lookupError } = await supabase
+    .from('villages')
+    .select('id, name, user_suggested')
+    .eq('mandal_id', mandalId)
+    .ilike('name', trimmed)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from('villages')
+    .insert({
+      mandal_id: mandalId,
+      name: trimmed,
+      user_suggested: true,
+      suggested_by: suggestedBy || null,
+    })
+    .select('id, name, user_suggested')
+    .single();
   if (error) throw error;
   return data;
 }
@@ -471,7 +532,6 @@ export async function logReportView({ appId, reportTemplateId, generatedByUserId
     // intentionally swallowed — see comment above
   }
 }
-
 /* ---------------------------------------------------------------------
  * Platform feedback (about the app itself, not a specific complaint)
  * ------------------------------------------------------------------- */

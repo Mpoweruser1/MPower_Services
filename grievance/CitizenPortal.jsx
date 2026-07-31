@@ -9,13 +9,14 @@
 // deployment this is fixed per state instance (e.g. by subdomain/config),
 // not something a citizen picks from a dropdown.
 
-import GrievanceNav from './GrievanceNav';
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { useCitizenAuth } from './useCitizenAuth';
 import { useGrievanceTranslations } from './useGrievanceTranslations';
 import EvidenceGallery from './EvidenceGallery';
 import {
   fetchAppIdBySlug, fetchAppSettings, fetchConstituencies, fetchMandals, fetchVillages, fetchSachivalayams,
+  createMandal, createVillage,
   fetchCategories, fetchCategoryTranslations, fetchSubissueTranslations, fetchCategoryDocuments,
   submitComplaint, fetchMyComplaints, fetchComplaintHistory, uploadEvidence, submitFeedback,
 } from './grievanceApi';
@@ -55,9 +56,9 @@ export const CATEGORY_EMOJI = {
 };
 
 export const STAGE_META = {
-  Submitted: { color: '#5B6473', bg: '#5B647320', emoji: '📥' },
-  Acknowledged: { color: '#15213A', bg: '#15213A20', emoji: '👀' },
-  'In Progress': { color: '#15213A', bg: '#15213A20', emoji: '⏳' },
+  Submitted: { color: '#64748b', bg: '#64748b20', emoji: '📥' },
+  Acknowledged: { color: '#1a1a2e', bg: '#1a1a2e20', emoji: '👀' },
+  'In Progress': { color: '#1a1a2e', bg: '#1a1a2e20', emoji: '⏳' },
   Escalated: { color: '#9B3C2E', bg: '#9B3C2E20', emoji: '⬆️' },
   Sanctioned: { color: '#A8762C', bg: '#A8762C20', emoji: '💰' },
   Resolved: { color: '#3E5C45', bg: '#3E5C4520', emoji: '✅' },
@@ -100,13 +101,46 @@ export default function CitizenPortal({ stateSlug }) {
     return <CenteredNote>This state isn't set up on this platform yet. Check the link you were given, or contact your local office.</CenteredNote>;
   }
   if (!appSettings) return <CenteredNote>Loading…</CenteredNote>;
-  if (!auth.isAuthenticated) return <PhoneLogin auth={auth} />;
-  if (auth.needsProfile) return <ProfileRegistration appId={appId} appSettings={appSettings} auth={auth} t={t} />;
-  return <ComplaintWorkspace appId={appId} appSettings={appSettings} citizen={auth.citizen} language={language} t={t} onSignOut={auth.signOut} />;
+
+  return (
+    <>
+      <CitizenTopBar stateSlug={stateSlug} />
+      {!auth.isAuthenticated ? (
+        <PhoneLogin auth={auth} />
+      ) : auth.needsProfile ? (
+        <ProfileRegistration appId={appId} appSettings={appSettings} auth={auth} t={t} />
+      ) : (
+        <ComplaintWorkspace appId={appId} appSettings={appSettings} citizen={auth.citizen} language={language} t={t} onSignOut={auth.signOut} />
+      )}
+    </>
+  );
+}
+
+// Shown on every citizen screen — login, profile setup, and the complaint
+// workspace alike — so there's always a way back to the module's home
+// page and somewhere to get help. Uses CtsLanding's own navy/gold
+// branding so the transition from the landing page doesn't feel like a
+// different app.
+function CitizenTopBar({ stateSlug }) {
+  const navigate = useNavigate();
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', background: '#1a1a2e' }}>
+      <div
+        onClick={() => navigate(`/grievance/${stateSlug}?switch=1`)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+      >
+        <div style={{ width: 26, height: 26, borderRadius: 6, background: '#e8a020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1a1a2e', fontSize: 13 }}>M</div>
+        <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>MPower CTS · Home</span>
+      </div>
+      <a href="tel:1800-XXX-XXXX" style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, textDecoration: 'none' }}>
+        Need help? Call 1800-XXX-XXXX
+      </a>
+    </div>
+  );
 }
 
 function CenteredNote({ children }) {
-  return <div style={{ padding: 40, textAlign: 'center', color: '#5B6473', fontSize: 14 }}>{children}</div>;
+  return <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 14 }}>{children}</div>;
 }
 
 /* ---------------------------------------------------------------------
@@ -151,7 +185,7 @@ function PhoneLogin({ auth }) {
         </form>
       ) : (
         <form onSubmit={handleVerify} style={{ display: 'grid', gap: 12 }}>
-          <p style={{ fontSize: 13, color: '#5B6473' }}>Enter the code sent to {phone}</p>
+          <p style={{ fontSize: 13, color: '#64748b' }}>Enter the code sent to {phone}</p>
           <input
             value={code}
             onChange={(e) => setCode(e.target.value)}
@@ -204,7 +238,7 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
   return (
     <div style={{ maxWidth: 480, margin: '40px auto', padding: 24 }}>
       <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>{t('section1_title', 'Complainant Details')}</h2>
-      <p style={{ fontSize: 12.5, color: '#5B6473', marginBottom: 18 }}>One-time — used for every complaint you file.</p>
+      <p style={{ fontSize: 12.5, color: '#64748b', marginBottom: 18 }}>One-time — used for every complaint you file.</p>
       <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 13 }}>
         <Field label={t('field_name', 'Name')}>
           <input value={fullName} onChange={(e) => setFullName(e.target.value)} required style={inputStyle} />
@@ -221,7 +255,7 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
         <Field label={t('field_membership_id', 'Membership Number (Optional)')}>
           <input value={membershipId} onChange={(e) => setMembershipId(e.target.value)} style={inputStyle} />
         </Field>
-        <GeographyFields geo={geo} appSettings={appSettings} />
+        <GeographyFields geo={geo} appSettings={appSettings} suggestedBy={auth?.citizen?.id} />
         <button type="submit" disabled={busy || !geo.ready} style={buttonStyle}>
           {busy ? 'Saving…' : 'Continue'}
         </button>
@@ -253,10 +287,10 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t, onSignOu
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={{ fontSize: 18, fontWeight: 600 }}>{citizen?.full_name || 'Welcome'}</h1>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: '#15213A', background: 'none', border: 'none', fontWeight: 600 }}>
+          <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: '#1a1a2e', background: 'none', border: 'none', fontWeight: 600 }}>
             💬 Feedback
           </button>
-          <button onClick={onSignOut} style={{ fontSize: 12, color: '#5B6473', background: 'none', border: 'none' }}>
+          <button onClick={onSignOut} style={{ fontSize: 12, color: '#64748b', background: 'none', border: 'none' }}>
             Sign out
           </button>
         </div>
@@ -288,11 +322,11 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t, onSignOu
           <button
             key={c.id}
             onClick={() => setActiveComplaint(c)}
-            style={{ textAlign: 'left', padding: 14, border: '1px solid #D9D5C8', borderRadius: 8, background: '#fff', display: 'flex', gap: 12, alignItems: 'center' }}
+            style={{ textAlign: 'left', padding: 14, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', display: 'flex', gap: 12, alignItems: 'center' }}
           >
             <span style={{ fontSize: 26, flexShrink: 0 }}>{CATEGORY_EMOJI[c.category] || '📄'}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, color: '#8B9099', fontFamily: 'monospace' }}>{c.case_no}</div>
+              <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>{c.case_no}</div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{c.title}</div>
               <div style={{ marginTop: 6 }}><StageBadge stage={c.stage} /></div>
             </div>
@@ -342,13 +376,13 @@ export function FeedbackWidget({ appId, citizenId, userId, context, onClose }) {
         {done ? (
           <>
             <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>🙏 Thank you</p>
-            <p style={{ fontSize: 13, color: '#5B6473', marginBottom: 16 }}>Your feedback helps improve this system for everyone.</p>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>Your feedback helps improve this system for everyone.</p>
             <button onClick={onClose} style={buttonStyle}>Close</button>
           </>
         ) : (
           <>
             <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>💬 How is this app working for you?</p>
-            <p style={{ fontSize: 12.5, color: '#5B6473', marginBottom: 14 }}>This is feedback about the app itself — not a complaint.</p>
+            <p style={{ fontSize: 12.5, color: '#64748b', marginBottom: 14 }}>This is feedback about the app itself — not a complaint.</p>
             <div style={{ display: 'flex', gap: 6, marginBottom: 14, justifyContent: 'center' }}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <button
@@ -373,7 +407,7 @@ export function FeedbackWidget({ appId, citizenId, userId, context, onClose }) {
               <button onClick={handleSubmit} disabled={busy} style={{ ...buttonStyle, flex: 1 }}>
                 {busy ? 'Sending…' : 'Send feedback'}
               </button>
-              <button onClick={onClose} style={{ flex: 1, background: 'none', border: '1px solid #D9D5C8', borderRadius: 7, fontSize: 14, fontWeight: 600, color: '#5B6473' }}>
+              <button onClick={onClose} style={{ flex: 1, background: 'none', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 14, fontWeight: 600, color: '#64748b' }}>
                 Cancel
               </button>
             </div>
@@ -515,7 +549,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onSubmitted }
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 16, border: '1px solid #D9D5C8', borderRadius: 10, padding: 20, marginBottom: 24 }}>
+    <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 16, border: '1px solid #e2e8f0', borderRadius: 10, padding: 20, marginBottom: 24 }}>
       <Field label="Subject">
         <div style={{ display: 'flex', gap: 6 }}>
           <input value={title} onChange={(e) => setTitle(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
@@ -578,9 +612,9 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onSubmitted }
               onClick={() => setPriority(p)}
               style={{
                 flex: 1, padding: '10px', borderRadius: 8, fontWeight: 700, fontSize: 13,
-                border: `2px solid ${priority === p ? (p === 'Urgent' ? '#9B3C2E' : '#15213A') : '#D9D5C8'}`,
-                background: priority === p ? (p === 'Urgent' ? '#9B3C2E15' : '#15213A15') : '#fff',
-                color: priority === p ? (p === 'Urgent' ? '#9B3C2E' : '#15213A') : '#5B6473',
+                border: `2px solid ${priority === p ? (p === 'Urgent' ? '#9B3C2E' : '#1a1a2e') : '#e2e8f0'}`,
+                background: priority === p ? (p === 'Urgent' ? '#9B3C2E15' : '#1a1a2e15') : '#fff',
+                color: priority === p ? (p === 'Urgent' ? '#9B3C2E' : '#1a1a2e') : '#64748b',
               }}
             >
               {p === 'Urgent' ? '🚨 Urgent' : '📅 Normal'}
@@ -604,8 +638,8 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onSubmitted }
       <Field label="📷 Evidence — Photo or Video (Optional)">
         <label style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          fontSize: 12.5, fontWeight: 600, padding: '9px 12px', border: '1px dashed #B9B4A3',
-          borderRadius: 6, cursor: 'pointer', color: '#15213A',
+          fontSize: 12.5, fontWeight: 600, padding: '9px 12px', border: '1px dashed #cbd5e1',
+          borderRadius: 6, cursor: 'pointer', color: '#1a1a2e',
         }}>
           + Add photo or video
           <input type="file" accept="image/*,video/*" onChange={handleFileStaged} style={{ display: 'none' }} />
@@ -613,7 +647,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onSubmitted }
         {stagedFiles.length > 0 && (
           <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
             {stagedFiles.map((f, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, background: '#F7F6F2', padding: '6px 10px', borderRadius: 6 }}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, background: '#f8fafc', padding: '6px 10px', borderRadius: 6 }}>
                 <span>{f.type.startsWith('video') ? '🎥' : '🖼️'} {f.name}</span>
                 <button type="button" onClick={() => removeStagedFile(i)} style={{ border: 'none', background: 'none', color: '#9B3C2E', fontWeight: 700 }}>✕</button>
               </div>
@@ -622,7 +656,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onSubmitted }
         )}
       </Field>
 
-      {uploadStatus && <p style={{ fontSize: 12, color: '#5B6473' }}>{uploadStatus}</p>}
+      {uploadStatus && <p style={{ fontSize: 12, color: '#64748b' }}>{uploadStatus}</p>}
       {error && <p style={{ color: '#9B3C2E', fontSize: 12.5 }}>{error}</p>}
 
       <button type="submit" disabled={busy} style={buttonStyle}>
@@ -639,8 +673,8 @@ function MicButton({ onClick }) {
       onClick={onClick}
       title="Speak instead of typing"
       style={{
-        flexShrink: 0, width: 42, border: '1px solid #D9D5C8', borderRadius: 6,
-        background: '#F7F6F2', fontSize: 18, cursor: 'pointer',
+        flexShrink: 0, width: 42, border: '1px solid #e2e8f0', borderRadius: 6,
+        background: '#f8fafc', fontSize: 18, cursor: 'pointer',
       }}
     >
       🎤
@@ -659,7 +693,7 @@ function ComplaintDetail({ complaint, citizenId, onClose }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end' }} onClick={onClose}>
       <div style={{ width: 380, background: '#fff', height: '100%', padding: 20, overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} style={{ float: 'right', border: 'none', background: 'none' }}>✕</button>
-        <div style={{ fontSize: 11, color: '#8B9099', fontFamily: 'monospace' }}>{complaint.case_no}</div>
+        <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>{complaint.case_no}</div>
         <h3 style={{ fontSize: 16, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 22 }}>{CATEGORY_EMOJI[complaint.category] || '📄'}</span>{complaint.title}
         </h3>
@@ -671,22 +705,22 @@ function ComplaintDetail({ complaint, citizenId, onClose }) {
   onClick={() => window.open(`/grievance/print?case=${complaint.case_no}`, '_blank')}
   style={{
     width: '100%', padding: '10px 14px', marginBottom: 12,
-    background: '#fff', border: '1px solid #D9D5C8', borderRadius: 8,
-    fontSize: 13, fontWeight: 600, color: '#15213A', cursor: 'pointer',
+    background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+    fontSize: 13, fontWeight: 600, color: '#1a1a2e', cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
   }}
 >
   🖨️ Print Representation Letter
 </button>
 
-        <p style={{ fontSize: 13, color: '#3A4250', margin: '10px 0' }}>{complaint.description}</p>
+        <p style={{ fontSize: 13, color: '#374151', margin: '10px 0' }}>{complaint.description}</p>
         <h4 style={{ fontSize: 13, fontWeight: 600, marginTop: 20 }}>History</h4>
         {/* Only 'public' visibility rows ever reach this list — RLS enforces
             that server-side, this component doesn't filter anything itself. */}
         {history.map((h) => (
-          <div key={h.id} style={{ padding: '8px 0', borderBottom: '1px solid #EFEDE6' }}>
+          <div key={h.id} style={{ padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{h.stage}</div>
-            <div style={{ fontSize: 11, color: '#8B9099' }}>{h.by_name} · {new Date(h.created_at).toLocaleString()}</div>
+            <div style={{ fontSize: 11, color: '#94a3b8' }}>{h.by_name} · {new Date(h.created_at).toLocaleString()}</div>
             {h.note && <div style={{ fontSize: 12.5, marginTop: 3 }}>{h.note}</div>}
           </div>
         ))}
@@ -709,9 +743,12 @@ function useGeographyPicker(appId, appSettings) {
   const [mandalId, setMandalId] = useState('');
   const [villageId, setVillageId] = useState('');
   const [sachivalayamId, setSachivalayamId] = useState('');
+  const [addingMandal, setAddingMandal] = useState(false);
+  const [addingVillage, setAddingVillage] = useState(false);
+  const [addError, setAddError] = useState('');
 
   useEffect(() => {
-    fetchConstituencies(appId).then((list) => {
+    fetchConstituencies(appId, 'MLA').then((list) => {
       setConstituencies(list);
       if (list.length) setConstituencyId(list[0].id);
     });
@@ -745,17 +782,54 @@ function useGeographyPicker(appId, appSettings) {
     });
   }, [villageId, appSettings]);
 
+  // A citizen's mandal/village genuinely isn't in the list yet — add it,
+  // select it immediately (they aren't blocked mid-form waiting on
+  // approval), and mark it user_suggested so staff reviewing complaints
+  // later can tell it wasn't from the official LGD list.
+  async function addMandal(name, suggestedBy) {
+    setAddError('');
+    setAddingMandal(true);
+    try {
+      const created = await createMandal({ constituencyId, name, suggestedBy });
+      setMandals((prev) => (prev.some((m) => m.id === created.id) ? prev : [...prev, created]));
+      setMandalId(created.id);
+      return created;
+    } catch (err) {
+      setAddError(err.message || 'Could not add that mandal. Please try again.');
+      return null;
+    } finally {
+      setAddingMandal(false);
+    }
+  }
+
+  async function addVillage(name, suggestedBy) {
+    setAddError('');
+    setAddingVillage(true);
+    try {
+      const created = await createVillage({ mandalId, name, suggestedBy });
+      setVillages((prev) => (prev.some((v) => v.id === created.id) ? prev : [...prev, created]));
+      setVillageId(created.id);
+      return created;
+    } catch (err) {
+      setAddError(err.message || 'Could not add that village. Please try again.');
+      return null;
+    } finally {
+      setAddingVillage(false);
+    }
+  }
+
   return {
     constituencies, mandals, villages, sachivalayams,
     constituencyId, setConstituencyId,
     mandalId, setMandalId,
     villageId, setVillageId,
     sachivalayamId, setSachivalayamId,
+    addMandal, addVillage, addingMandal, addingVillage, addError,
     ready: !!constituencyId && !!mandalId,
   };
 }
 
-function GeographyFields({ geo, appSettings }) {
+function GeographyFields({ geo, appSettings, suggestedBy }) {
   return (
     <>
       <Field label="Constituency">
@@ -764,15 +838,28 @@ function GeographyFields({ geo, appSettings }) {
         </select>
       </Field>
       <Field label="Mandal">
-        <select value={geo.mandalId} onChange={(e) => geo.setMandalId(e.target.value)} style={inputStyle}>
-          {geo.mandals.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
+        <EditableCombobox
+          value={geo.mandalId}
+          options={geo.mandals}
+          onSelect={geo.setMandalId}
+          onCreate={(name) => geo.addMandal(name, suggestedBy)}
+          placeholder="Type your mandal name"
+          creating={geo.addingMandal}
+        />
       </Field>
       <Field label="Village">
-        <select value={geo.villageId} onChange={(e) => geo.setVillageId(e.target.value)} style={inputStyle}>
-          {geo.villages.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-        </select>
+        <EditableCombobox
+          value={geo.villageId}
+          options={geo.villages}
+          onSelect={geo.setVillageId}
+          onCreate={(name) => geo.addVillage(name, suggestedBy)}
+          placeholder="Type your village name"
+          creating={geo.addingVillage}
+        />
       </Field>
+      {geo.addError && (
+        <p style={{ fontSize: 12, color: '#9B3C2E', margin: '-8px 0 4px' }}>{geo.addError}</p>
+      )}
       {appSettings?.has_sachivalayam && geo.sachivalayams.length > 0 && (
         <Field label="Sachivalayam">
           <select value={geo.sachivalayamId} onChange={(e) => geo.setSachivalayamId(e.target.value)} style={inputStyle}>
@@ -784,17 +871,78 @@ function GeographyFields({ geo, appSettings }) {
   );
 }
 
+// Single input that both filters the existing list as you type and, when
+// nothing matches, offers to add the typed name as a new entry — same
+// interaction as GOV.UK's / USWDS's combo box component, adapted for a
+// dependent list (village options depend on which mandal is selected).
+function EditableCombobox({ value, options, onSelect, onCreate, placeholder, creating }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.id === value);
+
+  useEffect(() => { setQuery(''); }, [value]);
+
+  const trimmedQuery = query.trim();
+  const filtered = trimmedQuery
+    ? options.filter((o) => o.name.toLowerCase().includes(trimmedQuery.toLowerCase()))
+    : options;
+  const hasExactMatch = options.some((o) => o.name.toLowerCase() === trimmedQuery.toLowerCase());
+
+  async function handleCreate() {
+    if (!trimmedQuery || creating) return;
+    await onCreate(trimmedQuery);
+    setOpen(false);
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        value={open ? query : (selected?.name || '')}
+        onFocus={() => { setOpen(true); setQuery(''); }}
+        onChange={(e) => setQuery(e.target.value)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder}
+        style={inputStyle}
+      />
+      {open && (
+        <div style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, marginTop: 4, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+          {filtered.map((o) => (
+            <div
+              key={o.id}
+              onMouseDown={() => { onSelect(o.id); setOpen(false); }}
+              style={{ padding: '8px 11px', cursor: 'pointer', fontSize: 13.5 }}
+            >
+              {o.name}{o.user_suggested ? ' *' : ''}
+            </div>
+          ))}
+          {trimmedQuery && !hasExactMatch && (
+            <div
+              onMouseDown={handleCreate}
+              style={{ padding: '8px 11px', cursor: creating ? 'default' : 'pointer', fontSize: 13.5, color: '#1a1a2e', fontWeight: 600, borderTop: filtered.length ? '1px solid #e2e8f0' : 'none' }}
+            >
+              {creating ? 'Adding…' : `+ Add "${trimmedQuery}" as new`}
+            </div>
+          )}
+          {filtered.length === 0 && !trimmedQuery && (
+            <div style={{ padding: '8px 11px', fontSize: 12, color: '#94a3b8' }}>Type to search or add one</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Field({ label, children }) {
   return (
     <label style={{ display: 'grid', gap: 5 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: '#5B6473' }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>{label}</span>
       {children}
     </label>
   );
 }
 
 const inputStyle = {
-  border: '1px solid #D9D5C8',
+  border: '1px solid #e2e8f0',
   borderRadius: 6,
   padding: '9px 11px',
   fontSize: 13.5,
@@ -802,8 +950,8 @@ const inputStyle = {
 };
 
 const buttonStyle = {
-  background: '#15213A',
-  color: '#fff',
+  background: '#1a1a2e',
+  color: '#e8a020',
   border: 'none',
   borderRadius: 7,
   padding: '11px 16px',

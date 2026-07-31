@@ -1,137 +1,155 @@
-// src/components/grievance/EvidenceGallery.jsx
-//
-// Photo/video evidence for a complaint — thumbnails + upload. Used from
-// both CitizenPortal (citizen adding evidence to their own complaint,
-// any time during its lifecycle) and StaffDashboard (staff adding
-// evidence gathered on a site visit). Which one is uploading is decided
-// entirely by which prop is passed — uploaderCitizenId or uploaderUserId,
-// never both.
+// grievance/EvidenceGallery.jsx
+// Photo evidence upload and display for complaints
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
-import { useState, useEffect, useCallback } from 'react';
-import { fetchEvidence, uploadEvidence, getEvidenceUrl } from './grievanceApi';
-
-const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25MB — matches the backstop noted in the storage migration
-
-export default function EvidenceGallery({ complaintId, uploaderCitizenId, uploaderUserId, canUpload = true }) {
-  const [attachments, setAttachments] = useState([]);
-  const [urls, setUrls] = useState({});
-  const [caption, setCaption] = useState('');
+export default function EvidenceGallery({ complaintId, uploaderUserId, canUpload = false }) {
+  const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
-
-  const load = useCallback(async () => {
-    const items = await fetchEvidence(complaintId);
-    setAttachments(items);
-    const entries = await Promise.all(
-      items.map(async (a) => [a.id, await getEvidenceUrl(a.storage_path)])
-    );
-    setUrls(Object.fromEntries(entries));
-  }, [complaintId]);
+  const [preview, setPreview] = useState(null);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (complaintId) loadPhotos();
+  }, [complaintId]);
 
-  async function handleFileChange(e) {
+  async function loadPhotos() {
+    const { data } = await supabase
+      .from('complaint_evidence')
+      .select('id, file_url, uploaded_at, uploaded_by')
+      .eq('complaint_id', complaintId)
+      .order('uploaded_at', { ascending: false });
+
+    if (data) setPhotos(data);
+  }
+
+  async function handleUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > MAX_FILE_BYTES) {
-      setError('File too large — 25MB maximum.');
-      e.target.value = '';
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) {
+      setError('Only image files allowed.');
       return;
     }
-    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-      setError('Only photos and videos are allowed.');
-      e.target.value = '';
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be under 5MB.');
       return;
     }
 
-    setError(null);
     setUploading(true);
+    setError(null);
+
     try {
-      await uploadEvidence({
-        complaintId,
-        file,
-        uploadedByCitizenId: uploaderCitizenId || null,
-        uploadedByUserId: uploaderUserId || null,
-        caption: caption.trim() || null,
-      });
-      setCaption('');
-      await load();
+      const ext = file.name.split('.').pop();
+      const path = `evidence/${complaintId}/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('complaint-evidence')
+        .upload(path, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('complaint-evidence')
+        .getPublicUrl(path);
+
+      const { error: dbError } = await supabase
+        .from('complaint_evidence')
+        .insert({
+          complaint_id: complaintId,
+          file_url: urlData.publicUrl,
+          file_path: path,
+          uploaded_by: uploaderUserId,
+        });
+
+      if (dbError) throw dbError;
+
+      loadPhotos();
     } catch (err) {
-      setError(err.message);
+      setError('Upload failed. Please try again.');
     } finally {
       setUploading(false);
-      e.target.value = '';
     }
   }
 
+  if (photos.length === 0 && !canUpload) return null;
+
   return (
     <div style={{ marginTop: 16 }}>
-      <p style={{ fontSize: 12.5, fontWeight: 600, color: '#5B6473', marginBottom: 8 }}>
-        Evidence ({attachments.length})
-      </p>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 10 }}>
+        📷 Evidence Photos {photos.length > 0 && `(${photos.length})`}
+      </div>
 
-      {attachments.length === 0 && !canUpload && (
-        <p style={{ fontSize: 12, color: '#8B9099' }}>No evidence attached.</p>
-      )}
-
-      {attachments.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 8, marginBottom: 12 }}>
-          {attachments.map((a) => (
-            <a
-              key={a.id}
-              href={urls[a.id]}
-              target="_blank"
-              rel="noreferrer"
-              style={{ display: 'block', border: '1px solid #D9D5C8', borderRadius: 6, overflow: 'hidden', textDecoration: 'none' }}
+      {/* Photo grid */}
+      {photos.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+          {photos.map(p => (
+            <div
+              key={p.id}
+              onClick={() => setPreview(p.file_url)}
+              style={{ cursor: 'pointer', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', background: '#f1f5f9' }}
             >
-              {a.file_type === 'photo' ? (
-                <img
-                  src={urls[a.id]}
-                  alt={a.caption || 'evidence'}
-                  style={{ width: '100%', height: 70, objectFit: 'cover', display: 'block', background: '#EFEDE6' }}
-                />
-              ) : (
-                <div style={{ width: '100%', height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#15213A', color: '#fff', fontSize: 11, fontWeight: 600 }}>
-                  ▶ Video
-                </div>
-              )}
-              {a.caption && (
-                <div style={{ fontSize: 10, color: '#5B6473', padding: '3px 5px', lineHeight: 1.3 }}>{a.caption}</div>
-              )}
-            </a>
+              <img
+                src={p.file_url}
+                alt="Evidence"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={e => { e.target.style.display = 'none'; }}
+              />
+            </div>
           ))}
         </div>
       )}
 
+      {/* Upload button */}
       {canUpload && (
-        <div style={{ display: 'grid', gap: 6 }}>
-          <input
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            placeholder="Caption (optional)"
-            style={{ fontSize: 12.5, padding: '7px 9px', border: '1px solid #D9D5C8', borderRadius: 6 }}
-          />
-          <label
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              fontSize: 12.5, fontWeight: 600, padding: '9px 12px', border: '1px dashed #B9B4A3',
-              borderRadius: 6, cursor: uploading ? 'default' : 'pointer', color: '#15213A',
-              opacity: uploading ? 0.6 : 1,
-            }}
-          >
-            {uploading ? 'Uploading…' : '+ Add photo or video'}
+        <div>
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 14px', borderRadius: 8,
+            border: '2px dashed #e2e8f0', cursor: 'pointer',
+            color: '#64748b', fontSize: 13,
+            background: uploading ? '#f8fafc' : '#fff',
+          }}>
+            <span>{uploading ? '⏳ Uploading...' : '📎 Add photo evidence'}</span>
             <input
               type="file"
-              accept="image/*,video/*"
-              onChange={handleFileChange}
+              accept="image/*"
+              onChange={handleUpload}
               disabled={uploading}
               style={{ display: 'none' }}
             />
           </label>
-          {error && <p style={{ fontSize: 11.5, color: '#9B3C2E' }}>{error}</p>}
+          {error && (
+            <div style={{ fontSize: 12, color: '#dc2626', marginTop: 6 }}>{error}</div>
+          )}
+        </div>
+      )}
+
+      {/* Full screen preview */}
+      {preview && (
+        <div
+          onClick={() => setPreview(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: 20,
+          }}
+        >
+          <img
+            src={preview}
+            alt="Evidence preview"
+            style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8, objectFit: 'contain' }}
+          />
+          <button
+            onClick={() => setPreview(null)}
+            style={{
+              position: 'absolute', top: 20, right: 20,
+              background: 'rgba(255,255,255,0.2)', border: 'none',
+              color: '#fff', width: 36, height: 36, borderRadius: '50%',
+              fontSize: 18, cursor: 'pointer',
+            }}
+          >✕</button>
         </div>
       )}
     </div>
