@@ -33,6 +33,7 @@ import ActivitiesCoaching from './school/ActivitiesCoaching';
 import StudentAdmission from './school/StudentAdmission';
 import ManageClasses from './school/ManageClasses';
 import { ReportEngine, IdCardPrinter, UniversalSearch } from './school/ReportsSearchIdCards';
+import StudentDetail from './school/StudentDetail';
 
 // Hospital
 import HospitalDashboard from './hospital/HospitalDashboard';
@@ -41,6 +42,7 @@ import OpdVisit from './hospital/OpdVisit';
 import LabReports from './hospital/LabReports';
 import HospitalBilling from './hospital/HospitalBilling';
 import IPDManagement from './hospital/IPDManagement';
+import PatientDetail from './hospital/PatientDetail';
 
 // Grievance
 import CtsLanding from './grievance/CtsLanding';
@@ -73,7 +75,7 @@ function RequireAuth({ children }) {
   const { session, loading } = useTenant();
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#1C1C1E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif' }}>
-      <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading...</p>
+      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading...</p>
     </div>
   );
   if (!session) return <Navigate to="/portal/login" replace />;
@@ -92,6 +94,21 @@ function RequestStaffAccessWrapper() {
   const { stateSlug } = useParams();
   return <RequestStaffAccess stateSlug={stateSlug} />;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Student/Patient detail wrappers — read :id from the URL and pass it
+// as the prop these screens expect. Visiting the bare route (no :id)
+// shows the search-first screen, since studentId/patientId is optional.
+// ─────────────────────────────────────────────────────────────
+function StudentDetailWrapper() {
+  const { id } = useParams();
+  return <StudentDetail studentId={id} />;
+}
+
+function PatientDetailWrapper() {
+  const { id } = useParams();
+  return <PatientDetail patientId={id} />;
+}
 const SCREEN_NAMES = {
   '/school/dashboard': 'Dashboard', '/school/admission': 'Student admission',
   '/school/attendance': 'Attendance', '/school/fee-collection': 'Fee collection',
@@ -100,9 +117,11 @@ const SCREEN_NAMES = {
   '/school/activities': 'Activities', '/school/reports': 'Reports',
   '/school/id-cards': 'ID cards', '/school/search': 'Search',
   '/school/classes': 'Manage classes',
+  '/school/students/new': 'Find student',
   '/hospital/dashboard': 'Dashboard', '/hospital/patients/new': 'Patient registration',
   '/hospital/opd': 'OPD visit', '/hospital/lab': 'Lab reports',
   '/hospital/billing': 'Billing', '/hospital/ipd': 'IPD management',
+  '/hospital/patients/find': 'Find patient',
   '/control/clients': 'Clients', '/control/tickets': 'Support tickets',
   '/control/billing': 'Billing tracker', '/control/onboarding': 'Onboarding',
   '/control/modifications': 'Modifications', '/control/help-admin': 'Help admin',
@@ -129,7 +148,11 @@ function AppRoutes() {
     && !path.startsWith('/refund')
     && !path.startsWith('/pay/');
 
-  // Idle timeout...
+  // Idle timeout — 10 minutes, matching the standard practice for
+  // shared workstations handling sensitive data (patient/student/
+  // citizen records): short enough that walking away from a shared
+  // office computer is the actual risk covered, not just closing the
+  // browser. Was 30 minutes, which is long by that same standard.
   useEffect(() => {    if (!session) return;
     let idleTimer;
     function resetTimer() {
@@ -137,7 +160,7 @@ function AppRoutes() {
       idleTimer = setTimeout(async () => {
         await supabase.auth.signOut();
         window.location.href = '/portal/login?reason=idle';
-      }, 30 * 60 * 1000);
+      }, 10 * 60 * 1000);
     }
     const events = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll', 'click'];
     events.forEach((e) => window.addEventListener(e, resetTimer));
@@ -168,9 +191,8 @@ function AppRoutes() {
       {/* ── Payment — public ── */}
       <Route path="/pay/:token"      element={<PayFee />} />
 
-
-{/* ── Grievance — public (citizens, no login needed) ── */}
-<Route path="/grievance/:stateSlug" element={<CtsLanding />} />
+      {/* ── Grievance — public (citizens, no login needed) ── */}
+      <Route path="/grievance/:stateSlug" element={<CtsLanding />} />
 <Route path="/grievance/:stateSlug/citizen"
   element={<CitizenPortalWrapper />} />
 <Route path="/grievance/:stateSlug/staff"
@@ -224,6 +246,10 @@ function AppRoutes() {
         element={<RequireAuth><UniversalSearch /></RequireAuth>} />
       <Route path="/school/classes"
         element={<RequireAuth><ManageClasses /></RequireAuth>} />
+      <Route path="/school/students/new"
+        element={<RequireAuth><StudentDetail /></RequireAuth>} />
+      <Route path="/school/students/:id"
+        element={<RequireAuth><StudentDetailWrapper /></RequireAuth>} />
 
       {/* ── Hospital ── */}
       <Route path="/hospital/dashboard"
@@ -238,6 +264,10 @@ function AppRoutes() {
         element={<RequireAuth><VisitProvider><HospitalBilling /></VisitProvider></RequireAuth>} />
       <Route path="/hospital/ipd"
         element={<RequireAuth><VisitProvider><IPDManagement /></VisitProvider></RequireAuth>} />
+      <Route path="/hospital/patients/find"
+        element={<RequireAuth><VisitProvider><PatientDetail /></VisitProvider></RequireAuth>} />
+      <Route path="/hospital/patients/:id"
+        element={<RequireAuth><VisitProvider><PatientDetailWrapper /></VisitProvider></RequireAuth>} />
 
       {/* ── Grievance — staff (auth required) ── */}
       <Route path="/grievance/staff"

@@ -1,8 +1,9 @@
 // grievance/RequestStaffAccess.jsx
 // MLA/MP office requests access to the grievance portal
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { fetchAppIdBySlug, fetchConstituencies } from './grievanceApi';
 
 export default function RequestStaffAccess() {
   const { stateSlug } = useParams();
@@ -14,9 +15,34 @@ export default function RequestStaffAccess() {
     email: '',
     role: 'MLA',
   });
+  const [constituencies, setConstituencies] = useState([]);
+  const [loadingConstituencies, setLoadingConstituencies] = useState(true);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
+
+  // Constituency was previously free text — meaning a typo, or a name
+  // that simply doesn't exist, would only surface as a failure much
+  // later when an admin tries to approve it. Fetching the real list
+  // (scoped to this state and the selected MLA/MP/MLC tier) and
+  // presenting it as a dropdown means only a real, existing
+  // constituency can ever be submitted in the first place.
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoadingConstituencies(true);
+      const appId = await fetchAppIdBySlug(stateSlug || 'andhra-pradesh');
+      if (!appId) { if (!cancelled) setLoadingConstituencies(false); return; }
+      const list = await fetchConstituencies(appId, form.role);
+      if (!cancelled) {
+        setConstituencies(list);
+        setForm((f) => ({ ...f, constituencyName: '' }));
+        setLoadingConstituencies(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [stateSlug, form.role]);
 
   function update(field, value) {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -129,14 +155,21 @@ export default function RequestStaffAccess() {
 
           {/* Constituency */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Constituency Name *</label>
-            <input
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Constituency *</label>
+            <select
               value={form.constituencyName}
               onChange={e => update('constituencyName', e.target.value)}
-              placeholder="e.g. Mandapeta"
               required
+              disabled={loadingConstituencies}
               style={{ width: '100%', padding: '11px 14px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, color: '#1e293b', background: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-            />
+            >
+              <option value="" disabled>
+                {loadingConstituencies ? 'Loading constituencies...' : `Select your ${form.role} constituency`}
+              </option>
+              {constituencies.map((c) => (
+                <option key={c.id} value={c.name}>{c.name}</option>
+              ))}
+            </select>
           </div>
 
           {/* Contact person */}

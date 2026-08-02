@@ -30,9 +30,31 @@ export function useCitizenAuth(appId) {
       .finally(() => setLoading(false));
   }, [session]);
 
+  // TEMPORARY TEST BYPASS — added 1-8-2026, remove or re-verify before
+  // any production use. Twilio's WhatsApp account is currently in
+  // Sandbox mode (error 63015), which blocks OTP delivery to any real
+  // citizen who hasn't manually joined the Sandbox — this exists only
+  // to unblock local testing of everything else in CTS while that
+  // Twilio/WhatsApp production-access decision is still pending.
+  // Gated by TWO separate conditions, both required:
+  //   1. import.meta.env.DEV — true only for `npm run dev`; Vite
+  //      forces this false in any production build automatically, so
+  //      this can never be active on a real deployed site by accident.
+  //   2. VITE_SKIP_OTP=true — must be explicitly set in a local
+  //      .env.local file (not committed to git), so it's off by
+  //      default even in local dev unless deliberately turned on.
+  const OTP_BYPASS_ACTIVE = import.meta.env.DEV && import.meta.env.VITE_SKIP_OTP === 'true';
+
   // Step 1: send OTP via custom WhatsApp edge function
   const requestOtp = useCallback(async (phone) => {
     setError(null);
+
+    if (OTP_BYPASS_ACTIVE) {
+      setPendingPhone(phone);
+      setOtpSent(true);
+      return true;
+    }
+
     try {
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-otp`,
@@ -62,6 +84,17 @@ export function useCitizenAuth(appId) {
   // Step 2: verify OTP via custom edge function, then create anonymous session
   const verifyOtp = useCallback(async (phone, token) => {
     setError(null);
+
+    if (OTP_BYPASS_ACTIVE) {
+      const { error: anonErr } = await supabase.auth.signInAnonymously();
+      if (anonErr) {
+        setError('Login failed. Please try again.');
+        return false;
+      }
+      await supabase.auth.updateUser({ data: { phone, verified_phone: phone } });
+      return true;
+    }
+
     try {
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-otp`,
@@ -113,6 +146,15 @@ export function useCitizenAuth(appId) {
     [session, appId, pendingPhone]
   );
 
+  // Lets the person go back to the phone-entry screen if they typed the
+  // wrong number, or need to fully re-enter to trigger a resend — there
+  // was previously no way back at all once the code screen showed.
+  const resetOtp = useCallback(() => {
+    setOtpSent(false);
+    setPendingPhone(null);
+    setError(null);
+  }, []);
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setCitizen(null);
@@ -128,8 +170,10 @@ export function useCitizenAuth(appId) {
     error,
     isAuthenticated: !!session,
     needsProfile: !!session && !citizen && !loading,
+    otpBypassActive: OTP_BYPASS_ACTIVE,
     requestOtp,
     verifyOtp,
+    resetOtp,
     registerProfile,
     signOut,
   };

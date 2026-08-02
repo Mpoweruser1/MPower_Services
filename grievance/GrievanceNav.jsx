@@ -31,7 +31,7 @@ export default function GrievanceNav() {
           }}>
             <span style={{ fontSize: 20 }}>{l.icon}</span>
             <span style={{
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: active ? 700 : 400,
               color: active ? '#e8a020' : 'rgba(255,255,255,0.4)',
             }}>

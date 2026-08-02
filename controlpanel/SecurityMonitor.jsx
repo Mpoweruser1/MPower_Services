@@ -13,7 +13,7 @@ const S = {
 };
 
 const SEVERITY_CONFIG = {
-  info:     { color: 'rgba(255,255,255,0.4)', bg: 'rgba(255,255,255,0.06)',   label: 'Info' },
+  info:     { color: 'rgba(255,255,255,0.6)', bg: 'rgba(255,255,255,0.06)',   label: 'Info' },
   warning:  { color: '#E8A020', bg: 'rgba(232,160,32,0.12)',                  label: 'Warning' },
   critical: { color: '#E05A5A', bg: 'rgba(224,90,90,0.12)',                   label: 'Critical' },
 };
@@ -67,9 +67,9 @@ export default function SecurityMonitor() {
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>Security Monitor</p>
-          <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Activity log · last 30 days</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Activity log · last 30 days</p>
         </div>
-        <button onClick={loadAll} style={{ padding: '7px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>↻ Refresh</button>
+        <button onClick={loadAll} style={{ padding: '7px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>↻ Refresh</button>
       </nav>
 
       <div style={S.inner}>
@@ -84,7 +84,7 @@ export default function SecurityMonitor() {
           ].map((s) => (
             <div key={s.label} style={{ ...S.stat, border: `1px solid ${s.alert ? 'rgba(224,90,90,0.2)' : 'rgba(255,255,255,0.05)'}` }}>
               <p style={{ fontSize: 22, fontWeight: 700, margin: 0, color: s.alert ? '#E05A5A' : s.color }}>{s.value}</p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '3px 0 0' }}>{s.label}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '3px 0 0' }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -121,7 +121,7 @@ export default function SecurityMonitor() {
         )}
 
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
         ) : (
           <>
             {/* Activity log */}
@@ -129,7 +129,7 @@ export default function SecurityMonitor() {
               filtered.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 20px' }}>
                   <p style={{ fontSize: 22, marginBottom: 10 }}>🔒</p>
-                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No activity events found</p>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No activity events found</p>
                 </div>
               ) : (
                 filtered.map((event) => {
@@ -139,15 +139,15 @@ export default function SecurityMonitor() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 5 }}>
-                            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: sevCfg.bg, color: sevCfg.color, fontWeight: 500 }}>{sevCfg.label}</span>
+                            <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: sevCfg.bg, color: sevCfg.color, fontWeight: 500 }}>{sevCfg.label}</span>
                             {event.flagged && (
-                              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: 'rgba(224,90,90,0.12)', color: '#E05A5A', fontWeight: 600 }}>🚩 Flagged</span>
+                              <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: 'rgba(224,90,90,0.12)', color: '#E05A5A', fontWeight: 600 }}>🚩 Flagged</span>
                             )}
-                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{new Date(event.created_at).toLocaleString('en-IN')}</span>
+                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{new Date(event.created_at).toLocaleString('en-IN')}</span>
                           </div>
                           <p style={{ margin: 0, fontSize: 14, color: '#fff', fontWeight: 400 }}>{event.action}</p>
                           {event.metadata && Object.keys(event.metadata).length > 0 && (
-                            <div style={{ marginTop: 6, padding: '6px 10px', background: '#111113', borderRadius: 6, fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>
+                            <div style={{ marginTop: 6, padding: '6px 10px', background: '#111113', borderRadius: 6, fontSize: 12, color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace' }}>
                               {Object.entries(event.metadata).filter(([k]) => k !== 'timestamp').map(([k, v]) => (
                                 <span key={k} style={{ marginRight: 12 }}>{k}: {String(v)}</span>
                               ))}
@@ -165,15 +165,15 @@ export default function SecurityMonitor() {
             {tab === 'sessions' && (
               loginHistory.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No session data available</p>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No session data available</p>
                 </div>
               ) : (
                 <div style={S.card}>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, margin: '0 0 12px' }}>RECENT LOGIN SESSIONS</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, margin: '0 0 12px' }}>RECENT LOGIN SESSIONS</p>
                   {loginHistory.map((session, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 13 }}>
                       <span style={{ color: 'rgba(255,255,255,0.6)' }}>Session #{i + 1}</span>
-                      <span style={{ color: 'rgba(255,255,255,0.35)' }}>{new Date(session.created_at).toLocaleString('en-IN')}</span>
+                      <span style={{ color: 'rgba(255,255,255,0.6)' }}>{new Date(session.created_at).toLocaleString('en-IN')}</span>
                     </div>
                   ))}
                 </div>
@@ -184,14 +184,14 @@ export default function SecurityMonitor() {
 
         {/* Security tips */}
         <div style={{ background: '#111113', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginTop: 8 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, margin: '0 0 10px' }}>SECURITY TIPS</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, margin: '0 0 10px' }}>SECURITY TIPS</p>
           {[
             'Review critical events immediately — they indicate unusual access patterns',
             'Remove inactive users from Manage Access to reduce attack surface',
             'Staff should use strong passwords and not share login credentials',
             'Monitor flagged events — they are automatically detected anomalies',
           ].map((tip) => (
-            <p key={tip} style={{ margin: '0 0 6px', fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
+            <p key={tip} style={{ margin: '0 0 6px', fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
               🔒 {tip}
             </p>
           ))}

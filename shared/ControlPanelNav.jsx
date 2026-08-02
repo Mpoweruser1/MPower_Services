@@ -35,7 +35,7 @@ export default function ControlPanelNav() {
           <Link key={item.path} to={item.path}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, textDecoration: 'none', minWidth: 56, padding: '4px 0' }}>
             <span style={{ fontSize: 20, lineHeight: 1 }}>{item.icon}</span>
-            <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? '#E8A020' : 'rgba(255,255,255,0.4)' }}>
+            <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? '#E8A020' : 'rgba(255,255,255,0.4)' }}>
               {item.label}
             </span>
             {active && (

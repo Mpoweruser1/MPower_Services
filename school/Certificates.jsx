@@ -17,7 +17,7 @@ const S = {
   inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 12 },
   input: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }),
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
 };
 
 function certBody(type, student, orgName) {
@@ -129,7 +129,7 @@ export default function Certificates() {
 
       <div style={S.inner}>
         <div className="no-print" style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Certificates · సర్టిఫికెట్లు
           </p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Issue Certificate</h1>
@@ -139,13 +139,13 @@ export default function Certificates() {
           <>
             {/* Certificate type */}
             <div style={S.card}>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>Certificate type</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>Certificate type</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {CERT_TYPES.map((ct) => (
                   <button key={ct.code} onClick={() => setCertType(ct.code)}
                     style={{ padding: '12px 10px', borderRadius: 8, border: `1px solid ${certType === ct.code ? 'rgba(232,160,32,0.4)' : 'rgba(255,255,255,0.08)'}`, background: certType === ct.code ? 'rgba(232,160,32,0.08)' : '#111113', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: certType === ct.code ? 600 : 400, color: certType === ct.code ? '#E8A020' : '#fff' }}>{ct.label}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{ct.labelTe}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{ct.labelTe}</p>
                   </button>
                 ))}
               </div>
@@ -162,14 +162,14 @@ export default function Certificates() {
                   style={S.input(false)}
                   autoFocus
                 />
-                {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>Searching...</p>}
+                {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>Searching...</p>}
                 {searchResults.length > 0 && (
                   <div style={{ marginTop: 8, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden' }}>
                     {searchResults.map((s) => (
                       <div key={s.id} onClick={() => selectStudent(s)}
                         style={{ padding: '11px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', background: '#111113' }}>
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{s.full_name}</p>
-                        <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                           {s.sid} · {s.classes?.class_name}{s.section ? `-${s.section}` : ''}
                         </p>
                       </div>
@@ -181,7 +181,7 @@ export default function Certificates() {
               <div style={{ ...S.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>{student.full_name}</p>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                     {student.sid} · {student.classes?.class_name}{student.section ? `-${student.section}` : ''}
                   </p>
                 </div>
@@ -195,7 +195,7 @@ export default function Certificates() {
             {/* Preview */}
             {student && (
               <div style={{ ...S.card, background: '#111113' }}>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 10 }}>Preview</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 10 }}>Preview</p>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.8 }}>
                   {certBody(certType, student, tenant?.orgName || 'This School')}
                 </p>
@@ -231,7 +231,7 @@ export default function Certificates() {
             <div style={{ background: '#fff', color: '#000', padding: '32px 40px', borderRadius: 8, fontFamily: 'serif' }}>
               <div style={{ textAlign: 'center', marginBottom: 24, borderBottom: '2px solid #000', paddingBottom: 16 }}>
                 <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>{issuedCert.orgName}</h2>
-                <p style={{ fontSize: 11, color: '#555', margin: 0 }}>Recognised by Govt. of Andhra Pradesh</p>
+                <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Recognised by Govt. of Andhra Pradesh</p>
                 <h3 style={{ fontSize: 16, fontWeight: 700, margin: '14px 0 0', textTransform: 'uppercase', letterSpacing: 2 }}>
                   {issuedCert.certTypeLabel}
                 </h3>
@@ -250,12 +250,12 @@ export default function Certificates() {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ borderTop: '1px solid #000', paddingTop: 8, width: 180 }}>
                     Principal / Headmaster<br />
-                    <span style={{ fontSize: 11, color: '#555' }}>{issuedCert.orgName}</span>
+                    <span style={{ fontSize: 12, color: '#555' }}>{issuedCert.orgName}</span>
                   </div>
                 </div>
               </div>
 
-              <div style={{ marginTop: 20, padding: '6px 10px', background: '#f5f5f5', borderRadius: 4, fontSize: 10, color: '#888', fontFamily: 'monospace' }}>
+              <div style={{ marginTop: 20, padding: '6px 10px', background: '#f5f5f5', borderRadius: 4, fontSize: 12, color: '#888', fontFamily: 'monospace' }}>
                 Cert No: {issuedCert.cert_no} · Issued: {new Date(issuedCert.issued_at).toLocaleString('en-IN')} · MPower
               </div>
             </div>

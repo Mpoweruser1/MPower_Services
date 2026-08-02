@@ -52,7 +52,23 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+// Browsers require a CORS preflight (OPTIONS) response before allowing
+// the actual POST through, since this function lives on a different
+// origin (*.supabase.co) than the app calling it. Without this, the
+// browser blocks the response before it ever reaches the code below,
+// and supabase-js reports a generic "Failed to send a request" — which
+// is exactly what was happening here.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS });
+  }
+
   try {
     if (req.method !== 'POST') {
       return json({ error: 'Method not allowed' }, 405);
@@ -108,21 +124,27 @@ serve(async (req) => {
     }
 
     // Resolve constituency_name (plain text on this table) to a real
-    // constituency row within the same app_id. Representatives need this
-    // to create their rep_assignments row; authorities don't need a
-    // constituency at all, so this is skipped for them.
+    // constituency row within the same app_id AND the matching tier
+    // (role_requested is literally 'MLA'/'MP'/'MLC', which corresponds
+    // exactly to constituencies.tier — filtering by both name and tier
+    // also resolves the same-name-across-tiers ambiguity we found
+    // earlier, e.g. an "Adilabad" MLA seat and "Adilabad" MP seat
+    // sharing a name). Authorities don't need a constituency at all,
+    // so this is skipped for them.
+    const REP_TIERS = ['MLA', 'MP', 'MLC'];
     let constituency = null;
-    if (request.role_requested === 'representative') {
+    if (REP_TIERS.includes(request.role_requested)) {
       const { data: matched, error: constError } = await adminClient
         .from('constituencies')
         .select('id, name')
         .eq('app_id', request.app_id)
+        .eq('tier', request.role_requested)
         .ilike('name', request.constituency_name.trim())
         .maybeSingle();
 
       if (constError) return json({ error: `Constituency lookup failed: ${constError.message}` }, 500);
       if (!matched) {
-        return json({ error: `No constituency named "${request.constituency_name}" found for this state — check the name on the request before approving` }, 400);
+        return json({ error: `No ${request.role_requested} constituency named "${request.constituency_name}" found for this state — check the name on the request before approving` }, 400);
       }
       constituency = matched;
     }
@@ -150,7 +172,14 @@ serve(async (req) => {
       newAuthUserId = created.user.id;
     }
 
-    // Create the users row linked to that new auth account.
+    // Create the users row linked to that new auth account. The role
+    // vocabulary the rest of the app checks against (RequireRole,
+    // permission logic) uses 'representative' — MLA/MP/MLC is which
+    // tier of constituency they're linked to, tracked via
+    // rep_assignments -> constituencies.tier, not the users.role value
+    // itself.
+    const normalizedRole = REP_TIERS.includes(request.role_requested) ? 'representative' : request.role_requested;
+
     const { data: newUser, error: userInsertError } = await adminClient
       .from('users')
       .insert({
@@ -158,7 +187,7 @@ serve(async (req) => {
         app_id: request.app_id,
         full_name: request.contact_person,
         phone: request.phone,
-        role: request.role_requested,
+        role: normalizedRole,
       })
       .select()
       .single();
@@ -166,7 +195,7 @@ serve(async (req) => {
     if (userInsertError) return json({ error: `Account created but user record failed: ${userInsertError.message}` }, 500);
 
     // Wire up the representative assignment, if applicable.
-    if (request.role_requested === 'representative' && constituency) {
+    if (constituency) {
       const { error: repError } = await adminClient
         .from('rep_assignments')
         .insert({ user_id: newUser.id, constituency_id: constituency.id });
@@ -211,6 +240,6 @@ serve(async (req) => {
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   });
 }

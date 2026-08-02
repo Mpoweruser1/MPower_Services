@@ -37,7 +37,7 @@ export default function DemoPack({ appType = 'school' }) {
         </button>
       </div>
       <div style={{ background: 'linear-gradient(135deg, #0D1B2A, #185FA5)', borderRadius: 10, padding: 24, textAlign: 'center', color: '#fff', marginBottom: 16 }}>
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>SAMPLE DEMONSTRATION REPORT</p>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>SAMPLE DEMONSTRATION REPORT</p>
         <p style={{ fontSize: 20, fontWeight: 600, margin: '6px 0 4px' }}>{orgName}</p>
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{data.branches.length} branches · {appType === 'school' ? `${data.totalStudents} students` : 'Multi-location'}</p>
       </div>

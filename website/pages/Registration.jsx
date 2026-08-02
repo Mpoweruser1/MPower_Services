@@ -5,7 +5,7 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { useFormValidation, validators, sanitize } from '../../shared/useFormValidation';
 import { useAutoSave } from '../../shared/useAutoSave';
@@ -52,9 +52,22 @@ const S = {
 };
 
 export default function Registration() {
-  
+
   const navigate = useNavigate();
-  const [form, setForm]       = useState(EMPTY_FORM);
+  const [searchParams] = useSearchParams();
+
+  // Products.jsx passes ?type=school|hospital carrying forward whichever
+  // product tab was active when "Start free trial" was clicked. CTS is
+  // deliberately not one of these — an MLA/MP office joins an EXISTING
+  // state's CTS deployment via RequestStaffAccess.jsx (real constituency
+  // data + admin approval), not by creating a brand-new isolated tenant
+  // the way a school or hospital genuinely is one.
+  const VALID_APP_TYPES = ['school', 'hospital'];
+  const requestedType = searchParams.get('type');
+  const hasExplicitType = VALID_APP_TYPES.includes(requestedType);
+  const initialAppType = hasExplicitType ? requestedType : 'school';
+
+  const [form, setForm]       = useState({ ...EMPTY_FORM, appType: initialAppType });
   const [saving, setSaving]   = useState(false);
   const [done, setDone]       = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -75,11 +88,21 @@ export default function Registration() {
   const { errors, touched, validate, touch, onChange: onValidate, reset } =
     useFormValidation(RULES);
 
-  // Auto-save draft
-  const { hasDraft, lastSaved, isDirty, clearDraft, dismissDraft } =
-    useAutoSave('registration_form', form, {
-      onRestore: (data) => setForm(data),
-    });
+  // Auto-save draft — public form, no logged-in user to scope the key
+  // by, so a shorter expiry (6 hours) limits the window where a
+  // different visitor on the same shared/public device could see a
+  // leftover draft, compared to the 1-day default used elsewhere.
+  const { hasDraft, draftData, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft } =
+    useAutoSave('registration_form', form, { maxAgeDays: 0.25 });
+
+  // The active product tab should always reflect the URL — an explicit
+  // ?type= from Products.jsx, or School as the neutral default from a
+  // generic entry point like the Home page button. A restored draft's
+  // own appType must never override this, even though the rest of its
+  // typed-in fields (name, phone, etc.) are still worth restoring.
+  function applyRestoredDraft() {
+    setForm({ ...restoreDraft(), appType: initialAppType });
+  }
 
   function update(field, value) {
     // Sanitize specific fields
@@ -153,7 +176,6 @@ export default function Registration() {
 
     // 4 — Create user row
     const ownerRole = form.appType === 'hospital'  ? 'doctor'
-                    : form.appType === 'grievance' ? 'representative'
                     : 'principal';
 
     await supabase.from('users').insert({
@@ -222,7 +244,7 @@ export default function Registration() {
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', margin: '0 0 6px', lineHeight: 1.7 }}>
             Your account is ready. Check your WhatsApp for a welcome message.
           </p>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', margin: '0 0 28px' }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '0 0 28px' }}>
             6 months free on Basic tier has started · ఉచిత ట్రయల్ ప్రారంభమైంది
           </p>
           <Link to="/portal/login"
@@ -245,7 +267,7 @@ export default function Registration() {
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#fff', margin: '0 0 4px', letterSpacing: -0.5 }}>
             Start your free trial
           </h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
             6 months free · No credit card · Cancel anytime
           </p>
         </div>
@@ -254,7 +276,7 @@ export default function Registration() {
         {hasDraft && (
           <DraftBanner
             lastSaved={lastSaved}
-            onRestore={() => {}}
+            onRestore={applyRestoredDraft}
             onDiscard={dismissDraft}
           />
         )}
@@ -268,14 +290,13 @@ export default function Registration() {
 
         {/* App type selector */}
         <div style={{ marginBottom: 16 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8 }}>
             I am registering for
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             {[
               { value: 'school',    icon: '🏫', label: 'School' },
               { value: 'hospital',  icon: '🏥', label: 'Hospital' },
-              { value: 'grievance', icon: '🏛️', label: 'CTS' },
             ].map((t) => (
               <label key={t.value} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '10px 6px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${form.appType === t.value ? 'rgba(232,160,32,0.5)' : 'rgba(255,255,255,0.08)'}`, background: form.appType === t.value ? 'rgba(232,160,32,0.06)' : '#111113', transition: 'all 0.15s' }}>
                 <input type="radio" name="appType" value={t.value} checked={form.appType === t.value} onChange={() => update('appType', t.value)} style={{ display: 'none' }} />
@@ -299,9 +320,7 @@ export default function Registration() {
           touched={touched.orgName}
           required
           placeholder={
-            form.appType === 'school'    ? 'Sri Vidya School, Machilipatnam' :
-            form.appType === 'hospital'  ? 'City Care Hospital, Tenali' :
-            'MLA Office, Krishna District'
+            form.appType === 'school' ? 'Sri Vidya School, Machilipatnam' : 'City Care Hospital, Tenali'
           }
           maxLength={100}
         />
@@ -321,11 +340,7 @@ export default function Registration() {
 
         {/* Contact person */}
         <FormField
-          label={
-            form.appType === 'hospital'  ? 'Doctor / Owner name' :
-            form.appType === 'grievance' ? 'Representative name' :
-            'Principal / Owner name'
-          }
+          label={form.appType === 'hospital' ? 'Doctor / Owner name' : 'Principal / Owner name'}
           name="contactPerson"
           value={form.contactPerson}
           onChange={update}
@@ -390,7 +405,7 @@ export default function Registration() {
                 <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: pwdStrength >= i ? pwdColors[pwdStrength] : 'rgba(255,255,255,0.1)', transition: 'background 0.3s' }} />
               ))}
             </div>
-            <p style={{ fontSize: 11, color: pwdColors[pwdStrength || 0], margin: 0 }}>
+            <p style={{ fontSize: 12, color: pwdColors[pwdStrength || 0], margin: 0 }}>
               {pwdLabels[pwdStrength || 0]}
             </p>
           </div>
@@ -398,7 +413,7 @@ export default function Registration() {
 
         {/* Confirm password */}
         <div style={{ marginBottom: 16 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6 }}>
             Confirm password <span style={{ color: '#E05A5A' }}>*</span>
           </p>
           <input
@@ -416,15 +431,15 @@ export default function Registration() {
             }}
           />
           {touched.confirmPwd && form.confirmPwd && form.confirmPwd !== form.password && (
-            <p style={{ fontSize: 11, color: '#E05A5A', marginTop: 5 }}>⚠ Passwords do not match</p>
+            <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 5 }}>⚠ Passwords do not match</p>
           )}
           {touched.confirmPwd && form.confirmPwd && form.confirmPwd === form.password && (
-            <p style={{ fontSize: 11, color: '#6AAA90', marginTop: 5 }}>✓ Passwords match</p>
+            <p style={{ fontSize: 12, color: '#6AAA90', marginTop: 5 }}>✓ Passwords match</p>
           )}
         </div>
 
         {/* Terms */}
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginBottom: 16, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 16, lineHeight: 1.6 }}>
           By creating an account you agree to our{' '}
           <Link to="/terms" style={{ color: '#E8A020' }}>Terms</Link> and{' '}
           <Link to="/privacy" style={{ color: '#E8A020' }}>Privacy Policy</Link>.
@@ -448,7 +463,7 @@ export default function Registration() {
           {saving ? 'Creating your account...' : 'Create account & start free trial →'}
         </button>
 
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: 0 }}>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center', margin: 0 }}>
           Already have an account?{' '}
           <Link to="/portal/login" style={{ color: '#E8A020', textDecoration: 'none', fontWeight: 500 }}>
             Sign in →

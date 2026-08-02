@@ -8,7 +8,7 @@ const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 40 },
   inner: { maxWidth: 640, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 14 },
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
   input: { width: '100%', padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
 };
 
@@ -66,7 +66,7 @@ export default function ClientPortal() {
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>My Account</p>
-          <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{tenant?.orgName}</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{tenant?.orgName}</p>
         </div>
         <Link to="/portal/dashboard" style={{ padding: '7px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', fontSize: 12 }}>← Dashboard</Link>
       </nav>
@@ -86,7 +86,7 @@ export default function ClientPortal() {
         {/* Account tab */}
         {tab === 'account' && (
           <div style={S.card}>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Profile</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Profile</p>
             <div style={{ marginBottom: 14 }}>
               <label style={S.label}>Organisation name</label>
               <input value={orgName} onChange={(e) => setOrgName(e.target.value)} style={S.input} />
@@ -114,18 +114,18 @@ export default function ClientPortal() {
         {tab === 'subscription' && (
           <>
             <div style={S.card}>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Current plan</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Current plan</p>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
                   <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: tierCfg.color }}>{tierCfg.label}</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
                     {tenant?.clientStatus === 'trial' ? 'Free trial' : `₹${tierCfg.price}/month`}
                   </p>
                 </div>
                 {tenant?.clientStatus === 'trial' && trialDaysLeft !== null && (
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: trialDaysLeft <= 7 ? '#E05A5A' : '#E8A020' }}>{trialDaysLeft}</p>
-                    <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>days left</p>
+                    <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>days left</p>
                   </div>
                 )}
               </div>
@@ -136,7 +136,7 @@ export default function ClientPortal() {
             </div>
 
             <div style={S.card}>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Need a custom feature?</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Need a custom feature?</p>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 14px', lineHeight: 1.6 }}>
                 Raise a modification request — custom reports, extra fields, new modules. We quote within 2 working days.
               </p>
@@ -151,7 +151,7 @@ export default function ClientPortal() {
         {/* Security tab */}
         {tab === 'security' && (
           <div style={S.card}>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Change password</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Change password</p>
             <div style={{ marginBottom: 14 }}>
               <label style={S.label}>New password</label>
               <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="Min 8 characters" style={S.input} />
@@ -165,7 +165,7 @@ export default function ClientPortal() {
             </button>
 
             <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 12 }}>Session</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 12 }}>Session</p>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>
                 Idle timeout: 30 minutes. You are automatically logged out after 30 minutes of inactivity for security.
               </p>

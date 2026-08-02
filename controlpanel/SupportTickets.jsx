@@ -18,14 +18,14 @@ const TYPE_CONFIG = {
   feature_request: { color: '#9A8AE0', bg: 'rgba(154,138,224,0.12)', label: '💡 Feature', sla: 72 },
   training:        { color: '#5A9ADF', bg: 'rgba(90,154,223,0.12)',  label: '📚 Training', sla: 48 },
   billing:         { color: '#E8A020', bg: 'rgba(232,160,32,0.12)',  label: '💰 Billing', sla: 24 },
-  other:           { color: 'rgba(255,255,255,0.4)', bg: 'rgba(255,255,255,0.06)', label: '📌 Other', sla: 48 },
+  other:           { color: 'rgba(255,255,255,0.6)', bg: 'rgba(255,255,255,0.06)', label: '📌 Other', sla: 48 },
 };
 
 const STATUS_CONFIG = {
   open:        { color: '#E8A020', label: 'Open' },
   in_progress: { color: '#5A9ADF', label: 'In Progress' },
   resolved:    { color: '#6AAA90', label: 'Resolved' },
-  closed:      { color: 'rgba(255,255,255,0.3)', label: 'Closed' },
+  closed:      { color: 'rgba(255,255,255,0.6)', label: 'Closed' },
 };
 
 export default function SupportTickets() {
@@ -115,9 +115,9 @@ export default function SupportTickets() {
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>Support Tickets</p>
-          <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Client support queue</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Client support queue</p>
         </div>
-        <button onClick={loadTickets} style={{ padding: '7px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>↻</button>
+        <button onClick={loadTickets} style={{ padding: '7px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>↻</button>
       </nav>
 
       <div style={S.inner}>
@@ -131,7 +131,7 @@ export default function SupportTickets() {
           ].map((s) => (
             <div key={s.label} style={{ background: '#111113', borderRadius: 10, padding: 14, textAlign: 'center', border: `1px solid ${s.alert ? 'rgba(224,90,90,0.2)' : 'rgba(255,255,255,0.05)'}` }}>
               <p style={{ fontSize: 24, fontWeight: 700, margin: 0, color: s.alert ? '#E05A5A' : s.color }}>{s.value}</p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '3px 0 0' }}>{s.label}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '3px 0 0' }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -159,7 +159,7 @@ export default function SupportTickets() {
         </div>
 
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading tickets...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading tickets...</p>
         ) : (
           filtered.map((ticket) => {
             const typeCfg   = TYPE_CONFIG[ticket.type] || TYPE_CONFIG.other;
@@ -174,18 +174,18 @@ export default function SupportTickets() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                     <div style={{ flex: 1, marginRight: 12 }}>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 5, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: typeCfg.bg, color: typeCfg.color, fontWeight: 500 }}>{typeCfg.label}</span>
-                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: `${statusCfg.color}15`, color: statusCfg.color }}>{statusCfg.label}</span>
-                        {slaBreached && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: 'rgba(224,90,90,0.12)', color: '#E05A5A', fontWeight: 600 }}>⚠️ SLA Breached</span>}
+                        <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: typeCfg.bg, color: typeCfg.color, fontWeight: 500 }}>{typeCfg.label}</span>
+                        <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: `${statusCfg.color}15`, color: statusCfg.color }}>{statusCfg.label}</span>
+                        {slaBreached && <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: 'rgba(224,90,90,0.12)', color: '#E05A5A', fontWeight: 600 }}>⚠️ SLA Breached</span>}
                       </div>
                       <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{ticket.subject}</p>
-                      <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                      <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                         {ticket.crm_clients?.org_name || 'Unknown client'}
                         {ticket.crm_clients?.district ? ` · ${ticket.crm_clients.district}` : ''}
                         {` · ${Math.round(hoursOpen)}h ago`}
                       </p>
                     </div>
-                    <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14, flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </div>
 
@@ -193,17 +193,17 @@ export default function SupportTickets() {
                 {isOpen && (
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14, marginTop: 4 }}>
                     {loadingMsg ? (
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Loading messages...</p>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Loading messages...</p>
                     ) : (
                       <div style={{ maxHeight: 240, overflowY: 'auto', marginBottom: 12 }}>
                         {messages.length === 0 && (
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: 0 }}>No messages yet — reply below.</p>
+                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>No messages yet — reply below.</p>
                         )}
                         {messages.map((msg) => (
                           <div key={msg.id} style={{ marginBottom: 10, display: 'flex', flexDirection: msg.sender_type === 'support' ? 'row-reverse' : 'row', gap: 8 }}>
                             <div style={{ maxWidth: '80%', padding: '8px 12px', borderRadius: 10, background: msg.sender_type === 'support' ? 'rgba(232,160,32,0.12)' : '#111113', border: `1px solid ${msg.sender_type === 'support' ? 'rgba(232,160,32,0.2)' : 'rgba(255,255,255,0.06)'}` }}>
                               <p style={{ margin: 0, fontSize: 13, color: '#fff', lineHeight: 1.5 }}>{msg.message}</p>
-                              <p style={{ margin: '4px 0 0', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                              <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                                 {msg.sender_type === 'support' ? 'Support' : 'Client'} · {new Date(msg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                               </p>
                             </div>
@@ -225,7 +225,7 @@ export default function SupportTickets() {
                         </button>
                         {!['resolved', 'closed'].includes(ticket.status) && (
                           <button onClick={() => resolveTicket(ticket.id)}
-                            style={{ padding: '8px 16px', background: 'rgba(106,170,144,0.12)', color: '#6AAA90', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }}>
+                            style={{ padding: '8px 16px', background: 'rgba(106,170,144,0.12)', color: '#6AAA90', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
                             ✓ Resolve
                           </button>
                         )}

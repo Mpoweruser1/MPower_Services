@@ -192,12 +192,12 @@ export default function Hostel() {
       <div style={S.inner}>
 
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Hostel · హాస్టల్
           </p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Hostel Management</h1>
           {!loading && (
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
               {hostelStudents.length} hostel students
             </p>
           )}
@@ -218,7 +218,7 @@ export default function Hostel() {
         </div>
 
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
         ) : (
           <>
             {/* Meal attendance */}
@@ -250,7 +250,7 @@ export default function Hostel() {
 
                 {hostelStudents.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-                    <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+                    <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>
                       No hostel students found. Students with type "Hostel" will appear here.
                     </p>
                   </div>
@@ -262,9 +262,9 @@ export default function Hostel() {
                         style={{ ...S.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', border: `1px solid ${present ? 'rgba(255,255,255,0.07)' : 'rgba(224,90,90,0.2)'}`, background: present ? '#161618' : 'rgba(224,90,90,0.05)' }}>
                         <div>
                           <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{student.full_name}</p>
-                          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{student.sid}{student.section ? ` · ${student.section}` : ''}</p>
+                          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{student.sid}{student.section ? ` · ${student.section}` : ''}</p>
                         </div>
-                        <span style={{ fontSize: 11, padding: '4px 12px', borderRadius: 20, fontWeight: 500, background: present ? 'rgba(106,170,144,0.12)' : 'rgba(224,90,90,0.12)', color: present ? '#6AAA90' : '#E05A5A' }}>
+                        <span style={{ fontSize: 12, padding: '4px 12px', borderRadius: 20, fontWeight: 500, background: present ? 'rgba(106,170,144,0.12)' : 'rgba(224,90,90,0.12)', color: present ? '#6AAA90' : '#E05A5A' }}>
                           {present ? 'Present' : 'Absent — tap to undo'}
                         </span>
                       </div>
@@ -286,7 +286,7 @@ export default function Hostel() {
 
                 {outings.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-                    <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No students currently out.</p>
+                    <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No students currently out.</p>
                   </div>
                 ) : (
                   outings.map((o) => (
@@ -294,14 +294,14 @@ export default function Hostel() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                         <div>
                           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{o.students?.full_name}</p>
-                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                             {o.reason} · Out: {o.out_date} {o.out_time}
                           </p>
-                          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                             Expected return: {new Date(o.return_expected).toLocaleString('en-IN')}
                           </p>
                         </div>
-                        <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: 'rgba(232,160,32,0.12)', color: '#E8A020', fontWeight: 500 }}>
+                        <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: 'rgba(232,160,32,0.12)', color: '#E8A020', fontWeight: 500 }}>
                           Out
                         </span>
                       </div>
@@ -327,7 +327,7 @@ export default function Hostel() {
 
                 {medicalLog.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-                    <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No medical incidents logged.</p>
+                    <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No medical incidents logged.</p>
                   </div>
                 ) : (
                   medicalLog.map((m) => (
@@ -335,11 +335,11 @@ export default function Hostel() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                         <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{m.students?.full_name} — {m.issue}</p>
                         {m.notified_parent && (
-                          <span style={{ fontSize: 11, color: '#6AAA90', flexShrink: 0 }}>✓ Parent notified</span>
+                          <span style={{ fontSize: 12, color: '#6AAA90', flexShrink: 0 }}>✓ Parent notified</span>
                         )}
                       </div>
                       <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{m.action_taken}</p>
-                      <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{new Date(m.reported_at).toLocaleString('en-IN')}</p>
+                      <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{new Date(m.reported_at).toLocaleString('en-IN')}</p>
                     </div>
                   ))
                 )}
@@ -359,7 +359,7 @@ export default function Hostel() {
 
             <div style={{ display: 'grid', gap: 12 }}>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Student *</label>
+                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Student *</label>
                 <select value={newOuting.student_id} onChange={(e) => setNewOuting((o) => ({ ...o, student_id: e.target.value }))}
                   style={{ ...S.input, cursor: 'pointer' }}>
                   <option value="">-- Select student --</option>
@@ -367,12 +367,12 @@ export default function Hostel() {
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Reason *</label>
+                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Reason *</label>
                 <input value={newOuting.reason} onChange={(e) => setNewOuting((o) => ({ ...o, reason: e.target.value }))}
                   placeholder="e.g. Family visit, medical appointment" style={S.input} />
               </div>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Expected return *</label>
+                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Expected return *</label>
                 <input type="datetime-local" value={newOuting.return_expected}
                   min={new Date().toISOString().slice(0, 16)}
                   onChange={(e) => setNewOuting((o) => ({ ...o, return_expected: e.target.value }))}
@@ -382,7 +382,7 @@ export default function Hostel() {
 
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button onClick={() => { setShowAddOuting(false); setOutingError(''); }}
-                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'inherit' }}>
                 Cancel
               </button>
               <button onClick={addOuting} disabled={saving}
@@ -404,7 +404,7 @@ export default function Hostel() {
 
             <div style={{ display: 'grid', gap: 12 }}>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Student *</label>
+                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Student *</label>
                 <select value={newMedical.student_id} onChange={(e) => setNewMedical((m) => ({ ...m, student_id: e.target.value }))}
                   style={{ ...S.input, cursor: 'pointer' }}>
                   <option value="">-- Select student --</option>
@@ -412,25 +412,25 @@ export default function Hostel() {
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Issue / complaint *</label>
+                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Issue / complaint *</label>
                 <input value={newMedical.issue} onChange={(e) => setNewMedical((m) => ({ ...m, issue: e.target.value }))}
                   placeholder="e.g. Fever, stomach pain, injury" style={S.input} />
               </div>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Action taken *</label>
+                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Action taken *</label>
                 <textarea value={newMedical.action_taken} onChange={(e) => setNewMedical((m) => ({ ...m, action_taken: e.target.value }))}
                   placeholder="Medicine given, doctor consulted, parent called..." rows={3}
                   style={S.textarea} />
               </div>
             </div>
 
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 10 }}>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 10 }}>
               Parent will be notified via WhatsApp automatically on save.
             </p>
 
             <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
               <button onClick={() => { setShowAddMedical(false); setMedicalError(''); }}
-                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'inherit' }}>
                 Cancel
               </button>
               <button onClick={addMedical} disabled={saving}

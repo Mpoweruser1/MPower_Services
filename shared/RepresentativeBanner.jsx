@@ -32,9 +32,9 @@ function PhotoCard({ name, designation, party, photoUrl, since, side }) {
         )}
       </div>
       <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: '#0D1B2A' }}>{name || '—'}</p>
-      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#534AB7', fontWeight: 500 }}>{designation}</p>
-      {party && <p style={{ margin: '1px 0 0', fontSize: 10, color: '#888' }}>{party}</p>}
-      {since && <p style={{ margin: '1px 0 0', fontSize: 10, color: '#aaa' }}>Since {new Date(since).getFullYear()}</p>}
+      <p style={{ margin: '2px 0 0', fontSize: 12, color: '#534AB7', fontWeight: 500 }}>{designation}</p>
+      {party && <p style={{ margin: '1px 0 0', fontSize: 12, color: '#888' }}>{party}</p>}
+      {since && <p style={{ margin: '1px 0 0', fontSize: 12, color: '#aaa' }}>Since {new Date(since).getFullYear()}</p>}
     </div>
   );
 }
@@ -93,10 +93,10 @@ export default function RepresentativeBanner({ appId, stateName, constituencyId 
       <div style={{
         background: '#0D1B2A', padding: '6px 12px', textAlign: 'center',
       }}>
-        <p style={{ margin: 0, fontSize: 11, color: '#EF9F27', fontWeight: 600, letterSpacing: 1 }}>
+        <p style={{ margin: 0, fontSize: 12, color: '#EF9F27', fontWeight: 600, letterSpacing: 1 }}>
           {stateName ? `GOVERNMENT OF ${stateName.toUpperCase()}` : 'COMPLAINT TRACKING SYSTEM'}
         </p>
-        <p style={{ margin: '1px 0 0', fontSize: 10, color: '#aaa' }}>
+        <p style={{ margin: '1px 0 0', fontSize: 12, color: '#aaa' }}>
           Powered by MPower Public Services
         </p>
       </div>
@@ -139,7 +139,7 @@ export default function RepresentativeBanner({ appId, stateName, constituencyId 
           background: 'rgba(83,74,183,0.08)', padding: '5px 12px',
           textAlign: 'center', borderTop: '1px solid #ddd',
         }}>
-          <p style={{ margin: 0, fontSize: 11, color: '#534AB7', fontWeight: 500 }}>
+          <p style={{ margin: 0, fontSize: 12, color: '#534AB7', fontWeight: 500 }}>
             Your {rep.tier || 'MLA'} Constituency Representative
           </p>
         </div>

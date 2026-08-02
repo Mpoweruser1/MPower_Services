@@ -550,7 +550,7 @@ useEffect(() => {
     card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, marginBottom: 16 },
     input: { width: '100%', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, fontSize: 13, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
     select: { width: '100%', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, fontSize: 13, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' },
-    label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
+    label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
   };
 
   return (
@@ -560,9 +560,9 @@ useEffect(() => {
       <div style={S.inner} className="no-print">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Print / Export</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Print / Export</p>
             <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0, letterSpacing: -0.5 }}>Complaint Print Centre</h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>ఫిర్యాదు ముద్రణ కేంద్రం</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>ఫిర్యాదు ముద్రణ కేంద్రం</p>
           </div>
           <button onClick={() => window.print()} style={{ padding: '10px 24px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: 'inherit' }}>
             🖨️ Print now
@@ -581,15 +581,15 @@ useEffect(() => {
               <div key={opt.k} onClick={() => setPrintType(opt.k)} style={{ padding: 14, border: `1px solid ${printType === opt.k ? 'rgba(232,160,32,0.5)' : 'rgba(255,255,255,0.07)'}`, background: printType === opt.k ? 'rgba(232,160,32,0.08)' : '#111113', borderRadius: 10, cursor: 'pointer' }}>
                 <p style={{ fontSize: 22, margin: '0 0 6px' }}>{opt.icon}</p>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{opt.title}</p>
-                <p style={{ margin: '2px 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{opt.sub}</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>{opt.te}</p>
+                <p style={{ margin: '2px 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{opt.sub}</p>
+                <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{opt.te}</p>
               </div>
             ))}
           </div>
         </div>
       {!urlCaseNo && (
       <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>
           Case Number / Complaint ID
            </label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -705,7 +705,7 @@ useEffect(() => {
         )}
 
         {loading && (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading complaint data...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading complaint data...</p>
         )}
 
         {/* Print preview label */}
@@ -714,7 +714,7 @@ useEffect(() => {
             <p style={{ margin: 0, fontSize: 13, color: '#E8A020', fontWeight: 500 }}>
               📄 Print preview below — looks exactly like the printed output
             </p>
-            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
               Click "Print now" above or use Ctrl+P / ⌘+P to print
             </p>
           </div>

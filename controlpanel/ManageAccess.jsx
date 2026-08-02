@@ -106,7 +106,7 @@ export default function ManageAccess() {
         <p style={{ fontSize: 13, color: '#aaa' }}>No modules configured for this app type.</p>
       ) : (
         <div style={{ border: '1px solid #eee', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '10px 12px', background: '#f7f7f7', fontSize: 11, fontWeight: 600, color: '#666' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '10px 12px', background: '#f7f7f7', fontSize: 12, fontWeight: 600, color: '#666' }}>
             <span>Module</span><span>View</span><span>Create</span><span>Edit</span><span>Delete</span>
           </div>
           {modules.map((m) => {

@@ -102,10 +102,10 @@ export default function OnboardingWizard({ clientId }) {
         {STEPS.map((s, i) => (
           <React.Fragment key={s}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              <div style={{ width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, background: i + 1 < step ? '#E1F5EE' : i + 1 === step ? '#185FA5' : '#f0f0f0', color: i + 1 < step ? '#085041' : i + 1 === step ? '#fff' : '#999' }}>
+              <div style={{ width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, background: i + 1 < step ? '#E1F5EE' : i + 1 === step ? '#185FA5' : '#f0f0f0', color: i + 1 < step ? '#085041' : i + 1 === step ? '#fff' : '#999' }}>
                 {i + 1 < step ? '✓' : i + 1}
               </div>
-              <span style={{ fontSize: 10, color: i + 1 === step ? '#222' : '#999' }}>{s}</span>
+              <span style={{ fontSize: 12, color: i + 1 === step ? '#222' : '#999' }}>{s}</span>
             </div>
             {i < STEPS.length - 1 && <div style={{ flex: 1, minWidth: 10, height: 2, background: i + 1 < step ? '#1D9E75' : '#eee', margin: '0 4px' }} />}
           </React.Fragment>
@@ -152,7 +152,7 @@ export default function OnboardingWizard({ clientId }) {
                              style={{ ...existing_style, border: ackPhone && ackPhone.replace(/\D/g,'').length !== 10 && ackPhone.length > 5 ? '1px solid #E05A5A' : '1px solid #ccc' }} />
 
                                     {ackPhone && ackPhone.replace(/\D/g,'').length !== 10 && ackPhone.length > 5 && (
-                            <p style={{ fontSize: 11, color: '#E05A5A', marginTop: 4 }}>⚠ Enter a valid 10-digit phone number</p>
+                            <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4 }}>⚠ Enter a valid 10-digit phone number</p>
 )}
               {!otpSent ? (
                 <button onClick={sendOtp} style={{ width: '100%', padding: 10, background: '#185FA5', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Send OTP & sign</button>
@@ -168,7 +168,7 @@ export default function OnboardingWizard({ clientId }) {
               <div style={{ background: '#E1F5EE', borderRadius: 8, padding: 14, textAlign: 'center', marginBottom: 4 }}>
                 <p style={{ fontSize: 22, margin: 0 }}>🎉</p>
                 <p style={{ fontWeight: 600, color: '#085041', margin: '4px 0' }}>Client is live!</p>
-                <p style={{ fontSize: 11, color: '#666', margin: 0 }}>{ackNumber || 'Acknowledgement recorded'} · Support SLA active.</p>
+                <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{ackNumber || 'Acknowledgement recorded'} · Support SLA active.</p>
               </div>
               <NextActions
                 title="Client is live — what next?"

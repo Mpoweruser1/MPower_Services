@@ -8,8 +8,8 @@ import React from 'react';
 const S = {
   wrapper: { marginBottom: 16 },
   label: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
     letterSpacing: '1.5px',
     textTransform: 'uppercase',
     marginBottom: 6,
@@ -35,7 +35,7 @@ const S = {
     transition: 'border-color 0.2s',
   }),
   error: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#E05A5A',
     marginTop: 5,
     display: 'flex',
@@ -43,13 +43,13 @@ const S = {
     gap: 4,
   },
   hint: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.25)',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
     marginTop: 4,
   },
   counter: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.2)',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
     marginTop: 3,
     textAlign: 'right',
   },

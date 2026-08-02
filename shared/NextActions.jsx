@@ -6,7 +6,7 @@ export default function NextActions({ title, actions = [], secondaryActions = []
   return (
     <div style={{ marginTop: 16 }}>
       {title && (
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 12 }}>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 12 }}>
           {title}
         </p>
       )}
@@ -21,7 +21,7 @@ export default function NextActions({ title, actions = [], secondaryActions = []
             <span style={{ fontSize: 20 }}>{action.icon}</span>
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{action.label}</p>
-              {action.description && <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{action.description}</p>}
+              {action.description && <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{action.description}</p>}
             </div>
             <span style={{ color: action.color || '#E8A020', fontSize: 14 }}>→</span>
           </Link>
@@ -34,7 +34,7 @@ export default function NextActions({ title, actions = [], secondaryActions = []
             <span style={{ fontSize: 20 }}>{action.icon}</span>
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{action.label}</p>
-              {action.description && <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{action.description}</p>}
+              {action.description && <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{action.description}</p>}
             </div>
             <span style={{ color: action.color || '#E8A020', fontSize: 14 }}>→</span>
           </button>

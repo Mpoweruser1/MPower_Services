@@ -151,11 +151,27 @@ function PhoneLogin({ auth }) {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
 
   async function handleSendCode(e) {
     e.preventDefault();
     setBusy(true);
-    await auth.requestOtp(phone);
+    const ok = await auth.requestOtp(phone);
+    if (ok) setResendCooldown(30);
+    setBusy(false);
+  }
+
+  async function handleResend() {
+    if (resendCooldown > 0 || busy) return;
+    setBusy(true);
+    const ok = await auth.requestOtp(phone);
+    if (ok) setResendCooldown(30);
     setBusy(false);
   }
 
@@ -169,6 +185,11 @@ function PhoneLogin({ auth }) {
   return (
     <div style={{ maxWidth: 360, margin: '60px auto', padding: 24 }}>
       <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Sign in with your phone</h2>
+      {auth.otpBypassActive && (
+        <div style={{ background: '#FFF3CD', border: '1px solid #E8A020', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12.5, color: '#7A5A00', fontWeight: 600 }}>
+          ⚠️ TEST MODE — OTP verification is bypassed (VITE_SKIP_OTP). Never active in production.
+        </div>
+      )}
       {!auth.otpSent ? (
         <form onSubmit={handleSendCode} style={{ display: 'grid', gap: 12 }}>
           <input
@@ -196,6 +217,23 @@ function PhoneLogin({ auth }) {
           <button type="submit" disabled={busy} style={buttonStyle}>
             {busy ? 'Verifying…' : 'Verify'}
           </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendCooldown > 0 || busy}
+              style={{ background: 'none', border: 'none', padding: 0, color: resendCooldown > 0 ? '#94a3b8' : '#1a1a2e', fontWeight: 600, cursor: resendCooldown > 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
+            >
+              {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { auth.resetOtp(); setCode(''); }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Wrong number?
+            </button>
+          </div>
         </form>
       )}
       {auth.error && <p style={{ color: '#9B3C2E', fontSize: 12.5, marginTop: 10 }}>{auth.error}</p>}

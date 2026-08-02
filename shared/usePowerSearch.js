@@ -327,7 +327,7 @@ export function usePowerSearch(appId, userId) {
               _label: s.full_name,
               _sub: `${s.sid} · Section ${s.section}${s.village_name ? ` · ${s.village_name}` : ''}${s.caste_category ? ` · ${s.caste_category}` : ''}`,
               _score: 100,
-              _path: '/school/fee-collection',
+              _path: `/school/students/${s.id}`,
               _module: 'school',
             });
           });
@@ -341,7 +341,7 @@ export function usePowerSearch(appId, userId) {
               _label: s.full_name,
               _sub: `${s.sid} · Section ${s.section}${s.village_name ? ` · ${s.village_name}` : ''}`,
               _score: 80,
-              _path: '/school/fee-collection',
+              _path: `/school/students/${s.id}`,
               _module: 'school',
             });
           });
@@ -357,7 +357,7 @@ export function usePowerSearch(appId, userId) {
               _score: 60,
               _tag: 'Similar name',
               _tagColor: 'rgba(255,255,255,0.3)',
-              _path: '/school/fee-collection',
+              _path: `/school/students/${s.id}`,
               _module: 'school',
             });
           });
@@ -394,7 +394,7 @@ export function usePowerSearch(appId, userId) {
             _label: p.full_name,
             _sub: `${p.patient_uid}${p.phone ? ` · ${p.phone}` : ''}${p.abha_linked ? ' · ABHA ✓' : ''}`,
             _score: 100,
-            _path: '/hospital/opd',
+            _path: `/hospital/patients/${p.id}`,
             _module: 'hospital',
           });
         });
@@ -407,7 +407,7 @@ export function usePowerSearch(appId, userId) {
             _label: p.full_name,
             _sub: `${p.patient_uid}${p.phone ? ` · ${p.phone}` : ''}`,
             _score: 80,
-            _path: '/hospital/opd',
+            _path: `/hospital/patients/${p.id}`,
             _module: 'hospital',
           });
         });
@@ -422,7 +422,7 @@ export function usePowerSearch(appId, userId) {
             _score: 60,
             _tag: 'Similar name',
             _tagColor: 'rgba(255,255,255,0.3)',
-            _path: '/hospital/opd',
+            _path: `/hospital/patients/${p.id}`,
             _module: 'hospital',
           });
         });

@@ -44,7 +44,7 @@ const S = {
   modal: { background: '#161618', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 480, fontFamily: 'Inter, sans-serif', maxHeight: '90vh', overflowY: 'auto' },
   input: { width: '100%', padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
   select: { width: '100%', padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' },
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
 };
 
 export default function CorrectionRequest({
@@ -173,10 +173,10 @@ export default function CorrectionRequest({
                     <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>
                       {requestType === 'deletion' ? '🗑️ Request deletion' : '✏️ Request correction'}
                     </p>
-                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{recordLabel}</p>
+                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{recordLabel}</p>
                   </div>
                   <button onClick={() => setOpen(false)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.4)', padding: 0 }}>✕</button>
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.6)', padding: 0 }}>✕</button>
                 </div>
 
                 {/* Request type toggle */}
@@ -239,7 +239,7 @@ export default function CorrectionRequest({
                 </div>
 
                 {/* Submitter info */}
-                <div style={{ background: '#111113', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.7 }}>
+                <div style={{ background: '#111113', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7 }}>
                   📋 Submitted by: <strong style={{ color: '#fff' }}>{tenant?.fullName}</strong> · {tenant?.role}<br />
                   🔔 Admin will be notified via WhatsApp for approval
                 </div>

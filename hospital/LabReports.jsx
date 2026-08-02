@@ -21,8 +21,8 @@ const S = {
   inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 12 },
   input: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }),
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
-  fieldErr: { fontSize: 11, color: '#E05A5A', marginTop: 4 },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  fieldErr: { fontSize: 12, color: '#E05A5A', marginTop: 4 },
 };
 
 export default function LabReports() {
@@ -155,7 +155,7 @@ export default function LabReports() {
 
       <div style={S.inner}>
         <div className="no-print" style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Lab Reports · లాబ్ నివేదికలు</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Lab Reports · లాబ్ నివేదికలు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Laboratory</h1>
         </div>
 
@@ -184,7 +184,7 @@ export default function LabReports() {
           <>
             {masterTests.length === 0 ? (
               <div style={{ ...S.card, textAlign: 'center', padding: '32px 20px' }}>
-                <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No lab tests configured yet.</p>
+                <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No lab tests configured yet.</p>
               </div>
             ) : (
               <>
@@ -218,11 +218,11 @@ export default function LabReports() {
                         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
                         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                           <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${isSelected ? '#E8A020' : 'rgba(255,255,255,0.2)'}`, background: isSelected ? '#E8A020' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {isSelected && <span style={{ fontSize: 11, color: '#111113', fontWeight: 700 }}>✓</span>}
+                            {isSelected && <span style={{ fontSize: 12, color: '#111113', fontWeight: 700 }}>✓</span>}
                           </div>
                           <div>
                             <p style={{ margin: 0, fontSize: 13, color: '#fff' }}>{test.test_name}</p>
-                            {test.normal_range && <p style={{ margin: '1px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Normal: {test.normal_range} {test.unit || ''}</p>}
+                            {test.normal_range && <p style={{ margin: '1px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Normal: {test.normal_range} {test.unit || ''}</p>}
                           </div>
                         </div>
                         {test.price && <p style={{ margin: 0, fontSize: 13, color: '#6AAA90' }}>₹{Number(test.price).toLocaleString('en-IN')}</p>}
@@ -255,7 +255,7 @@ export default function LabReports() {
         {tab === 'results' && (
           pendingTests.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>
                 {selectedPatient ? 'No pending lab tests.' : 'Select a patient to view pending tests.'}
               </p>
             </div>
@@ -267,12 +267,12 @@ export default function LabReports() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                     <div>
                       <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>{test.test_name}</p>
-                      <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                      <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                         Ordered: {new Date(test.created_at).toLocaleString('en-IN')}
                         {test.normal_range ? ` · Normal: ${test.normal_range} ${test.unit || ''}` : ''}
                       </p>
                     </div>
-                    <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color, fontWeight: 500 }}>{cfg.label}</span>
+                    <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color, fontWeight: 500 }}>{cfg.label}</span>
                   </div>
 
                   {enteringResult?.id === test.id ? (
@@ -289,7 +289,7 @@ export default function LabReports() {
                           autoFocus
                         />
                         {resultValueError && <p style={S.fieldErr}>⚠ {resultValueError}</p>}
-                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
                           Enter numeric value or Positive/Negative
                         </p>
                       </div>
@@ -300,7 +300,7 @@ export default function LabReports() {
                       </div>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => { setEnteringResult(null); setResultValue(''); setResultValueError(''); setResultNotes(''); }}
-                          style={{ flex: 1, padding: 9, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: 'inherit' }}>
+                          style={{ flex: 1, padding: 9, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.6)', fontFamily: 'inherit' }}>
                           Cancel
                         </button>
                         <button onClick={() => enterResult(test)}

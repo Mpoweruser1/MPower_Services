@@ -33,12 +33,12 @@ export function FieldHelp({ screenCode, fieldName }) {
     <span style={{ position: 'relative', display: 'inline-block' }}>
       <span
         onClick={loadAndShow}
-        style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(232,160,32,0.15)', color: '#E8A020', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, cursor: 'pointer', marginLeft: 4, border: '1px solid rgba(232,160,32,0.2)', flexShrink: 0 }}
+        style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(232,160,32,0.15)', color: '#E8A020', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginLeft: 4, border: '1px solid rgba(232,160,32,0.2)', flexShrink: 0 }}
       >?</span>
       {open && help && (
         <div style={{ position: 'absolute', top: 22, left: 0, zIndex: 100, background: '#161618', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', width: 230, fontSize: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.75)', lineHeight: 1.6 }}>
           {help.help_text}
-          <button onClick={() => setOpen(false)} style={{ display: 'block', marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Close ✕</button>
+          <button onClick={() => setOpen(false)} style={{ display: 'block', marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.6)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Close ✕</button>
         </div>
       )}
     </span>
@@ -90,7 +90,7 @@ export function ScreenVideoButton({ screenCode }) {
           <div style={{ background: '#161618', borderRadius: 14, padding: 24, width: '100%', maxWidth: 560, border: '1px solid rgba(255,255,255,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{video.title}</p>
-              <button onClick={() => setShowPlayer(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.4)' }}>✕</button>
+              <button onClick={() => setShowPlayer(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.6)' }}>✕</button>
             </div>
             <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 10, overflow: 'hidden' }}>
               <iframe
@@ -102,7 +102,7 @@ export function ScreenVideoButton({ screenCode }) {
               />
             </div>
             {video.video_duration_secs && (
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 10, marginBottom: 0 }}>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 10, marginBottom: 0 }}>
                 Duration: {Math.floor(video.video_duration_secs / 60)}:{String(video.video_duration_secs % 60).padStart(2, '0')}
               </p>
             )}

@@ -42,14 +42,14 @@ const STATUS_CONFIG = {
   quote_sent:     { color: '#E8A020', bg: 'rgba(232,160,32,0.12)',  label: 'Quote sent' },
   in_development: { color: '#E8A020', bg: 'rgba(232,160,32,0.12)',  label: 'In development' },
   delivered:      { color: '#6AAA90', bg: 'rgba(106,170,144,0.12)', label: 'Delivered' },
-  closed:         { color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.06)', label: 'Closed' },
+  closed:         { color: 'rgba(255,255,255,0.6)', bg: 'rgba(255,255,255,0.06)', label: 'Closed' },
 };
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
   inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 20, marginBottom: 14 },
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
   input: { width: '100%', padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
   select: { width: '100%', padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' },
   textarea: { width: '100%', padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6 },
@@ -68,13 +68,13 @@ function StepTracker({ status }) {
             <div style={{
               width: 26, height: 26, borderRadius: '50%',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 10, fontWeight: 700,
+              fontSize: 12, fontWeight: 700,
               background: i < current ? 'rgba(106,170,144,0.2)' : i === current ? '#E8A020' : 'rgba(255,255,255,0.08)',
               color:      i < current ? '#6AAA90'               : i === current ? '#111113' : 'rgba(255,255,255,0.3)',
             }}>
               {i < current ? '✓' : i + 1}
             </div>
-            <span style={{ fontSize: 9, color: i === current ? '#E8A020' : i < current ? '#6AAA90' : 'rgba(255,255,255,0.3)', textAlign: 'center', maxWidth: 58, lineHeight: 1.3 }}>
+            <span style={{ fontSize: 12, color: i === current ? '#E8A020' : i < current ? '#6AAA90' : 'rgba(255,255,255,0.3)', textAlign: 'center', maxWidth: 58, lineHeight: 1.3 }}>
               {label}
             </span>
           </div>
@@ -103,7 +103,7 @@ function RaiseRequestForm({ onSubmit, submitting }) {
 
   return (
     <div style={S.card}>
-      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>
+      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>
         New modification request
       </p>
 
@@ -128,7 +128,7 @@ function RaiseRequestForm({ onSubmit, submitting }) {
           placeholder="Be specific — what field, what format, what data should appear, any sample or reference document..."
           style={S.textarea}
         />
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 5 }}>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 5 }}>
           {description.length} characters — the more detail, the faster we can quote.
         </p>
       </div>
@@ -146,14 +146,14 @@ function RaiseRequestForm({ onSubmit, submitting }) {
                 <input type="radio" name="urgency" value={u.value} checked={urgency === u.value} onChange={() => setUrgency(u.value)} style={{ accentColor: '#E8A020' }} />
                 <span style={{ fontSize: 13, fontWeight: 500, color: urgency === u.value ? '#E8A020' : '#fff' }}>{u.label}</span>
               </div>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginLeft: 20 }}>{u.sub}</span>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginLeft: 20 }}>{u.sub}</span>
             </label>
           ))}
         </div>
       </div>
 
       {/* T&C note */}
-      <div style={{ background: '#111113', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.7 }}>
+      <div style={{ background: '#111113', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7 }}>
         📋 No charge for the quote. Work begins <strong style={{ color: 'rgba(255,255,255,0.6)' }}>only after you accept and pay</strong> (per Terms §6A).
         <br />We review and send a quote within <strong style={{ color: 'rgba(255,255,255,0.6)' }}>2 working days</strong>.
       </div>
@@ -182,32 +182,32 @@ function RequestCard({ req, tenant, onPaySuccess }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ flex: 1, marginRight: 12 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#E8A020' }}>
+              <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#E8A020' }}>
                 MOD-{req.id?.slice(0, 6).toUpperCase()}
               </span>
-              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: statusCfg.bg, color: statusCfg.color, fontWeight: 500 }}>
+              <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: statusCfg.bg, color: statusCfg.color, fontWeight: 500 }}>
                 {statusCfg.label}
               </span>
               {req.urgency && req.urgency !== 'Normal' && (
-                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: 'rgba(224,90,90,0.12)', color: '#E05A5A' }}>
+                <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: 'rgba(224,90,90,0.12)', color: '#E05A5A' }}>
                   {req.urgency}
                 </span>
               )}
               {hasQuote && (
-                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: 'rgba(232,160,32,0.15)', color: '#E8A020', fontWeight: 600, animation: 'pulse 2s infinite' }}>
+                <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: 'rgba(232,160,32,0.15)', color: '#E8A020', fontWeight: 600, animation: 'pulse 2s infinite' }}>
                   💡 Quote ready — action needed!
                 </span>
               )}
             </div>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{req.request_type}</p>
             {req.screen_name && (
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Screen: {req.screen_name}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Screen: {req.screen_name}</p>
             )}
-            <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
               {new Date(req.created_at).toLocaleDateString('en-IN')}
             </p>
           </div>
-          <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14, flexShrink: 0 }}>
+          <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, flexShrink: 0 }}>
             {expanded ? '▲' : '▼'}
           </span>
         </div>
@@ -222,7 +222,7 @@ function RequestCard({ req, tenant, onPaySuccess }) {
 
           {/* Request description */}
           <div style={{ background: '#111113', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
-            <p style={{ margin: '0 0 4px', fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>YOUR REQUEST</p>
+            <p style={{ margin: '0 0 4px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>YOUR REQUEST</p>
             <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7 }}>{req.description}</p>
           </div>
 
@@ -234,7 +234,7 @@ function RequestCard({ req, tenant, onPaySuccess }) {
               <span style={{ fontSize: 22 }}>🕐</span>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 500, color: '#9A8AE0' }}>Request received — under review</p>
-                <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>
+                <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
                   Our team will review your request and send a quote within <strong>2 working days</strong>.<br />
                   You will be notified via WhatsApp when the quote is ready.
                 </p>
@@ -248,7 +248,7 @@ function RequestCard({ req, tenant, onPaySuccess }) {
               <span style={{ fontSize: 22 }}>🔍</span>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 500, color: '#5A9ADF' }}>Under technical review</p>
-                <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>
+                <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
                   We are assessing feasibility and preparing your quote. Should be ready shortly.
                 </p>
               </div>
@@ -258,33 +258,33 @@ function RequestCard({ req, tenant, onPaySuccess }) {
           {/* Quote sent — action needed */}
           {req.status === 'quote_sent' && req.quote_amount && !req.paid_at && (
             <div style={{ background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 12, padding: '16px' }}>
-              <p style={{ margin: '0 0 14px', fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>QUOTE DETAILS · ఉల్లేఖన వివరాలు</p>
+              <p style={{ margin: '0 0 14px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>QUOTE DETAILS · ఉల్లేఖన వివరాలు</p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                 <div style={{ background: '#111113', borderRadius: 8, padding: 14, textAlign: 'center' }}>
                   <p style={{ fontSize: 26, fontWeight: 700, margin: 0, color: '#E8A020' }}>
                     ₹{Number(req.quote_amount).toLocaleString('en-IN')}
                   </p>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '4px 0 0' }}>One-time charge</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>One-time charge</p>
                 </div>
                 <div style={{ background: '#111113', borderRadius: 8, padding: 14, textAlign: 'center' }}>
                   <p style={{ fontSize: 26, fontWeight: 700, margin: 0, color: '#9A8AE0' }}>
                     {req.quote_days} {req.quote_days === 1 ? 'day' : 'days'}
                   </p>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '4px 0 0' }}>Delivery after payment</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>Delivery after payment</p>
                 </div>
               </div>
 
               {/* Quote scope */}
               {req.quote_scope && (
                 <div style={{ background: '#111113', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
-                  <p style={{ margin: '0 0 6px', fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>SCOPE OF WORK</p>
+                  <p style={{ margin: '0 0 6px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>SCOPE OF WORK</p>
                   <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.7 }}>{req.quote_scope}</p>
                 </div>
               )}
 
               {/* Payment terms note */}
-              <div style={{ background: 'rgba(154,138,224,0.06)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.7 }}>
+              <div style={{ background: 'rgba(154,138,224,0.06)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7 }}>
                 ✅ Accept this quote by making payment below.<br />
                 Development starts immediately after payment confirmation.<br />
                 Per Terms §6A — full payment required before development begins.
@@ -303,7 +303,7 @@ function RequestCard({ req, tenant, onPaySuccess }) {
                 onSuccess={(paymentId) => onPaySuccess(req.id, paymentId)}
               />
 
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 10 }}>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 10 }}>
                 UPI · Cards · Net Banking · Wallets accepted
               </p>
             </div>
@@ -317,7 +317,7 @@ function RequestCard({ req, tenant, onPaySuccess }) {
                 <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 500, color: '#E8A020' }}>
                   In development · అభివృద్ధిలో ఉంది
                 </p>
-                <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>
+                <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
                   {req.quote_amount && <span>Payment received — ₹{Number(req.quote_amount).toLocaleString('en-IN')} · </span>}
                   {req.paid_at && <span>Paid {new Date(req.paid_at).toLocaleDateString('en-IN')} · </span>}
                   {req.quote_days && <span>Estimated {req.quote_days} working days from payment.</span>}
@@ -344,7 +344,7 @@ function RequestCard({ req, tenant, onPaySuccess }) {
               </div>
               {req.delivery_notes && (
                 <div style={{ background: '#111113', borderRadius: 8, padding: '10px 14px' }}>
-                  <p style={{ margin: '0 0 4px', fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>DELIVERY NOTES</p>
+                  <p style={{ margin: '0 0 4px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>DELIVERY NOTES</p>
                   <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>{req.delivery_notes}</p>
                 </div>
               )}
@@ -353,7 +353,7 @@ function RequestCard({ req, tenant, onPaySuccess }) {
 
           {/* Closed */}
           {req.status === 'closed' && (
-            <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
+            <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
               🔒 This request has been closed.
             </div>
           )}
@@ -467,7 +467,7 @@ export default function ModificationRequestPortal() {
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>Modification Requests</p>
-          <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Custom changes · {tenant?.orgName}</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Custom changes · {tenant?.orgName}</p>
         </div>
         <button onClick={() => setTab('raise')}
           style={{ padding: '7px 16px', border: 'none', borderRadius: 20, background: '#E8A020', color: '#111113', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
@@ -527,7 +527,7 @@ export default function ModificationRequestPortal() {
         {/* My requests tab */}
         {tab === 'status' && (
           loading ? (
-            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>
               Loading requests...
             </p>
           ) : requests.length === 0 ? (
@@ -536,7 +536,7 @@ export default function ModificationRequestPortal() {
               <p style={{ fontSize: 15, fontWeight: 500, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>
                 No modification requests yet
               </p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginBottom: 20 }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 20 }}>
                 Need a custom change? Click "+ New request" to get started.
               </p>
               <button onClick={() => setTab('raise')}
@@ -559,7 +559,7 @@ export default function ModificationRequestPortal() {
         {/* Workflow explanation */}
         {tab === 'status' && requests.length > 0 && (
           <div style={{ background: '#111113', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginTop: 8 }}>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, margin: '0 0 12px' }}>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, margin: '0 0 12px' }}>
               HOW IT WORKS · ప్రక్రియ వివరణ
             </p>
             {[
@@ -570,12 +570,12 @@ export default function ModificationRequestPortal() {
               { step: '5', label: 'Goes live in your app',              sub: 'You\'re notified via WhatsApp when ready' },
             ].map((item) => (
               <div key={item.step} style={{ display: 'flex', gap: 12, marginBottom: 10, alignItems: 'flex-start' }}>
-                <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(232,160,32,0.12)', color: '#E8A020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(232,160,32,0.12)', color: '#E8A020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
                   {item.step}
                 </div>
                 <div>
                   <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{item.label}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{item.sub}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{item.sub}</p>
                 </div>
               </div>
             ))}

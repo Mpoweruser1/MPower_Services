@@ -248,7 +248,7 @@ function ComplaintCard({ complaint, role, actorName, onOpen, onAction }) {
       <div onClick={onOpen} style={{ cursor: 'pointer', marginBottom: 10, display: 'flex', gap: 12 }}>
         <span style={{ fontSize: 28, flexShrink: 0 }}>{CATEGORY_EMOJI[complaint.category] || '📄'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: '#8B9099', fontFamily: 'monospace' }}>{complaint.case_no}</div>
+          <div style={{ fontSize: 12, color: '#8B9099', fontFamily: 'monospace' }}>{complaint.case_no}</div>
           <div style={{ fontSize: 14.5, fontWeight: 600 }}>{complaint.title}</div>
           <div style={{ fontSize: 12, color: '#5B6473', marginTop: 3 }}>{complaint.description}</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
@@ -300,7 +300,7 @@ function ComplaintCard({ complaint, role, actorName, onOpen, onAction }) {
           </>
         )}
       </div>
-      {warn && <p style={{ fontSize: 11, color: '#9B3C2E', marginTop: 6 }}>Add a reason before declining — the citizen will see it.</p>}
+      {warn && <p style={{ fontSize: 12, color: '#9B3C2E', marginTop: 6 }}>Add a reason before declining — the citizen will see it.</p>}
     </div>
   );
 }
@@ -332,7 +332,7 @@ function ComplaintDetailDrawer({ complaint, role, staffUserId, onClose }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end' }} onClick={onClose}>
       <div style={{ width: 400, background: '#fff', height: '100%', padding: 20, overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} style={{ float: 'right', border: 'none', background: 'none' }}>✕</button>
-        <div style={{ fontSize: 11, color: '#8B9099', fontFamily: 'monospace' }}>{complaint.case_no}</div>
+        <div style={{ fontSize: 12, color: '#8B9099', fontFamily: 'monospace' }}>{complaint.case_no}</div>
         <h3 style={{ fontSize: 16, fontWeight: 600 }}>{complaint.title}</h3>
         <p style={{ fontSize: 13, color: '#3A4250', margin: '10px 0' }}>{complaint.description}</p>
         {complaint.suggested_solution && (
@@ -365,7 +365,7 @@ function ComplaintDetailDrawer({ complaint, role, staffUserId, onClose }) {
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 11, color: '#8B9099' }}>{h.by_name} · {new Date(h.created_at).toLocaleString()}</div>
+            <div style={{ fontSize: 12, color: '#8B9099' }}>{h.by_name} · {new Date(h.created_at).toLocaleString()}</div>
             {h.note && <div style={{ fontSize: 12.5, marginTop: 3 }}>{h.note}</div>}
           </div>
         ))}

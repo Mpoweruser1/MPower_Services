@@ -21,8 +21,8 @@ function StatCard({ value, label, labelTe, color = '#fff', alert = false, loadin
         ? <div style={{ height: 28, background: 'rgba(255,255,255,0.06)', borderRadius: 6, marginBottom: 6 }} />
         : <p style={{ fontSize: 22, fontWeight: 700, margin: 0, color: alert ? '#E05A5A' : color }}>{value}</p>
       }
-      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '3px 0 1px' }}>{label}</p>
-      {labelTe && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', margin: 0 }}>{labelTe}</p>}
+      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '3px 0 1px' }}>{label}</p>
+      {labelTe && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>{labelTe}</p>}
     </div>
   );
 }
@@ -151,11 +151,11 @@ export default function HospitalDashboard() {
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: '0 0 4px' }}>{greeting}</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 4px' }}>{greeting}</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: '0 0 2px', letterSpacing: -0.5 }}>
             {tenant?.orgName || 'Hospital Dashboard'}
           </h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
             {tenant?.role === 'doctor' ? 'Doctor' : tenant?.role} ·{' '}
             {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
@@ -233,7 +233,7 @@ export default function HospitalDashboard() {
         )}
 
         {/* Quick actions */}
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>
           Quick actions · త్వరిత చర్యలు
         </p>
 
@@ -244,7 +244,7 @@ export default function HospitalDashboard() {
               <span style={{ fontSize: 22 }}>{action.icon}</span>
               <div>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{action.en}</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{action.te}</p>
+                <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{action.te}</p>
               </div>
             </Link>
           ))}
@@ -256,7 +256,7 @@ export default function HospitalDashboard() {
             <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 500, color: '#fff' }}>
               Total registered patients: {stats.totalPatients.toLocaleString('en-IN')}
             </p>
-            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
+            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
               {stats.abhaPct}% linked with ABHA Health ID
             </p>
           </div>

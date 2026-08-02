@@ -11,8 +11,8 @@ const S = {
   inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, marginBottom: 10 },
   input: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }),
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
-  badge: (color, bg) => ({ fontSize: 11, padding: '3px 10px', borderRadius: 20, fontWeight: 500, color, background: bg }),
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  badge: (color, bg) => ({ fontSize: 12, padding: '3px 10px', borderRadius: 20, fontWeight: 500, color, background: bg }),
 };
 
 const STATUS_CONFIG = {
@@ -158,12 +158,12 @@ export default function Transport() {
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Transport · రవాణా
           </p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Transport Management</h1>
           {!loading && (
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
               {routes.length} routes · {totalStudents} students
             </p>
           )}
@@ -187,7 +187,7 @@ export default function Transport() {
         </div>
 
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
         ) : (
           <>
             {/* Routes tab */}
@@ -195,7 +195,7 @@ export default function Transport() {
               routes.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 20px' }}>
                   <p style={{ fontSize: 32, marginBottom: 12 }}>🚌</p>
-                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No routes added yet.</p>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No routes added yet.</p>
                   <button onClick={() => setShowAddRoute(true)}
                     style={{ marginTop: 12, padding: '10px 20px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                     Add first route →
@@ -216,7 +216,7 @@ export default function Transport() {
                           <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>
                             {route.route_no} — {route.vehicle_no}
                           </p>
-                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                             {route.driver_name}
                             {route.driver_phone ? ` · ${route.driver_phone}` : ''}
                             {stopCount > 0 ? ` · ${stopCount} stops · ${studentCount} students` : ''}
@@ -233,7 +233,7 @@ export default function Transport() {
                                 <div key={stop.id}
                                   style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                   <span style={{ color: '#fff' }}>{stop.stop_name}</span>
-                                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                  <span style={{ color: 'rgba(255,255,255,0.6)' }}>
                                     {stop.arrival_time} · {stop.student_count || 0} students
                                   </span>
                                 </div>
@@ -275,7 +275,7 @@ export default function Transport() {
             {tab === 'maintenance' && (
               maintenance.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No maintenance records yet.</p>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No maintenance records yet.</p>
                 </div>
               ) : (
                 maintenance.map((m) => {
@@ -285,7 +285,7 @@ export default function Transport() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                           <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{m.vehicle_no} — {m.maintenance_type}</p>
-                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Due: {m.due_date}</p>
+                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Due: {m.due_date}</p>
                         </div>
                         <span style={S.badge(isOverdue ? '#E05A5A' : '#E8A020', isOverdue ? 'rgba(224,90,90,0.12)' : 'rgba(232,160,32,0.12)')}>
                           {isOverdue ? 'Overdue' : 'Upcoming'}
@@ -320,7 +320,7 @@ export default function Transport() {
                 { key: 'driver_phone', label: 'Driver phone',      placeholder: '10-digit number', type: 'phone' },
               ].map((field) => (
                 <div key={field.key}>
-                  <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
+                  <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
                     {field.label}
                   </label>
                   <input
@@ -335,7 +335,7 @@ export default function Transport() {
                     style={S.input(!!routeErrors[field.key])}
                   />
                   {routeErrors[field.key] && (
-                    <p style={{ fontSize: 11, color: '#E05A5A', marginTop: 4 }}>⚠ {routeErrors[field.key]}</p>
+                    <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4 }}>⚠ {routeErrors[field.key]}</p>
                   )}
                 </div>
               ))}
@@ -343,7 +343,7 @@ export default function Transport() {
 
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button onClick={() => { setShowAddRoute(false); setRouteErrors({}); setSubmitError(''); }}
-                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'inherit' }}>
                 Cancel
               </button>
               <button onClick={addRoute} disabled={saving}

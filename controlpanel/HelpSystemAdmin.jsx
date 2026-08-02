@@ -76,7 +76,7 @@ export default function HelpSystemAdmin() {
         <>
           <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
             {MODULE_FILTERS.map((m) => (
-              <button key={m} onClick={() => setModuleFilter(m)} style={{ padding: '4px 10px', fontSize: 11, borderRadius: 16, cursor: 'pointer', border: moduleFilter === m ? 'none' : '1px solid #ccc', background: moduleFilter === m ? '#534AB7' : '#fff', color: moduleFilter === m ? '#fff' : '#666' }}>
+              <button key={m} onClick={() => setModuleFilter(m)} style={{ padding: '4px 10px', fontSize: 12, borderRadius: 16, cursor: 'pointer', border: moduleFilter === m ? 'none' : '1px solid #ccc', background: moduleFilter === m ? '#534AB7' : '#fff', color: moduleFilter === m ? '#fff' : '#666' }}>
                 {m}
               </button>
             ))}
@@ -89,19 +89,19 @@ export default function HelpSystemAdmin() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: 0, fontWeight: 500, fontSize: 13 }}>{v.title || v.screen_code}</p>
-                    <p style={{ margin: '2px 0', fontSize: 11, color: '#888' }}>{v.screen_code} · {v.language} {v.video_duration_secs ? `· ${v.video_duration_secs}s` : ''}</p>
-                    <p style={{ margin: 0, fontSize: 11, color: '#666' }}>👁 {v.views || 0} views</p>
+                    <p style={{ margin: '2px 0', fontSize: 12, color: '#888' }}>{v.screen_code} · {v.language} {v.video_duration_secs ? `· ${v.video_duration_secs}s` : ''}</p>
+                    <p style={{ margin: 0, fontSize: 12, color: '#666' }}>👁 {v.views || 0} views</p>
                   </div>
-                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: v.is_active ? '#E1F5EE' : '#f0f0f0', color: v.is_active ? '#085041' : '#999' }}>
+                  <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: v.is_active ? '#E1F5EE' : '#f0f0f0', color: v.is_active ? '#085041' : '#999' }}>
                     {v.is_active ? 'Active' : v.video_id ? 'Draft' : 'No video'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => { const vid = prompt('Paste YouTube/Cloudflare video ID:', v.video_id || ''); if (vid !== null) updateVideoId(v.id, vid); }} style={{ fontSize: 11, padding: '4px 10px', border: '1px solid #185FA5', color: '#185FA5', background: '#fff', borderRadius: 6, cursor: 'pointer' }}>
+                  <button onClick={() => { const vid = prompt('Paste YouTube/Cloudflare video ID:', v.video_id || ''); if (vid !== null) updateVideoId(v.id, vid); }} style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #185FA5', color: '#185FA5', background: '#fff', borderRadius: 6, cursor: 'pointer' }}>
                     {v.video_id ? 'Replace video' : 'Upload video'}
                   </button>
                   {v.video_id && (
-                    <button onClick={() => toggleActive(v.id, v.is_active)} style={{ fontSize: 11, padding: '4px 10px', border: '1px solid #ccc', color: '#666', background: '#fff', borderRadius: 6, cursor: 'pointer' }}>
+                    <button onClick={() => toggleActive(v.id, v.is_active)} style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #ccc', color: '#666', background: '#fff', borderRadius: 6, cursor: 'pointer' }}>
                       {v.is_active ? 'Deactivate' : 'Activate'}
                     </button>
                   )}
@@ -118,10 +118,10 @@ export default function HelpSystemAdmin() {
           <div key={f.id} style={{ border: '1px solid #eee', borderRadius: 8, padding: 12, marginBottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <p style={{ margin: 0, fontWeight: 500, fontSize: 13 }}>{f.field_name} <span style={{ color: '#888', fontWeight: 400 }}>· {f.screen_code}</span></p>
-              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: '#E6F1FB', color: '#0C447C' }}>{f.help_type}</span>
+              <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: '#E6F1FB', color: '#0C447C' }}>{f.help_type}</span>
             </div>
             <p style={{ fontSize: 12, color: '#666', margin: '4px 0' }}>{f.help_text}</p>
-            <p style={{ fontSize: 11, color: '#aaa', margin: 0 }}>{f.language} · {f.trigger_condition} · 👁 {f.views || 0}</p>
+            <p style={{ fontSize: 12, color: '#aaa', margin: 0 }}>{f.language} · {f.trigger_condition} · 👁 {f.views || 0}</p>
           </div>
         ))
       )}
@@ -130,11 +130,11 @@ export default function HelpSystemAdmin() {
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
             <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12 }}>
-              <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Total help views</p>
+              <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Total help views</p>
               <p style={{ fontSize: 20, fontWeight: 700, margin: '4px 0 0' }}>{analytics.length}</p>
             </div>
             <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12 }}>
-              <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Screens missing video</p>
+              <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Screens missing video</p>
               <p style={{ fontSize: 20, fontWeight: 700, margin: '4px 0 0', color: screensWithoutVideo.length > 0 ? '#A32D2D' : '#1D9E75' }}>{screensWithoutVideo.length}</p>
             </div>
           </div>

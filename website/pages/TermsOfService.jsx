@@ -21,7 +21,7 @@ export default function TermsOfService() {
       </div>
       <div style={S.inner}>
         <h1 style={{ fontSize: 36, fontWeight: 700, color: '#fff', margin: '0 0 8px', letterSpacing: -1 }}>Terms of Service</h1>
-        <p style={{ ...S.p, color: 'rgba(255,255,255,0.4)' }}>Last updated: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p style={{ ...S.p, color: 'rgba(255,255,255,0.6)' }}>Last updated: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
 
         <h2 style={S.h2}>§1 — Acceptance</h2>
         <p style={S.p}>By registering for and using MPower, you agree to these Terms of Service. If you do not agree, do not use the platform.</p>

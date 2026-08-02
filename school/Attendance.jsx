@@ -12,14 +12,14 @@ const S = {
   inner: { maxWidth: 640, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, marginBottom: 12 },
   select: { padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', fontFamily: 'inherit', cursor: 'pointer' },
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
 };
 
 const STATUS_CONFIG = {
   P: { label: 'Present', labelTe: 'హాజరు',    color: '#6AAA90', bg: 'rgba(106,170,144,0.15)', border: 'rgba(106,170,144,0.3)' },
   A: { label: 'Absent',  labelTe: 'గైర్హాజరు', color: '#E05A5A', bg: 'rgba(224,90,90,0.15)',   border: 'rgba(224,90,90,0.3)' },
   L: { label: 'Late',    labelTe: 'ఆలస్యం',    color: '#E8A020', bg: 'rgba(232,160,32,0.15)',  border: 'rgba(232,160,32,0.3)' },
-  V: { label: 'Holiday', labelTe: 'సెలవు',     color: 'rgba(255,255,255,0.4)', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.1)' },
+  V: { label: 'Holiday', labelTe: 'సెలవు',     color: 'rgba(255,255,255,0.6)', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.1)' },
 };
 
 export default function Attendance() {
@@ -162,7 +162,7 @@ export default function Attendance() {
 
       <div style={S.inner}>
         <div className="no-print" style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Attendance · హాజరు</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Attendance · హాజరు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0, letterSpacing: -0.5 }}>Daily Attendance</h1>
         </div>
 
@@ -196,7 +196,7 @@ export default function Attendance() {
               <div key={status} style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 8, padding: '10px 0', textAlign: 'center', cursor: 'pointer' }}
                 onClick={() => markAll(status)}>
                 <p style={{ fontSize: 20, fontWeight: 700, margin: 0, color: cfg.color }}>{counts[status] || 0}</p>
-                <p style={{ fontSize: 10, color: cfg.color, margin: '2px 0 0' }}>{cfg.label}</p>
+                <p style={{ fontSize: 12, color: cfg.color, margin: '2px 0 0' }}>{cfg.label}</p>
               </div>
             ))}
           </div>
@@ -216,10 +216,10 @@ export default function Attendance() {
 
         {/* Student list */}
         {loading ? (
-          <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 13, marginTop: 32 }}>Loading students...</p>
+          <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 32 }}>Loading students...</p>
         ) : students.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)' }}>No students found for this class and section.</p>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No students found for this class and section.</p>
           </div>
         ) : (
           <div style={S.card}>
@@ -233,17 +233,17 @@ export default function Attendance() {
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: i < students.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', width: 24, flexShrink: 0 }}>{i + 1}</span>
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', width: 24, flexShrink: 0 }}>{i + 1}</span>
                     <div>
                       <p style={{ margin: 0, fontSize: 14, color: '#fff', fontWeight: 400 }}>{student.full_name}</p>
-                      <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+                      <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                         {student.sid}{student.student_type === 'hostel' ? ' · 🏠 Hostel' : ''}
                       </p>
                     </div>
                   </div>
                   <div style={{ padding: '6px 16px', borderRadius: 20, background: cfg.bg, border: `1px solid ${cfg.border}`, minWidth: 80, textAlign: 'center' }}>
                     <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: cfg.color }}>{cfg.label}</p>
-                    <p style={{ margin: 0, fontSize: 10, color: cfg.color, opacity: 0.8 }}>{cfg.labelTe}</p>
+                    <p style={{ margin: 0, fontSize: 12, color: cfg.color, opacity: 0.8 }}>{cfg.labelTe}</p>
                   </div>
                 </div>
               );

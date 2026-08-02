@@ -1,19 +1,17 @@
-// shared/SchoolNav.jsx — FINAL
+// shared/HospitalNav.jsx — FINAL
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useTenant } from '../context/TenantContext';
 
 const NAV_ITEMS = [
-  { path: '/school/dashboard',     icon: '📊', label: 'Home' },
-  { path: '/school/admission',     icon: '👤', label: 'Admit' },
-  { path: '/school/attendance',    icon: '✅', label: 'Attendance' },
-  { path: '/school/fee-collection',icon: '💰', label: 'Fees' },
-  { path: '/school/reports',       icon: '🔍', label: 'Reports' },
+  { path: '/hospital/dashboard',    icon: '📊', label: 'Home' },
+  { path: '/hospital/patients/new', icon: '👤', label: 'Register' },
+  { path: '/hospital/opd',          icon: '🩺', label: 'OPD' },
+  { path: '/hospital/billing',      icon: '💳', label: 'Billing' },
+  { path: '/hospital/ipd',          icon: '🛏️', label: 'IPD' },
 ];
 
-export default function SchoolNav() {
-  const location  = useLocation();
-  const { tenant } = useTenant();
+export default function HospitalNav() {
+  const location = useLocation();
 
   return (
     <nav style={{
@@ -27,16 +25,16 @@ export default function SchoolNav() {
     }}>
       {NAV_ITEMS.map((item) => {
         const active = location.pathname === item.path ||
-          (item.path !== '/school/dashboard' && location.pathname.startsWith(item.path));
+          (item.path !== '/hospital/dashboard' && location.pathname.startsWith(item.path));
         return (
           <Link key={item.path} to={item.path}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, textDecoration: 'none', minWidth: 56, padding: '4px 0' }}>
             <span style={{ fontSize: 20, lineHeight: 1 }}>{item.icon}</span>
-            <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? '#E8A020' : 'rgba(255,255,255,0.4)', letterSpacing: 0.2 }}>
+            <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? '#5A9ADF' : 'rgba(255,255,255,0.4)', letterSpacing: 0.2 }}>
               {item.label}
             </span>
             {active && (
-              <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#E8A020', marginTop: 1 }} />
+              <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#5A9ADF', marginTop: 1 }} />
             )}
           </Link>
         );

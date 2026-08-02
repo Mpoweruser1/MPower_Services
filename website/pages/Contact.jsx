@@ -123,14 +123,14 @@ export default function Contact() {
       <div style={S.inner}>
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 34, fontWeight: 700, color: '#fff', margin: '0 0 10px', letterSpacing: -1 }}>Contact us</h1>
-          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.6 }}>
             Questions, demo requests, support — we respond within 24–48 hours.<br />
             WhatsApp: <strong style={{ color: '#E8A020' }}>+91 99999 00000</strong>
           </p>
         </div>
 
         <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '28px 24px' }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 20 }}>Send a message</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 20 }}>Send a message</p>
 
           <FormField
             label="What are you enquiring about?"

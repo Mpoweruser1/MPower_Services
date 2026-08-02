@@ -111,10 +111,10 @@ export default function BillingTracker() {
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>Billing Tracker</p>
-          <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Platform subscription billing</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Platform subscription billing</p>
         </div>
         <button onClick={generateMonthlyInvoices} disabled={generating}
-          style={{ padding: '7px 14px', border: 'none', borderRadius: 20, background: generating ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', cursor: generating ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }}>
+          style={{ padding: '7px 14px', border: 'none', borderRadius: 20, background: generating ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', cursor: generating ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
           {generating ? 'Generating...' : '+ Generate this month'}
         </button>
       </nav>
@@ -131,7 +131,7 @@ export default function BillingTracker() {
           ].map((s) => (
             <div key={s.label} style={{ ...S.stat, border: `1px solid ${s.alert ? 'rgba(224,90,90,0.2)' : 'rgba(255,255,255,0.05)'}` }}>
               <p style={{ fontSize: s.label === 'MRR' || s.label.includes('₹') ? 13 : 22, fontWeight: 700, margin: 0, color: s.alert ? '#E05A5A' : s.color }}>{s.value}</p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '3px 0 0' }}>{s.label}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '3px 0 0' }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -151,7 +151,7 @@ export default function BillingTracker() {
         </div>
 
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
         ) : (
           <>
             {/* Client rates */}
@@ -159,7 +159,7 @@ export default function BillingTracker() {
               <div style={S.card}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px', gap: 8, marginBottom: 8, padding: '0 0 8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   {['Client', 'Tier', 'Monthly'].map((h) => (
-                    <p key={h} style={{ margin: 0, fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>{h}</p>
+                    <p key={h} style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>{h}</p>
                   ))}
                 </div>
                 {clients.map((client) => {
@@ -170,9 +170,9 @@ export default function BillingTracker() {
                     <div key={client.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px', gap: 8, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
                       <div>
                         <p style={{ margin: 0, fontSize: 13, color: '#fff' }}>{client.org_name}</p>
-                        <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{client.district || '—'}</p>
+                        <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{client.district || '—'}</p>
                       </div>
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: `${TIER_COLORS[tier]}15`, color: TIER_COLORS[tier] || '#fff', fontWeight: 500 }}>{tier}</span>
+                      <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: `${TIER_COLORS[tier]}15`, color: TIER_COLORS[tier] || '#fff', fontWeight: 500 }}>{tier}</span>
                       <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#6AAA90' }}>₹{amount}</p>
                     </div>
                   );
@@ -193,11 +193,11 @@ export default function BillingTracker() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                       <div>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-                          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#E8A020' }}>{inv.invoice_no}</span>
-                          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: dispCfg.bg, color: dispCfg.color, fontWeight: 500 }}>{dispCfg.label}</span>
+                          <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#E8A020' }}>{inv.invoice_no}</span>
+                          <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: dispCfg.bg, color: dispCfg.color, fontWeight: 500 }}>{dispCfg.label}</span>
                         </div>
                         <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{inv.crm_clients?.org_name || '—'}</p>
-                        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                           Due: {inv.due_date}
                           {inv.month ? ` · Month: ${inv.month}` : ''}
                         </p>

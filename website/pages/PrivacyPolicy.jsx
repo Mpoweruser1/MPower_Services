@@ -21,7 +21,7 @@ export default function PrivacyPolicy() {
       </div>
       <div style={S.inner}>
         <h1 style={{ fontSize: 36, fontWeight: 700, color: '#fff', margin: '0 0 8px', letterSpacing: -1 }}>Privacy Policy</h1>
-        <p style={{ ...S.p, color: 'rgba(255,255,255,0.4)' }}>Last updated: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p style={{ ...S.p, color: 'rgba(255,255,255,0.6)' }}>Last updated: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
 
         <h2 style={S.h2}>What data we collect</h2>
         <p style={S.p}>We collect organisation name, contact person name, phone number, email address, and the data you enter into the platform — student records, patient records, fee payments, attendance, and complaint information. All data is encrypted at rest and in transit.</p>

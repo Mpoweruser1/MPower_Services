@@ -532,6 +532,7 @@ export async function logReportView({ appId, reportTemplateId, generatedByUserId
     // intentionally swallowed — see comment above
   }
 }
+
 /* ---------------------------------------------------------------------
  * Platform feedback (about the app itself, not a specific complaint)
  * ------------------------------------------------------------------- */

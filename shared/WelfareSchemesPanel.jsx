@@ -70,7 +70,7 @@ export default function WelfareSchemesPanel({
   }
 
   if (loading) return (
-    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', padding: '8px 0' }}>
+    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', padding: '8px 0' }}>
       Checking welfare eligibility...
     </p>
   );
@@ -84,13 +84,13 @@ export default function WelfareSchemesPanel({
         {schemes.slice(0, 4).map((s) => {
           const cfg = SCHEME_TYPE_CONFIG[s.scheme_type] || {};
           return (
-            <span key={s.id} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: `${cfg.color}15`, color: cfg.color, border: `1px solid ${cfg.color}25`, whiteSpace: 'nowrap' }}>
+            <span key={s.id} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: `${cfg.color}15`, color: cfg.color, border: `1px solid ${cfg.color}25`, whiteSpace: 'nowrap' }}>
               {cfg.icon} {s.scheme_name}
             </span>
           );
         })}
         {schemes.length > 4 && (
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', padding: '3px 0' }}>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', padding: '3px 0' }}>
             +{schemes.length - 4} more
           </span>
         )}
@@ -107,7 +107,7 @@ export default function WelfareSchemesPanel({
         <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#9A8AE0' }}>
           💡 {schemes.length} welfare scheme{schemes.length > 1 ? 's' : ''} available
         </p>
-        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
           {mode === 'student'
             ? 'Based on caste, gender and income · కులం, లింగం మరియు ఆదాయం ఆధారంగా'
             : mode === 'patient'
@@ -135,25 +135,25 @@ export default function WelfareSchemesPanel({
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 16 }}>{cfg.icon}</span>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{scheme.scheme_name}</p>
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: `${cfg.color}15`, color: cfg.color, border: `1px solid ${cfg.color}25` }}>
+                    <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 20, background: `${cfg.color}15`, color: cfg.color, border: `1px solid ${cfg.color}25` }}>
                       {cfg.label}
                     </span>
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: scheme.scheme_level === 'central' ? 'rgba(90,154,223,0.12)' : 'rgba(106,170,144,0.12)', color: scheme.scheme_level === 'central' ? '#5A9ADF' : '#6AAA90' }}>
+                    <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 20, background: scheme.scheme_level === 'central' ? 'rgba(90,154,223,0.12)' : 'rgba(106,170,144,0.12)', color: scheme.scheme_level === 'central' ? '#5A9ADF' : '#6AAA90' }}>
                       {scheme.scheme_level === 'central' ? '🇮🇳 Central' : '🏛️ State'}
                     </span>
                   </div>
                   {scheme.scheme_name_telugu && (
-                    <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
+                    <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                       {scheme.scheme_name_telugu}
                     </p>
                   )}
                   {existingStatus && (
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, marginTop: 4, display: 'inline-block', background: `${STATUS_CONFIG[existingStatus]?.color}15`, color: STATUS_CONFIG[existingStatus]?.color }}>
+                    <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, marginTop: 4, display: 'inline-block', background: `${STATUS_CONFIG[existingStatus]?.color}15`, color: STATUS_CONFIG[existingStatus]?.color }}>
                       {STATUS_CONFIG[existingStatus]?.label}
                     </span>
                   )}
                 </div>
-                <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, flexShrink: 0 }}>
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, flexShrink: 0 }}>
                   {isExpanded ? '▲' : '▼'}
                 </span>
               </div>
@@ -169,7 +169,7 @@ export default function WelfareSchemesPanel({
                       {scheme.benefit_description}
                     </p>
                     {scheme.benefit_description_telugu && (
-                      <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.35)', lineHeight: 1.8 }}>
+                      <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.8 }}>
                         {scheme.benefit_description_telugu}
                       </p>
                     )}
@@ -189,7 +189,7 @@ export default function WelfareSchemesPanel({
                       { label: '75% attendance needed', value: scheme.requires_75_attendance ? '✓ Yes' : '✗ No' },
                     ].filter((i) => i.value).map((item) => (
                       <div key={item.label}>
-                        <p style={{ margin: 0, fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>{item.label}</p>
+                        <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{item.label}</p>
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>{item.value}</p>
                       </div>
                     ))}
@@ -198,12 +198,12 @@ export default function WelfareSchemesPanel({
                   {/* Documents */}
                   {scheme.documents_required?.length > 0 && (
                     <div style={{ marginBottom: 12 }}>
-                      <p style={{ margin: '0 0 6px', fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>
+                      <p style={{ margin: '0 0 6px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>
                         DOCUMENTS NEEDED · కావలసిన పత్రాలు
                       </p>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {scheme.documents_required.map((doc) => (
-                          <span key={doc} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          <span key={doc} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.08)' }}>
                             📄 {doc}
                           </span>
                         ))}
@@ -240,7 +240,7 @@ export default function WelfareSchemesPanel({
 
       {/* Footer */}
       <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', background: '#111113' }}>
-        <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.25)', lineHeight: 1.6 }}>
+        <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
           ⚠️ Verify eligibility with the scheme authority before applying. · దరఖాస్తు చేసే ముందు అర్హత ధృవీకరించండి.
         </p>
       </div>

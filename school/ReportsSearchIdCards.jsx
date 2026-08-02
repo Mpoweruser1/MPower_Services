@@ -17,7 +17,7 @@ const S = {
   inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, marginBottom: 10 },
   input: { width: '100%', padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ export function ReportEngine({ userTier = 'basic' }) {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
       <div style={S.inner}>
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Reports · నివేదికలు</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Reports · నివేదికలు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Report Engine</h1>
         </div>
 
@@ -163,12 +163,12 @@ export function ReportEngine({ userTier = 'basic' }) {
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
                   {locked && (
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(232,160,32,0.12)', color: '#E8A020' }}>
+                    <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, background: 'rgba(232,160,32,0.12)', color: '#E8A020' }}>
                       🔒 {report.tier}
                     </span>
                   )}
                   {isRunning && (
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Running...</span>
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Running...</span>
                   )}
                   {!locked && !isRunning && (
                     <span style={{ fontSize: 12, color: '#E8A020' }}>Run →</span>
@@ -185,7 +185,7 @@ export function ReportEngine({ userTier = 'basic' }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{result.report.name}</p>
-                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                   {result.data.length} records · Generated {result.generatedAt}
                 </p>
               </div>
@@ -198,7 +198,7 @@ export function ReportEngine({ userTier = 'basic' }) {
             </div>
 
             {result.data.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '20px 0' }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center', padding: '20px 0' }}>
                 No records found for this report.
               </p>
             ) : (
@@ -210,39 +210,39 @@ export function ReportEngine({ userTier = 'basic' }) {
                         {result.report.id === 'daily_attendance' && (
                           <>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.students?.full_name}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.students?.sid}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.students?.classes?.class_name}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.students?.sid}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.students?.classes?.class_name}</td>
                             <td style={{ padding: '8px 0', color: row.status === 'A' ? '#E05A5A' : '#6AAA90', fontWeight: 600 }}>{row.status === 'P' ? 'Present' : row.status === 'A' ? 'Absent' : row.status}</td>
                           </>
                         )}
                         {result.report.id === 'low_attendance' && (
                           <>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.full_name}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.sid}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.class}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.sid}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.class}</td>
                             <td style={{ padding: '8px 0', color: '#E05A5A', fontWeight: 600 }}>{row.pct}%</td>
                           </>
                         )}
                         {result.report.id === 'fee_defaulters' && (
                           <>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.students?.full_name}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.students?.sid}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.fee_type}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.students?.sid}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.fee_type}</td>
                             <td style={{ padding: '8px 0', color: '#E05A5A', fontWeight: 600 }}>₹{(Number(row.amount_due) - Number(row.amount_paid)).toLocaleString('en-IN')}</td>
                           </>
                         )}
                         {result.report.id === 'class_rank' && (
                           <>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{i + 1}. {row.students?.full_name}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.students?.classes?.class_name}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.students?.classes?.class_name}</td>
                             <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: 600 }}>{row.percentage}%</td>
                           </>
                         )}
                         {(result.report.id === 'welfare_eligible' || result.report.id === 'caste_gender_filter') && (
                           <>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.full_name}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.sid}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.classes?.class_name}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.sid}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.classes?.class_name}</td>
                             <td style={{ padding: '8px 0', color: '#E8A020' }}>{row.caste_category}</td>
                           </>
                         )}
@@ -251,7 +251,7 @@ export function ReportEngine({ userTier = 'basic' }) {
                   </tbody>
                 </table>
                 {result.data.length > 50 && (
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8, textAlign: 'center' }}>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8, textAlign: 'center' }}>
                     Showing 50 of {result.data.length} records. Print to see all.
                   </p>
                 )}
@@ -323,7 +323,7 @@ export function IdCardPrinter() {
       `}</style>
       <div style={S.inner}>
         <div className="no-print" style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>ID Cards · ID కార్డులు</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>ID Cards · ID కార్డులు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>ID Card Printer</h1>
         </div>
 
@@ -345,7 +345,7 @@ export function IdCardPrinter() {
         </div>
 
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading students...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading students...</p>
         ) : students.length > 0 ? (
           <div className="id-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
             {students.map((s) => (
@@ -354,16 +354,16 @@ export function IdCardPrinter() {
                   {s.full_name[0]}
                 </div>
                 <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#111' }}>{s.full_name}</p>
-                <p style={{ margin: '2px 0', fontSize: 10, color: '#555' }}>{s.sid}</p>
-                <p style={{ margin: '2px 0', fontSize: 10, color: '#555' }}>{s.classes?.class_name}{s.section ? ` — ${s.section}` : ''}</p>
-                {s.blood_group && <p style={{ margin: '2px 0', fontSize: 10, color: '#185FA5', fontWeight: 600 }}>Blood: {s.blood_group}</p>}
-                <p style={{ margin: '6px 0 0', fontSize: 9, color: '#888' }}>{tenant?.orgName}</p>
+                <p style={{ margin: '2px 0', fontSize: 12, color: '#555' }}>{s.sid}</p>
+                <p style={{ margin: '2px 0', fontSize: 12, color: '#555' }}>{s.classes?.class_name}{s.section ? ` — ${s.section}` : ''}</p>
+                {s.blood_group && <p style={{ margin: '2px 0', fontSize: 12, color: '#185FA5', fontWeight: 600 }}>Blood: {s.blood_group}</p>}
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#888' }}>{tenant?.orgName}</p>
               </div>
             ))}
           </div>
         ) : selectedClass ? (
           <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No students found in this class.</p>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No students found in this class.</p>
           </div>
         ) : null}
       </div>
@@ -419,7 +419,7 @@ export function UniversalSearch() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
       <div style={S.inner}>
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Search · వెతకండి</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Search · వెతకండి</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Universal Search</h1>
         </div>
 
@@ -446,7 +446,7 @@ export function UniversalSearch() {
             autoFocus
           />
           {searching && (
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>Searching...</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>Searching...</p>
           )}
         </div>
 
@@ -458,14 +458,14 @@ export function UniversalSearch() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{s.full_name}</p>
-                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                       {s.sid}
                       {s.classes?.class_name ? ` · ${s.classes.class_name}` : ''}
                       {s.section ? `-${s.section}` : ''}
                       {s.parent_phone ? ` · ${s.parent_phone}` : ''}
                     </p>
                   </div>
-                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: s.status === 'active' ? 'rgba(106,170,144,0.12)' : 'rgba(224,90,90,0.12)', color: s.status === 'active' ? '#6AAA90' : '#E05A5A', fontWeight: 500 }}>
+                  <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, background: s.status === 'active' ? 'rgba(106,170,144,0.12)' : 'rgba(224,90,90,0.12)', color: s.status === 'active' ? '#6AAA90' : '#E05A5A', fontWeight: 500 }}>
                     {s.status}
                   </span>
                 </div>
@@ -478,7 +478,7 @@ export function UniversalSearch() {
             {tab === 'staff' && results.map((s) => (
               <div key={s.id} style={S.card}>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{s.full_name}</p>
-                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                   {s.role}{s.phone ? ` · ${s.phone}` : ''}
                 </p>
               </div>
@@ -488,14 +488,14 @@ export function UniversalSearch() {
 
         {query.length >= 2 && !searching && results.length === 0 && (
           <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No results for "{query}"</p>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No results for "{query}"</p>
           </div>
         )}
 
         {query.length === 0 && (
           <div style={{ textAlign: 'center', padding: '48px 20px' }}>
             <p style={{ fontSize: 32, marginBottom: 12 }}>🔍</p>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>
               Search students by name, SID or parent phone number
             </p>
           </div>

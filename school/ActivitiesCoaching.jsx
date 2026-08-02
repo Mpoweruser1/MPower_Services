@@ -12,7 +12,7 @@ const S = {
   inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, marginBottom: 10 },
   input: { width: '100%', padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
 };
 
 const TYPE_ICONS = {
@@ -144,7 +144,7 @@ export default function ActivitiesCoaching() {
       <div style={S.inner}>
 
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Activities & Coaching · కార్యక్రమాలు
           </p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Activities & Coaching</h1>
@@ -168,7 +168,7 @@ export default function ActivitiesCoaching() {
         </div>
 
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
         ) : (
           <>
             {/* Activities */}
@@ -176,7 +176,7 @@ export default function ActivitiesCoaching() {
               activities.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 20px' }}>
                   <p style={{ fontSize: 32, marginBottom: 12 }}>⚽</p>
-                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No activities added yet.</p>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No activities added yet.</p>
                 </div>
               ) : (
                 activities.map((a) => (
@@ -186,7 +186,7 @@ export default function ActivitiesCoaching() {
                         <span style={{ fontSize: 24, flexShrink: 0 }}>{TYPE_ICONS[a.activity_type] || '📋'}</span>
                         <div>
                           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{a.activity_name}</p>
-                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                             {a.activity_type} · {a.activity_date}
                             {participantCounts[a.id] ? ` · ${participantCounts[a.id]} participants` : ''}
                           </p>
@@ -203,13 +203,13 @@ export default function ActivitiesCoaching() {
               coaching.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 20px' }}>
                   <p style={{ fontSize: 32, marginBottom: 12 }}>📚</p>
-                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No coaching classes added yet.</p>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No coaching classes added yet.</p>
                 </div>
               ) : (
                 coaching.map((c) => (
                   <div key={c.id} style={S.card}>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{c.subject}</p>
-                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                       {c.class_range ? `Class ${c.class_range}` : ''}
                       {c.class_range && c.schedule ? ' · ' : ''}
                       {c.schedule || ''}
@@ -242,7 +242,7 @@ export default function ActivitiesCoaching() {
                   <input value={newActivity.activity_name}
                     onChange={(e) => { setNewActivity((a) => ({ ...a, activity_name: e.target.value })); setFormErrors({}); }}
                     placeholder="e.g. Annual Sports Day" style={S.input} />
-                  {formErrors.activity_name && <p style={{ fontSize: 11, color: '#E05A5A', marginTop: 4 }}>⚠ {formErrors.activity_name}</p>}
+                  {formErrors.activity_name && <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4 }}>⚠ {formErrors.activity_name}</p>}
                 </div>
                 <div>
                   <label style={S.label}>Type</label>
@@ -257,7 +257,7 @@ export default function ActivitiesCoaching() {
                   <input type="date" value={newActivity.activity_date}
                     onChange={(e) => { setNewActivity((a) => ({ ...a, activity_date: e.target.value })); setFormErrors({}); }}
                     style={S.input} />
-                  {formErrors.activity_date && <p style={{ fontSize: 11, color: '#E05A5A', marginTop: 4 }}>⚠ {formErrors.activity_date}</p>}
+                  {formErrors.activity_date && <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4 }}>⚠ {formErrors.activity_date}</p>}
                 </div>
               </div>
             ) : (
@@ -267,7 +267,7 @@ export default function ActivitiesCoaching() {
                   <input value={newCoaching.subject}
                     onChange={(e) => { setNewCoaching((c) => ({ ...c, subject: e.target.value })); setFormErrors({}); }}
                     placeholder="e.g. Mathematics — Foundation" style={S.input} />
-                  {formErrors.subject && <p style={{ fontSize: 11, color: '#E05A5A', marginTop: 4 }}>⚠ {formErrors.subject}</p>}
+                  {formErrors.subject && <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4 }}>⚠ {formErrors.subject}</p>}
                 </div>
                 <div>
                   <label style={S.label}>Class range</label>
@@ -286,7 +286,7 @@ export default function ActivitiesCoaching() {
 
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button onClick={() => { setShowAdd(false); setFormErrors({}); setSubmitError(''); }}
-                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'inherit' }}>
                 Cancel
               </button>
               <button onClick={tab === 'activities' ? addActivity : addCoaching} disabled={saving}

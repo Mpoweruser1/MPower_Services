@@ -54,10 +54,8 @@ export default function StudentAdmission() {
   } = useFormValidation(RULES);
 
   // ── Auto-save draft ─────────────────────────────────────────
-  const { hasDraft, lastSaved, isDirty, clearDraft, dismissDraft } =
-    useAutoSave('student_admission', form, {
-      onRestore: (data) => setForm(data),
-    });
+  const { hasDraft, draftData, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft } =
+    useAutoSave(`student_admission_${tenant?.userRowId}`, form);
 
   useEffect(() => {
     if (tenant?.appId) loadClasses();
@@ -167,7 +165,7 @@ export default function StudentAdmission() {
     page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
     inner: { maxWidth: 640, margin: '0 auto', padding: '24px 20px' },
     card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 20, marginBottom: 16 },
-    sectionLabel: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 },
+    sectionLabel: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 },
     row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   };
 
@@ -178,12 +176,12 @@ export default function StudentAdmission() {
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
         <div style={S.inner}>
           <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.25)', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-            <p style={{ margin: '0 0 4px', fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 1 }}>
+            <p style={{ margin: '0 0 4px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>
               STUDENT ADMITTED · విద్యార్థి చేర్పబడ్డారు
             </p>
             <p style={{ margin: '6px 0 4px', fontSize: 20, fontWeight: 700, color: '#fff' }}>{admitted.full_name}</p>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#6AAA90' }}>{admitted.sid}</p>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
               {admitted.gender}
               {admitted.dob ? ` · DOB: ${admitted.dob}` : ''}
               {admitted.admission_no ? ` · Adm: ${admitted.admission_no}` : ''}
@@ -220,7 +218,7 @@ export default function StudentAdmission() {
 
       <div style={S.inner}>
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Student Admission · విద్యార్థి చేర్పు
           </p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0, letterSpacing: -0.5 }}>
@@ -232,7 +230,7 @@ export default function StudentAdmission() {
         {hasDraft && (
           <DraftBanner
             lastSaved={lastSaved}
-            onRestore={() => {}}
+            onRestore={() => setForm(restoreDraft())}
             onDiscard={dismissDraft}
           />
         )}
@@ -471,7 +469,7 @@ export default function StudentAdmission() {
 
         {/* Auto-save indicator */}
         {isDirty && (
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginBottom: 12 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 12 }}>
             📝 Draft auto-saved — your data is safe even if you close this page
           </p>
         )}
@@ -493,7 +491,7 @@ export default function StudentAdmission() {
           {saving ? 'Saving...' : '✓ Admit student →'}
         </button>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 10 }}>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 10 }}>
           Fields marked <span style={{ color: '#E05A5A' }}>*</span> are required
         </p>
       </div>

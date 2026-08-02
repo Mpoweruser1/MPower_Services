@@ -92,7 +92,7 @@ export default function Home() {
           <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: 'rgba(255,255,255,0.5)', margin: '0 0 8px', lineHeight: 1.6 }}>
             Built for Andhra Pradesh and Telangana. Telugu + English. WhatsApp first.
           </p>
-          <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.3)', margin: '0 0 40px', fontFamily: "'Noto Sans Telugu', sans-serif" }}>
+          <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)', margin: '0 0 40px', fontFamily: "'Noto Sans Telugu', sans-serif" }}>
             పాఠశాలలు · ఆసుపత్రులు · ప్రభుత్వ కార్యాలయాలు
           </p>
 
@@ -112,8 +112,8 @@ export default function Home() {
             {STATS.map((s) => (
               <div key={s.label} style={{ padding: '16px 12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, textAlign: 'center' }}>
                 <p style={{ fontSize: 24, fontWeight: 700, color: '#E8A020', margin: 0 }}>{s.value}</p>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '4px 0 2px' }}>{s.label}</p>
-                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', margin: 0 }}>{s.labelTe}</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '4px 0 2px' }}>{s.label}</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>{s.labelTe}</p>
               </div>
             ))}
           </div>
@@ -172,7 +172,7 @@ export default function Home() {
                 <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', margin: '0 0 20px', lineHeight: 1.8, fontStyle: 'italic' }}>"{t.text}"</p>
                 <div>
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{t.name}</p>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{t.role}</p>
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{t.role}</p>
                 </div>
               </div>
             ))}
@@ -186,7 +186,7 @@ export default function Home() {
           <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 700, color: '#fff', margin: '0 0 16px', letterSpacing: -1 }}>
             Ready to get started?
           </h2>
-          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.4)', margin: '0 0 32px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.6)', margin: '0 0 32px', lineHeight: 1.6 }}>
             6 months free on Basic tier. No credit card. Setup in 10 minutes.<br />
             <span style={{ fontFamily: "'Noto Sans Telugu', sans-serif", fontSize: 15 }}>6 నెలలు ఉచితం. Credit card అవసరం లేదు.</span>
           </p>
@@ -194,7 +194,7 @@ export default function Home() {
             style={{ display: 'inline-block', padding: '15px 40px', background: '#E8A020', color: '#111113', borderRadius: 10, textDecoration: 'none', fontSize: 16, fontWeight: 700 }}>
             Start your free trial →
           </Link>
-          <p style={{ marginTop: 16, fontSize: 13, color: 'rgba(255,255,255,0.25)' }}>
+          <p style={{ marginTop: 16, fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
             Already have an account? <Link to="/portal/login" style={{ color: '#E8A020', textDecoration: 'none' }}>Log in →</Link>
           </p>
         </div>
@@ -216,10 +216,10 @@ export default function Home() {
               { to: '/terms',    label: 'Terms' },
               { to: '/refund-policy', label: 'Refund' },
             ].map((l) => (
-              <Link key={l.to} to={l.to} style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>{l.label}</Link>
+              <Link key={l.to} to={l.to} style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', textDecoration: 'none' }}>{l.label}</Link>
             ))}
           </div>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', margin: 0 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
             © {new Date().getFullYear()} MPower · Made in Andhra Pradesh 🇮🇳
           </p>
         </div>

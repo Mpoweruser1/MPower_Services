@@ -7,17 +7,23 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 export function useAutoSave(key, formData, {
   debounceMs   = 2000,   // save after 2 seconds of no changes
-  maxAgeDays   = 1,      // discard drafts older than 1 day
-  onRestore    = null,   // callback when draft is restored
+  maxAgeDays   = 1,      // discard drafts older than maxAgeDays
 } = {}) {
 
   const [hasDraft, setHasDraft]     = useState(false);
+  const [draftData, setDraftData]   = useState(null);
   const [lastSaved, setLastSaved]   = useState(null);
   const [isDirty, setIsDirty]       = useState(false);
   const timerRef  = useRef(null);
   const initialRef = useRef(null);
 
-  // Check for existing draft on mount
+  // Check for existing draft on mount — DETECT only, never apply it.
+  // Silently auto-filling the form the instant the page loads meant
+  // whoever opened it next (a different person on a shared device, or
+  // even the same person days later) had someone else's half-typed
+  // data appear with no chance to say whether it was theirs. The
+  // person must explicitly click "Restore" (via restoreDraft() below)
+  // before any of this data ever reaches the form.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(`mpower_draft_${key}`);
@@ -33,9 +39,8 @@ export function useAutoSave(key, formData, {
       }
 
       setHasDraft(true);
+      setDraftData(parsed.data);
       setLastSaved(new Date(parsed.savedAt));
-
-      if (onRestore) onRestore(parsed.data);
     } catch {
       // Corrupted draft — ignore
       localStorage.removeItem(`mpower_draft_${key}`);
@@ -96,6 +101,7 @@ export function useAutoSave(key, formData, {
   const clearDraft = useCallback(() => {
     localStorage.removeItem(`mpower_draft_${key}`);
     setHasDraft(false);
+    setDraftData(null);
     setIsDirty(false);
     initialRef.current = JSON.stringify(formData);
   }, [key, formData]);
@@ -104,7 +110,17 @@ export function useAutoSave(key, formData, {
   const dismissDraft = useCallback(() => {
     localStorage.removeItem(`mpower_draft_${key}`);
     setHasDraft(false);
+    setDraftData(null);
   }, [key]);
 
-  return { hasDraft, lastSaved, isDirty, clearDraft, dismissDraft };
+  // Explicit, on-demand restore — only ever called from the person
+  // clicking "Restore draft" themselves. Returns the draft data for the
+  // caller to apply (e.g. setForm(restoreDraft())), and hides the
+  // banner immediately since it's now been acted on.
+  const restoreDraft = useCallback(() => {
+    setHasDraft(false);
+    return draftData;
+  }, [draftData]);
+
+  return { hasDraft, draftData, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft };
 }

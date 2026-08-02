@@ -17,8 +17,8 @@ const S = {
   inner: { maxWidth: 640, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 12 },
   input: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }),
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
-  fieldErr: { fontSize: 11, color: '#E05A5A', marginTop: 4 },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  fieldErr: { fontSize: 12, color: '#E05A5A', marginTop: 4 },
 };
 
 export default function FeeCollection() {
@@ -197,7 +197,7 @@ export default function FeeCollection() {
 
       <div style={S.inner}>
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Fee Collection · ఫీజు వసూలు</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Fee Collection · ఫీజు వసూలు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Collect Fee</h1>
         </div>
 
@@ -212,20 +212,20 @@ export default function FeeCollection() {
               style={S.input(false)}
               autoFocus
             />
-            {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>Searching...</p>}
+            {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>Searching...</p>}
             {searchResults.length > 0 && (
               <div style={{ marginTop: 8, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden' }}>
                 {searchResults.map((s) => (
                   <div key={s.id} onClick={() => selectStudent(s)}
                     style={{ padding: '11px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', background: '#111113' }}>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{s.full_name}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{s.sid}{s.parent_phone ? ` · ${s.parent_phone}` : ''}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{s.sid}{s.parent_phone ? ` · ${s.parent_phone}` : ''}</p>
                   </div>
                 ))}
               </div>
             )}
             {searchQuery.length >= 2 && !searching && searchResults.length === 0 && (
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>No students found</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>No students found</p>
             )}
           </div>
         ) : (
@@ -234,7 +234,7 @@ export default function FeeCollection() {
             <div style={{ ...S.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div>
                 <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>{student.full_name}</p>
-                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{student.sid}{student.parent_phone ? ` · ${student.parent_phone}` : ''}</p>
+                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{student.sid}{student.parent_phone ? ` · ${student.parent_phone}` : ''}</p>
               </div>
               <button onClick={() => { setStudent(null); setDues([]); setSelectedDueIds([]); setReceipt(null); }}
                 style={{ padding: '6px 12px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
@@ -264,12 +264,12 @@ export default function FeeCollection() {
             )}
 
             {loading ? (
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Loading dues...</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>Loading dues...</p>
             ) : dues.length === 0 ? (
               <div style={{ ...S.card, textAlign: 'center', padding: '32px 20px' }}>
                 <p style={{ fontSize: 32, marginBottom: 10 }}>✅</p>
                 <p style={{ fontSize: 14, color: '#6AAA90', fontWeight: 500 }}>No pending fees</p>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>All fees cleared for this student</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>All fees cleared for this student</p>
               </div>
             ) : (
               <>
@@ -288,7 +288,7 @@ export default function FeeCollection() {
                           style={{ marginTop: 2, accentColor: '#E8A020', width: 16, height: 16, flexShrink: 0 }} />
                         <div style={{ flex: 1 }}>
                           <p style={{ margin: 0, fontWeight: 500, fontSize: 13, color: '#fff' }}>{due.fee_type || due.category || 'Fee'}</p>
-                          <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                             Due: {currency(due.amount_due)} · Paid: {currency(due.amount_due - balance)} · Balance: {currency(balance)}
                             {due.due_date ? ` · Due date: ${due.due_date}` : ''}
                             {isPaid ? ' — ✓ Cleared' : ''}
@@ -296,7 +296,7 @@ export default function FeeCollection() {
                           {/* Partial amount entry */}
                           {selected && !isPaid && (
                             <div style={{ marginTop: 8 }}>
-                              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>
+                              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
                                 Amount to collect (max {currency(balance)})
                               </p>
                               <input
@@ -323,14 +323,14 @@ export default function FeeCollection() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                       <div>
-                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>Payment mode</label>
+                        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>Payment mode</label>
                         <select value={paymentMode} onChange={(e) => { setPaymentMode(e.target.value); setTxnError(''); }}
                           style={S.select}>
                           {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>Discount %</label>
+                        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>Discount %</label>
                         <input
                           value={discountPct}
                           onChange={(e) => updateDiscount(e.target.value)}
@@ -344,7 +344,7 @@ export default function FeeCollection() {
 
                     {['UPI', 'Card', 'Online', 'DD', 'Cheque'].includes(paymentMode) && (
                       <div style={{ marginBottom: 14 }}>
-                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>
+                        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>
                           Transaction ID / Reference number <span style={{ color: '#E05A5A' }}>*</span>
                         </label>
                         <input

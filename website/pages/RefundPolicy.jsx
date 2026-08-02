@@ -21,7 +21,7 @@ export default function RefundPolicy() {
       </div>
       <div style={S.inner}>
         <h1 style={{ fontSize: 36, fontWeight: 700, color: '#fff', margin: '0 0 8px', letterSpacing: -1 }}>Refund Policy</h1>
-        <p style={{ ...S.p, color: 'rgba(255,255,255,0.4)' }}>Last updated: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p style={{ ...S.p, color: 'rgba(255,255,255,0.6)' }}>Last updated: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
 
         <h2 style={S.h2}>Subscription fees</h2>
         <p style={S.p}>Subscription fees are charged at the start of each billing period. We do not offer partial refunds for cancellations mid-period. Your access continues until the end of the paid period.</p>

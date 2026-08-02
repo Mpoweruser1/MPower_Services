@@ -24,7 +24,7 @@ export default function PrintHeader({ documentTitle }) {
           </div>
           <div style={{ textAlign: 'right' }}>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{documentTitle}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#666' }}>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#666' }}>
               Printed: {new Date().toLocaleString('en-IN')}
             </p>
           </div>

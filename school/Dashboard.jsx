@@ -16,7 +16,7 @@ function Counter({ label, value, color = '#E8A020', alert = false, loading = fal
         ? <div style={{ height: 26, background: 'rgba(255,255,255,0.06)', borderRadius: 6, marginBottom: 6 }} />
         : <p style={{ fontSize: 20, fontWeight: 700, margin: 0, color: alert ? '#E05A5A' : color }}>{value}</p>
       }
-      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '3px 0 0' }}>{label}</p>
+      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '3px 0 0' }}>{label}</p>
     </div>
   );
 }
@@ -28,8 +28,8 @@ function SimpleBarChart({ data }) {
       {data.map((d) => (
         <div key={d.day} style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ height: `${(d.pct / max) * 60}px`, background: '#E8A020', borderRadius: '3px 3px 0 0', marginBottom: 4 }} />
-          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', margin: 0 }}>{d.day}</p>
-          <p style={{ fontSize: 10, color: '#fff', margin: 0, fontWeight: 500 }}>{d.pct}%</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>{d.day}</p>
+          <p style={{ fontSize: 12, color: '#fff', margin: 0, fontWeight: 500 }}>{d.pct}%</p>
         </div>
       ))}
     </div>
@@ -219,7 +219,7 @@ function PrincipalDashboard({ appId, branchId, tier }) {
       {/* Trend chart */}
       {tier !== 'basic' && trend.length > 0 && (
         <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12 }}>Attendance — this week</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 12 }}>Attendance — this week</p>
           <SimpleBarChart data={trend} />
         </div>
       )}
@@ -300,14 +300,14 @@ function ParentPortal({ studentId }) {
     else setLoading(false);
   }, [studentId]);
 
-  if (loading) return <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading...</p>;
-  if (!data)   return <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>No student linked to this account.</p>;
+  if (loading) return <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading...</p>;
+  if (!data)   return <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>No student linked to this account.</p>;
 
   return (
     <div>
       <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
         <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>{data.name}</p>
-        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
           {data.className}{data.section ? `-${data.section}` : ''}
         </p>
       </div>
@@ -353,7 +353,7 @@ function SettingsSection() {
 
   return (
     <div style={{ marginTop: 24 }}>
-      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>
+      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>
         ⚙️ Settings & Administration
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -363,7 +363,7 @@ function SettingsSection() {
             <span style={{ fontSize: 20, flexShrink: 0 }}>{item.icon}</span>
             <div>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#fff' }}>{item.label}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{item.desc}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{item.desc}</p>
             </div>
           </Link>
         ))}
@@ -380,7 +380,7 @@ export default function Dashboard({ classId, sectionId, studentId }) {
 
   if (!tenant) return (
     <div style={{ fontFamily: 'Inter, sans-serif', background: '#1C1C1E', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading...</p>
+      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading...</p>
     </div>
   );
 
@@ -398,13 +398,13 @@ export default function Dashboard({ classId, sectionId, studentId }) {
       <div style={S.inner}>
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: '0 0 4px' }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 4px' }}>
             {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: '0 0 2px', letterSpacing: -0.5 }}>
             {tenant.orgName || 'School Dashboard'}
           </h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0, textTransform: 'capitalize' }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'capitalize' }}>
             {role} · {tenant.fullName}
           </p>
         </div>
@@ -433,7 +433,7 @@ export default function Dashboard({ classId, sectionId, studentId }) {
 
         {/* Quick actions */}
         <div style={{ marginTop: 20 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>
             Quick actions
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
@@ -448,7 +448,7 @@ export default function Dashboard({ classId, sectionId, studentId }) {
               <Link key={item.to} to={item.to}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 8px', background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, textDecoration: 'none' }}>
                 <span style={{ fontSize: 22 }}>{item.icon}</span>
-                <span style={{ fontSize: 11, color: '#fff', fontWeight: 500, textAlign: 'center', lineHeight: 1.3 }}>{item.label}</span>
+                <span style={{ fontSize: 12, color: '#fff', fontWeight: 500, textAlign: 'center', lineHeight: 1.3 }}>{item.label}</span>
               </Link>
             ))}
           </div>

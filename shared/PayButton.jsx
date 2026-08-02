@@ -22,7 +22,7 @@ export default function PayButton({
     return (
       <div style={{ padding: '12px 16px', background: 'rgba(106,170,144,0.1)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 8, textAlign: 'center' }}>
         <p style={{ margin: 0, fontSize: 14, color: '#6AAA90', fontWeight: 500 }}>✓ Payment successful!</p>
-        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Receipt sent via WhatsApp</p>
+        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Receipt sent via WhatsApp</p>
       </div>
     );
   }

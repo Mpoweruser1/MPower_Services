@@ -59,7 +59,21 @@ export default function AdminVerificationQueue() {
     });
 
     if (error || data?.error) {
-      setApproveError(data?.error || error.message || 'Failed to approve this request.');
+      // When the function returns a non-2xx status, supabase-js wraps it
+      // in a generic FunctionsHttpError whose .message is just "Edge
+      // Function returned a non-2xx status code" — not the actual
+      // reason. The real error message is in the response body itself,
+      // reachable via error.context (the raw Response object).
+      let message = data?.error;
+      if (!message && error?.context) {
+        try {
+          const body = await error.context.json();
+          message = body?.error;
+        } catch {
+          // Response body wasn't JSON — fall through to the generic message
+        }
+      }
+      setApproveError(message || error?.message || 'Failed to approve this request.');
       setProcessing(null);
       return;
     }

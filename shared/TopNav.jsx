@@ -90,14 +90,14 @@ export default function TopNav({ screen }) {
 
           <span style={{
             background: mod.bg, color: '#fff',
-            fontSize: 10, fontWeight: 600,
+            fontSize: 12, fontWeight: 600,
             padding: '2px 8px', borderRadius: 4,
             textTransform: 'uppercase', letterSpacing: 0.5,
           }}>{mod.label}</span>
 
           {screen && (
             <>
-              <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>›</span>
+              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>›</span>
               <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{screen}</span>
             </>
           )}
@@ -109,12 +109,12 @@ export default function TopNav({ screen }) {
             width: 30, height: 30, borderRadius: '50%',
             background: 'rgba(232,160,32,0.12)', display: 'flex',
             alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 600, color: '#E8A020',
+            fontSize: 12, fontWeight: 600, color: '#E8A020',
           }}>{initials}</div>
 
           <div style={{ lineHeight: 1.3 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>{name}</div>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{roleLabel}</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{roleLabel}</div>
           </div>
 
           <button
@@ -123,7 +123,7 @@ export default function TopNav({ screen }) {
             style={{
               marginLeft: 6,
               padding: '5px 12px',
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 600,
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: 6,

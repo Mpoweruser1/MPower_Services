@@ -18,7 +18,7 @@ const STATUS_CONFIG = {
   trial:    { color: '#E8A020', bg: 'rgba(232,160,32,0.12)',  label: 'Trial' },
   active:   { color: '#6AAA90', bg: 'rgba(106,170,144,0.12)', label: 'Active' },
   suspended:{ color: '#E05A5A', bg: 'rgba(224,90,90,0.12)',   label: 'Suspended' },
-  churned:  { color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.06)', label: 'Churned' },
+  churned:  { color: 'rgba(255,255,255,0.6)', bg: 'rgba(255,255,255,0.06)', label: 'Churned' },
 };
 
 const TIER_CONFIG = {
@@ -127,9 +127,9 @@ export default function CrmClientView() {
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>CRM — Client 360°</p>
-          <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>MPower Control Panel</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>MPower Control Panel</p>
         </div>
-        <button onClick={loadClients} style={{ padding: '7px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>↻ Refresh</button>
+        <button onClick={loadClients} style={{ padding: '7px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>↻ Refresh</button>
       </nav>
 
       <div style={S.inner}>
@@ -145,7 +145,7 @@ export default function CrmClientView() {
           ].map((s) => (
             <div key={s.label} style={{ ...S.stat, border: `1px solid ${s.alert ? 'rgba(224,90,90,0.2)' : 'rgba(255,255,255,0.05)'}` }}>
               <p style={{ fontSize: s.label === 'MRR' ? 14 : 22, fontWeight: 700, margin: 0, color: s.alert ? '#E05A5A' : s.color }}>{s.value}</p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '3px 0 0' }}>{s.label}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '3px 0 0' }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -192,15 +192,15 @@ export default function CrmClientView() {
           )}
         </div>
 
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 12 }}>
           {filtered.length} client{filtered.length !== 1 ? 's' : ''} shown
         </p>
 
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading clients...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading clients...</p>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No clients found</p>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No clients found</p>
           </div>
         ) : (
           filtered.map((client) => {
@@ -223,10 +223,10 @@ export default function CrmClientView() {
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 5, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 16 }}>{appInfo.icon}</span>
                         <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>{client.org_name}</p>
-                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: statusCfg.bg, color: statusCfg.color, fontWeight: 500 }}>{statusCfg.label}</span>
-                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: `${tierCfg.color}15`, color: tierCfg.color }}>{tierCfg.label}</span>
+                        <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: statusCfg.bg, color: statusCfg.color, fontWeight: 500 }}>{statusCfg.label}</span>
+                        <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: `${tierCfg.color}15`, color: tierCfg.color }}>{tierCfg.label}</span>
                       </div>
-                      <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                      <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                         {client.contact_person || '—'}
                         {client.phone ? ` · ${client.phone}` : ''}
                         {client.district ? ` · ${client.district}` : ''}
@@ -238,10 +238,10 @@ export default function CrmClientView() {
                       )}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+                      <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                         {new Date(client.created_at).toLocaleDateString('en-IN')}
                       </p>
-                      <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.2)' }}>{isExpanded ? '▲' : '▼'}</span>
+                      <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>{isExpanded ? '▲' : '▼'}</span>
                     </div>
                   </div>
                 </div>
@@ -250,7 +250,7 @@ export default function CrmClientView() {
                 {isExpanded && (
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14, marginTop: 4 }}>
                     {loadingDetails ? (
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Loading details...</p>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Loading details...</p>
                     ) : (
                       <>
                         {/* Quick actions */}
@@ -282,7 +282,7 @@ export default function CrmClientView() {
                         {/* Recent tickets */}
                         {clientDetails?.tickets?.length > 0 && (
                           <div style={{ marginBottom: 14 }}>
-                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, margin: '0 0 8px' }}>RECENT TICKETS</p>
+                            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, margin: '0 0 8px' }}>RECENT TICKETS</p>
                             {clientDetails.tickets.map((t) => (
                               <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 12 }}>
                                 <span style={{ color: 'rgba(255,255,255,0.6)' }}>{t.subject}</span>
@@ -295,7 +295,7 @@ export default function CrmClientView() {
                         {/* Onboarding status */}
                         {clientDetails?.onboarding && (
                           <div style={{ background: '#111113', borderRadius: 8, padding: '10px 12px' }}>
-                            <p style={{ margin: '0 0 6px', fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>ONBOARDING</p>
+                            <p style={{ margin: '0 0 6px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>ONBOARDING</p>
                             <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                               Go-live: {clientDetails.onboarding.ack_signed ? (
                                 <span style={{ color: '#6AAA90' }}>✓ Acknowledged</span>

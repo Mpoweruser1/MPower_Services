@@ -151,16 +151,16 @@ function RequestCard({ request, onDecision, tenant }) {
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 16 }}>{moduleCfg.icon}</span>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: statusCfg.bg, color: statusCfg.color, fontWeight: 500 }}>
+            <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: statusCfg.bg, color: statusCfg.color, fontWeight: 500 }}>
               {statusCfg.label}
             </span>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: isDeletion ? 'rgba(224,90,90,0.12)' : 'rgba(255,255,255,0.06)', color: isDeletion ? '#E05A5A' : 'rgba(255,255,255,0.5)' }}>
+            <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: isDeletion ? 'rgba(224,90,90,0.12)' : 'rgba(255,255,255,0.06)', color: isDeletion ? '#E05A5A' : 'rgba(255,255,255,0.5)' }}>
               {isDeletion ? '🗑️ Deletion' : '✏️ Correction'}
             </span>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{moduleCfg.label}</span>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{moduleCfg.label}</span>
           </div>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>{request.record_label}</p>
-          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
             Requested by {request.users?.full_name || '—'} · {new Date(request.requested_at).toLocaleString('en-IN')}
           </p>
         </div>
@@ -170,17 +170,17 @@ function RequestCard({ request, onDecision, tenant }) {
       {isCorrection && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
           <div style={{ background: 'rgba(224,90,90,0.06)', border: '1px solid rgba(224,90,90,0.15)', borderRadius: 8, padding: '10px 12px' }}>
-            <p style={{ margin: '0 0 3px', fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>
+            <p style={{ margin: '0 0 3px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>
               FIELD · {request.field_name}
             </p>
-            <p style={{ margin: '0 0 4px', fontSize: 11, color: '#E05A5A' }}>CURRENT (WRONG)</p>
+            <p style={{ margin: '0 0 4px', fontSize: 12, color: '#E05A5A' }}>CURRENT (WRONG)</p>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{request.old_value || '—'}</p>
           </div>
           <div style={{ background: 'rgba(106,170,144,0.06)', border: '1px solid rgba(106,170,144,0.15)', borderRadius: 8, padding: '10px 12px' }}>
-            <p style={{ margin: '0 0 3px', fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>
+            <p style={{ margin: '0 0 3px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>
               CORRECT VALUE
             </p>
-            <p style={{ margin: '0 0 4px', fontSize: 11, color: '#6AAA90' }}>SHOULD BE</p>
+            <p style={{ margin: '0 0 4px', fontSize: 12, color: '#6AAA90' }}>SHOULD BE</p>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{request.new_value || '—'}</p>
           </div>
         </div>
@@ -199,14 +199,14 @@ function RequestCard({ request, onDecision, tenant }) {
 
       {/* Reason */}
       <div style={{ background: '#111113', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
-        <p style={{ margin: '0 0 4px', fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>REASON GIVEN</p>
+        <p style={{ margin: '0 0 4px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>REASON GIVEN</p>
         <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>{request.reason}</p>
       </div>
 
       {/* Reviewer note (if already decided) */}
       {request.reviewer_note && (
         <div style={{ background: 'rgba(224,90,90,0.06)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
-          <p style={{ margin: '0 0 4px', fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>REJECTION REASON</p>
+          <p style={{ margin: '0 0 4px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>REJECTION REASON</p>
           <p style={{ margin: 0, fontSize: 13, color: '#E05A5A', lineHeight: 1.6 }}>{request.reviewer_note}</p>
         </div>
       )}
@@ -232,7 +232,7 @@ function RequestCard({ request, onDecision, tenant }) {
           {showReject ? (
             <div>
               <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
+                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
                   Reason for rejection *
                 </label>
                 <input value={rejectNote} onChange={(e) => setRejectNote(e.target.value)}
@@ -240,7 +240,7 @@ function RequestCard({ request, onDecision, tenant }) {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => { setShowReject(false); setRejectNote(''); setError(''); }}
-                  style={{ flex: 1, padding: '9px 0', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'inherit' }}>
+                  style={{ flex: 1, padding: '9px 0', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'inherit' }}>
                   Cancel
                 </button>
                 <button onClick={reject} disabled={processing}
@@ -311,7 +311,7 @@ export default function CorrectionApprovalQueue() {
   if (!canAccess) {
     return (
       <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>
           This screen is for principals and administrators only.
         </p>
       </div>
@@ -326,12 +326,12 @@ export default function CorrectionApprovalQueue() {
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>Correction Requests</p>
-          <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
             Review and approve data corrections · {tenant?.orgName}
           </p>
         </div>
         <button onClick={loadRequests}
-          style={{ padding: '7px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
+          style={{ padding: '7px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
           ↻ Refresh
         </button>
       </nav>
@@ -348,7 +348,7 @@ export default function CorrectionApprovalQueue() {
           ].map((s) => (
             <div key={s.label} style={{ background: '#111113', borderRadius: 10, padding: 14, textAlign: 'center', border: `1px solid ${s.alert ? 'rgba(224,90,90,0.2)' : 'rgba(255,255,255,0.05)'}` }}>
               <p style={{ fontSize: 22, fontWeight: 700, margin: 0, color: s.alert ? '#E05A5A' : s.color }}>{s.value}</p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '3px 0 0' }}>{s.label}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '3px 0 0' }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -386,13 +386,13 @@ export default function CorrectionApprovalQueue() {
         </div>
 
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading requests...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading requests...</p>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 20px' }}>
             <p style={{ fontSize: 28, marginBottom: 12 }}>
               {tab === 'pending' ? '✅' : '📋'}
             </p>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>
               {tab === 'pending' ? 'No pending requests — all clear!' : 'No requests found'}
             </p>
           </div>
@@ -410,7 +410,7 @@ export default function CorrectionApprovalQueue() {
         {/* How to use note */}
         {tab === 'pending' && requests.length > 0 && (
           <div style={{ background: '#111113', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, padding: 16, marginTop: 8 }}>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, margin: '0 0 10px' }}>HOW THIS WORKS</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1, margin: '0 0 10px' }}>HOW THIS WORKS</p>
             {[
               { icon: '✏️', text: 'Staff raise a correction request from any record screen' },
               { icon: '🔔', text: 'You get a WhatsApp alert immediately' },

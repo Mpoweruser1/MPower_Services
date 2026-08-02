@@ -21,8 +21,8 @@ const S = {
   inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 12 },
   input: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }),
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
-  fieldErr: { fontSize: 11, color: '#E05A5A', marginTop: 4 },
+  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
+  fieldErr: { fontSize: 12, color: '#E05A5A', marginTop: 4 },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 },
 };
 
@@ -183,7 +183,7 @@ export default function TransferCertificate() {
 
       <div style={S.inner}>
         <div className="no-print" style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Transfer Certificate · స్థానాంతర ధృవపత్రం
           </p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Transfer Certificate</h1>
@@ -202,14 +202,14 @@ export default function TransferCertificate() {
                   style={S.input(false)}
                   autoFocus
                 />
-                {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>Searching...</p>}
+                {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>Searching...</p>}
                 {searchResults.length > 0 && (
                   <div style={{ marginTop: 8, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden' }}>
                     {searchResults.map((s) => (
                       <div key={s.id} onClick={() => selectStudent(s)}
                         style={{ padding: '11px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', background: '#111113' }}>
                         <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{s.full_name}</p>
-                        <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                           {s.sid} · {s.classes?.class_name}{s.section ? `-${s.section}` : ''}
                         </p>
                       </div>
@@ -223,7 +223,7 @@ export default function TransferCertificate() {
                 <div style={{ ...S.card, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>{student.full_name}</p>
-                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                       {student.sid} · {student.classes?.class_name}{student.section ? `-${student.section}` : ''}
                       {student.dob ? ` · DOB: ${dobInWords(student.dob)}` : ''}
                     </p>
@@ -253,7 +253,7 @@ export default function TransferCertificate() {
 
                 {/* TC form */}
                 <div style={S.card}>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>TC details</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>TC details</p>
 
                   <div style={S.row2}>
                     <div>
@@ -338,7 +338,7 @@ export default function TransferCertificate() {
               {/* Header */}
               <div style={{ textAlign: 'center', marginBottom: 20, borderBottom: '2px solid #000', paddingBottom: 14 }}>
                 <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>{issuedTc.orgName}</h2>
-                <p style={{ fontSize: 11, color: '#555', margin: 0 }}>Recognised by Govt. of Andhra Pradesh</p>
+                <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Recognised by Govt. of Andhra Pradesh</p>
                 <h3 style={{ fontSize: 15, fontWeight: 700, margin: '12px 0 0', textTransform: 'uppercase', letterSpacing: 1 }}>
                   Transfer Certificate
                 </h3>
@@ -382,13 +382,13 @@ export default function TransferCertificate() {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ borderTop: '1px solid #000', paddingTop: 6, width: 160 }}>
                     Principal / Headmaster<br />
-                    <span style={{ fontSize: 11, color: '#555' }}>{issuedTc.orgName}</span>
+                    <span style={{ fontSize: 12, color: '#555' }}>{issuedTc.orgName}</span>
                   </div>
                 </div>
               </div>
 
               {/* Audit stamp */}
-              <div style={{ marginTop: 20, padding: '8px 12px', background: '#f5f5f5', borderRadius: 4, fontSize: 10, color: '#888', fontFamily: 'monospace' }}>
+              <div style={{ marginTop: 20, padding: '8px 12px', background: '#f5f5f5', borderRadius: 4, fontSize: 12, color: '#888', fontFamily: 'monospace' }}>
                 TC No: {issuedTc.tc_no} · Issued: {new Date(issuedTc.issued_at).toLocaleString('en-IN')} · By: {issuedTc.principalName} · MPower
               </div>
             </div>

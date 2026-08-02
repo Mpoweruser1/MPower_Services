@@ -47,9 +47,9 @@ export default function EmergencyKitGenerator({ appType = 'school' }) {
         <div key={kit.code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, border: '1px solid #eee', borderRadius: 8, marginBottom: 8 }}>
           <div>
             <p style={{ margin: 0, fontWeight: 500, fontSize: 13 }}>{kit.label}</p>
-            <p style={{ margin: 0, fontSize: 11, color: '#888' }}>{kit.freq}</p>
+            <p style={{ margin: 0, fontSize: 12, color: '#888' }}>{kit.freq}</p>
           </div>
-          <button onClick={() => generateKit(kit)} disabled={generating === kit.code} style={{ fontSize: 11, padding: '5px 12px', border: 'none', borderRadius: 6, background: '#A32D2D', color: '#fff', cursor: generating === kit.code ? 'not-allowed' : 'pointer' }}>
+          <button onClick={() => generateKit(kit)} disabled={generating === kit.code} style={{ fontSize: 12, padding: '5px 12px', border: 'none', borderRadius: 6, background: '#A32D2D', color: '#fff', cursor: generating === kit.code ? 'not-allowed' : 'pointer' }}>
             {generating === kit.code ? 'Generating...' : 'Generate & print'}
           </button>
         </div>

@@ -29,7 +29,7 @@ export default function BugReporter({ screenName }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        style={{ display: 'block', margin: '24px auto 8px', padding: '8px 20px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.25)', fontFamily: 'Inter, sans-serif' }}
+        style={{ display: 'block', margin: '24px auto 8px', padding: '8px 20px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter, sans-serif' }}
       >
         🐛 Report an issue on this screen
       </button>
@@ -46,9 +46,9 @@ export default function BugReporter({ screenName }) {
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>Report an issue</p>
-                  <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.4)', padding: 0 }}>✕</button>
+                  <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.6)', padding: 0 }}>✕</button>
                 </div>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', margin: '0 0 12px' }}>Screen: {screenName}</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 12px' }}>Screen: {screenName}</p>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
