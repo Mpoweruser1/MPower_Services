@@ -62,7 +62,7 @@ export default function CtsLanding() {
           <div style={{ width: 36, height: 36, borderRadius: 8, background: '#e8a020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1a1a2e', fontSize: 16 }}>M</div>
           <div>
             <div style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>MPower CTS</div>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
               {stateName} Grievance System
             </div>
           </div>
@@ -95,8 +95,8 @@ export default function CtsLanding() {
         ].map((s, i) => (
           <div key={i} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1a2e' }}>{s.num}</div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{s.label}</div>
-            <div style={{ fontSize: 12, color: '#cbd5e1' }}>{s.te}</div>
+            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{s.label}</div>
+            <div style={{ fontSize: 9, color: '#cbd5e1' }}>{s.te}</div>
           </div>
         ))}
       </div>
@@ -114,7 +114,7 @@ export default function CtsLanding() {
           <div style={{ fontSize: 13, color: '#374151', marginBottom: 10 }}>నేను పౌరుడిని — ఫిర్యాదు దాఖలు చేయాలి</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
             {[['✓ Free', '#f0fdf4', '#15803d'], ['✓ Track status', '#eff6ff', '#1d4ed8'], ['✓ Local language', '#fff7ed', '#c2410c']].map(([label, bg, color]) => (
-              <span key={label} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, fontWeight: 500, background: bg, color }}>{label}</span>
+              <span key={label} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, fontWeight: 500, background: bg, color }}>{label}</span>
             ))}
           </div>
           <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6, marginBottom: 14 }}>
@@ -135,7 +135,7 @@ export default function CtsLanding() {
           <div style={{ fontSize: 13, color: '#374151', marginBottom: 10 }}>నేను MLA / MP కార్యాలయం</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
             {[['✓ Free setup', '#f0fdf4', '#15803d'], ['✓ Dashboard', '#eff6ff', '#1d4ed8'], ['✓ Reports', '#fff7ed', '#c2410c']].map(([label, bg, color]) => (
-              <span key={label} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, fontWeight: 500, background: bg, color }}>{label}</span>
+              <span key={label} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, fontWeight: 500, background: bg, color }}>{label}</span>
             ))}
           </div>
           <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6, marginBottom: 14 }}>
@@ -150,7 +150,7 @@ export default function CtsLanding() {
 
       {/* Footer */}
       <div style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0', padding: '14px 24px', textAlign: 'center' }}>
-        <p style={{ fontSize: 12, color: '#64748b' }}>
+        <p style={{ fontSize: 11, color: '#64748b' }}>
           Powered by <strong>MPower Services</strong> · mpowerind.in · Free for all citizens · Available in all Indian states
         </p>
       </div>

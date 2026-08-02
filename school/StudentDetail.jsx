@@ -25,7 +25,7 @@ const S = {
   inner: { maxWidth: 560, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 16 },
   row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13.5 },
-  label: { color: 'rgba(255,255,255,0.6)' },
+  label: { color: 'rgba(255,255,255,0.4)' },
   value: { color: '#fff', fontWeight: 500, textAlign: 'right' },
   input: { padding: '7px 10px', background: '#111113', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, fontSize: 13.5, color: '#fff', outline: 'none', fontFamily: 'inherit', width: 150 },
 };
@@ -52,16 +52,16 @@ function StudentSearch({ appId, onSelect }) {
 
   return (
     <div style={S.card}>
-      <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
+      <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
         Find student
       </label>
       <input value={query} onChange={(e) => search(e.target.value)} placeholder="Name or SID..." style={{ ...S.input, width: '100%' }} autoFocus />
-      {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>Searching...</p>}
+      {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>Searching...</p>}
       {results.map((s) => (
         <div key={s.id} onClick={() => onSelect(s.id)}
           style={{ padding: '10px 4px', cursor: 'pointer', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
           <p style={{ margin: 0, fontSize: 13.5, color: '#fff' }}>{s.full_name}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
             {s.sid} · {s.classes?.class_name}{s.section ? `-${s.section}` : ''}
           </p>
         </div>
@@ -123,7 +123,7 @@ export default function StudentDetail({ studentId }) {
       <div style={S.page}>
         <div style={S.inner}>
           <div style={{ marginBottom: 24 }}>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Student detail</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Student detail</p>
             <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Find a student</h1>
           </div>
           <StudentSearch appId={tenant?.appId} onSelect={setId} />
@@ -137,7 +137,7 @@ export default function StudentDetail({ studentId }) {
     return (
       <div style={S.page}>
         <div style={S.inner}>
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
         </div>
       </div>
     );
@@ -157,7 +157,7 @@ export default function StudentDetail({ studentId }) {
           </div>
           <div>
             <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#fff' }}>{student.full_name}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>
+            <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.4)' }}>
               {student.sid} · {student.classes?.class_name}{student.section ? `-${student.section}` : ''}
             </p>
           </div>
@@ -173,7 +173,7 @@ export default function StudentDetail({ studentId }) {
 
         {/* Directly editable — safety/time critical */}
         <div style={{ ...S.card, background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.2)' }}>
-          <p style={{ fontSize: 12, color: '#E8A020', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 10px' }}>Editable directly</p>
+          <p style={{ fontSize: 11, color: '#E8A020', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 10px' }}>Editable directly</p>
 
           <div style={S.row}>
             <span style={S.label}>Parent phone</span>
@@ -186,7 +186,7 @@ export default function StudentDetail({ studentId }) {
               </div>
             ) : (
               <span style={S.value} onClick={() => startEdit('parent_phone')} title="Click to edit">
-                {student.parent_phone || '—'} <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>✎</span>
+                {student.parent_phone || '—'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>✎</span>
               </span>
             )}
           </div>
@@ -202,7 +202,7 @@ export default function StudentDetail({ studentId }) {
               </div>
             ) : (
               <span style={S.value} onClick={() => startEdit('blood_group')} title="Click to edit">
-                {student.blood_group || '—'} <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>✎</span>
+                {student.blood_group || '—'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>✎</span>
               </span>
             )}
           </div>

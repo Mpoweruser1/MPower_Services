@@ -17,6 +17,7 @@ export default function RequestStaffAccess() {
   });
   const [constituencies, setConstituencies] = useState([]);
   const [loadingConstituencies, setLoadingConstituencies] = useState(true);
+  const [appId, setAppId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -31,9 +32,10 @@ export default function RequestStaffAccess() {
     let cancelled = false;
     async function load() {
       setLoadingConstituencies(true);
-      const appId = await fetchAppIdBySlug(stateSlug || 'andhra-pradesh');
-      if (!appId) { if (!cancelled) setLoadingConstituencies(false); return; }
-      const list = await fetchConstituencies(appId, form.role);
+      const resolvedAppId = await fetchAppIdBySlug(stateSlug || 'andhra-pradesh');
+      if (!cancelled) setAppId(resolvedAppId);
+      if (!resolvedAppId) { if (!cancelled) setLoadingConstituencies(false); return; }
+      const list = await fetchConstituencies(resolvedAppId, form.role);
       if (!cancelled) {
         setConstituencies(list);
         setForm((f) => ({ ...f, constituencyName: '' }));
@@ -54,11 +56,16 @@ export default function RequestStaffAccess() {
       setError('Please fill all required fields.');
       return;
     }
+    if (!appId) {
+      setError('Could not identify this state — please refresh and try again.');
+      return;
+    }
     setBusy(true);
     setError('');
 
     try {
       const { error: err } = await supabase.from('staff_access_requests').insert({
+        app_id: appId,
         state_slug: stateSlug || 'andhra-pradesh',
         office_name: form.officeName,
         constituency_name: form.constituencyName,

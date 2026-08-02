@@ -36,8 +36,8 @@ const S = {
   input: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }),
   textarea: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'vertical', minHeight: 80 }),
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 },
-  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
-  fieldErr: { fontSize: 12, color: '#E05A5A', marginTop: 4 },
+  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  fieldErr: { fontSize: 11, color: '#E05A5A', marginTop: 4 },
 };
 
 export default function OpdVisit() {
@@ -183,7 +183,7 @@ export default function OpdVisit() {
 
       <div style={S.inner}>
         <div className="no-print" style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>OPD Visit · OPD విజిట్</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>OPD Visit · OPD విజిట్</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>OPD Consultation</h1>
         </div>
 
@@ -206,7 +206,7 @@ export default function OpdVisit() {
             {selectedPatient && (
               <>
                 <div style={S.card}>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Visit details</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Visit details</p>
 
                   <div style={S.row2}>
                     <div>
@@ -268,7 +268,7 @@ export default function OpdVisit() {
                 {/* Prescription */}
                 <div style={S.card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>Prescription · మందులు</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>Prescription · మందులు</p>
                     <button onClick={addMedicine}
                       style={{ padding: '6px 14px', border: 'none', borderRadius: 20, background: '#E8A020', color: '#111113', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                       + Add medicine
@@ -278,7 +278,7 @@ export default function OpdVisit() {
                   {prescription.map((med, idx) => (
                     <div key={idx} style={{ background: '#111113', borderRadius: 10, padding: 14, marginBottom: 10 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Medicine {idx + 1}</p>
+                        <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Medicine {idx + 1}</p>
                         {prescription.length > 1 && (
                           <button onClick={() => removeMedicine(idx)}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#E05A5A', padding: 0 }}>✕</button>
@@ -310,7 +310,7 @@ export default function OpdVisit() {
                         min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
                         onChange={(e) => update('follow_up_date', e.target.value)}
                         style={S.input(false)} />
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>Must be a future date</p>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>Must be a future date</p>
                     </div>
                     <div>
                       <label style={S.label}>Follow-up notes</label>
@@ -327,7 +327,7 @@ export default function OpdVisit() {
                 )}
 
                 {isDirty && (
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 12 }}>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginBottom: 12 }}>
                     📝 Draft auto-saved
                   </p>
                 )}

@@ -31,7 +31,7 @@ export default function DraftBanner({ lastSaved, onRestore, onDiscard }) {
         <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#E8A020' }}>
           📝 Unsaved draft found
         </p>
-        <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+        <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
           You were filling this form {timeLabel} — restore to continue where you left off
         </p>
       </div>
@@ -41,7 +41,7 @@ export default function DraftBanner({ lastSaved, onRestore, onDiscard }) {
           Restore draft
         </button>
         <button onClick={onDiscard}
-          style={{ padding: '7px 14px', background: 'transparent', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+          style={{ padding: '7px 14px', background: 'transparent', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
           Discard
         </button>
       </div>

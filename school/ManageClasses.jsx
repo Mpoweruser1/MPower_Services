@@ -21,8 +21,8 @@ const S = {
   inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 12 },
   input: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }),
-  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
-  fieldErr: { fontSize: 12, color: '#E05A5A', marginTop: 4 },
+  label: { fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
+  fieldErr: { fontSize: 11, color: '#E05A5A', marginTop: 4 },
 };
 
 export default function ManageClasses() {
@@ -223,12 +223,12 @@ export default function ManageClasses() {
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Setup · తరగతుల నిర్వహణ
           </p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Manage Classes</h1>
           {!loading && (
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>
               {classes.length} class{classes.length !== 1 ? 'es' : ''} configured for {tenant?.orgName}
             </p>
           )}
@@ -276,10 +276,10 @@ export default function ManageClasses() {
 
         {/* Pre-primary quick add */}
         <div style={S.card}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 6 }}>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 6 }}>
             Pre-primary classes · పూర్వ ప్రాథమిక
           </p>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 14 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginBottom: 14 }}>
             Tap to add instantly — uses selected medium above
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -299,10 +299,10 @@ export default function ManageClasses() {
 
         {/* Bulk numbered classes */}
         <div style={S.card}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 6 }}>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 6 }}>
             Bulk numbered classes
           </p>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 16 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginBottom: 16 }}>
             Create Class 1–10, Form 1–5, Grade 1–12, Year 1–3 etc. in one click
           </p>
 
@@ -336,7 +336,7 @@ export default function ManageClasses() {
           {/* Preview */}
           {previewClasses.length > 0 && (
             <div style={{ background: '#111113', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '0 0 4px' }}>Preview:</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: '0 0 4px' }}>Preview:</p>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
                 {previewClasses.join(', ')}
                 {parseInt(bulkCount) > 5 ? ` ... ${bulkPrefix} ${parseInt(bulkFrom) + parseInt(bulkCount) - 1}` : ''}
@@ -353,10 +353,10 @@ export default function ManageClasses() {
 
         {/* Add single custom class */}
         <div style={S.card}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>
             Add custom class
           </p>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 14 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginBottom: 14 }}>
             For anything not covered above — Class 11, Class 12, PUC, Diploma etc.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr', gap: 10, marginBottom: 10 }}>
@@ -393,22 +393,22 @@ export default function ManageClasses() {
 
         {/* Existing classes list */}
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 20 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 20 }}>Loading...</p>
         ) : classes.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px', background: '#161618', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
             <p style={{ fontSize: 32, marginBottom: 12 }}>🏫</p>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
               No classes yet — use the options above to get started.
             </p>
           </div>
         ) : (
           <div style={S.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>
                 Your classes ({classes.length})
               </p>
               <button onClick={clearAll}
-                style={{ padding: '5px 12px', border: '1px solid rgba(224,90,90,0.3)', color: '#E05A5A', background: 'transparent', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                style={{ padding: '5px 12px', border: '1px solid rgba(224,90,90,0.3)', color: '#E05A5A', background: 'transparent', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }}>
                 Clear all
               </button>
             </div>
@@ -422,7 +422,7 @@ export default function ManageClasses() {
                     <span style={{ fontSize: 16 }}>{isPrePrimary ? '🌱' : '📚'}</span>
                     <div>
                       <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{c.class_name}</p>
-                      <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
                         {c.medium} · Order: {c.class_order}
                       </p>
                     </div>

@@ -250,12 +250,12 @@ function PlanCard({ plan, annual, subtitle }) {
       position: 'relative',
     }}>
       {plan.highlight && (
-        <div style={{ background: plan.color, color: '#fff', textAlign: 'center', fontSize: 12, fontWeight: 700, padding: '4px 0', letterSpacing: 1 }}>
+        <div style={{ background: plan.color, color: '#fff', textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '4px 0', letterSpacing: 1 }}>
           MOST POPULAR
         </div>
       )}
       {plan.forever && (
-        <div style={{ background: '#1D9E75', color: '#fff', textAlign: 'center', fontSize: 12, fontWeight: 700, padding: '4px 0', letterSpacing: 1 }}>
+        <div style={{ background: '#1D9E75', color: '#fff', textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '4px 0', letterSpacing: 1 }}>
           FREE FOREVER
         </div>
       )}
@@ -267,7 +267,7 @@ function PlanCard({ plan, annual, subtitle }) {
           {plan.price > 0 && <span style={{ fontSize: 12, fontWeight: 400 }}>/month</span>}
         </div>
         {annual && plan.price > 0 && (
-          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>
+          <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>
             Save ₹{((plan.price - displayPrice) * 12).toLocaleString('en-IN')}/year
           </div>
         )}
@@ -275,7 +275,7 @@ function PlanCard({ plan, annual, subtitle }) {
 
       <div style={{ padding: '14px 16px' }}>
         {subtitle && (
-          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f1f5f9' }}>
             {subtitle}
           </div>
         )}
@@ -419,7 +419,7 @@ export default function Pricing() {
                 return (
                   <div key={plan.key} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>{plan.name}</div>
-                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>{plan.constituencies} constituencies</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>{plan.constituencies} constituencies</div>
                     <div style={{ fontSize: 22, fontWeight: 800, color: '#1a1a2e', marginBottom: 14 }}>
                       ₹{displayPrice.toLocaleString('en-IN')}
                       <span style={{ fontSize: 12, fontWeight: 400, color: '#64748b' }}>/month</span>
@@ -516,7 +516,7 @@ export default function Pricing() {
                       </div>
                     </div>
                     <div style={{ padding: '14px 16px' }}>
-                      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>{plan.modules}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>{plan.modules}</div>
                       <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#166534', marginBottom: 14, textAlign: 'center', fontWeight: 700 }}>
                         Save {plan.saving} vs individual plans
                       </div>

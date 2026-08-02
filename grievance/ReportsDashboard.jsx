@@ -48,7 +48,7 @@ export default function ReportsDashboard() {
       {/* Header */}
       <div style={{ background: '#1a1a2e', padding: '14px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>Reports</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Complaint analytics</div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Complaint analytics</div>
       </div>
 
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '16px 16px 20px' }}>
@@ -63,7 +63,7 @@ export default function ReportsDashboard() {
           ].map(s => (
             <div key={s.label} style={{ background: '#fff', borderRadius: 10, padding: 14, textAlign: 'center', border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>{s.label}</div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -106,12 +106,12 @@ export default function ReportsDashboard() {
                       {row.village_name || row.mandal_name || row.category || row.constituency_name || '—'}
                     </div>
                     {row.mandal_name && level === 'village' && (
-                      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{row.mandal_name}</div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{row.mandal_name}</div>
                     )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1a2e' }}>{row.total || 0}</div>
-                    <div style={{ fontSize: 12, color: '#94a3b8' }}>total</div>
+                    <div style={{ fontSize: 10, color: '#94a3b8' }}>total</div>
                   </div>
                 </div>
 
@@ -125,13 +125,13 @@ export default function ReportsDashboard() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✅ {row.resolved_count || 0} resolved</span>
-                  <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>⏳ {row.open_count || 0} pending</span>
+                  <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✅ {row.resolved_count || 0} resolved</span>
+                  <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>⏳ {row.open_count || 0} pending</span>
                   {row.urgent_count > 0 && (
-                    <span style={{ fontSize: 12, color: '#ea580c', fontWeight: 600 }}>🚨 {row.urgent_count} urgent</span>
+                    <span style={{ fontSize: 11, color: '#ea580c', fontWeight: 600 }}>🚨 {row.urgent_count} urgent</span>
                   )}
                   {row.currently_escalated_count > 0 && (
-                    <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>⬆️ {row.currently_escalated_count} escalated</span>
+                    <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>⬆️ {row.currently_escalated_count} escalated</span>
                   )}
                 </div>
               </div>

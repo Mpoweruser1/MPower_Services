@@ -24,7 +24,7 @@ const S = {
   inner: { maxWidth: 560, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 16 },
   row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13.5 },
-  label: { color: 'rgba(255,255,255,0.6)' },
+  label: { color: 'rgba(255,255,255,0.4)' },
   value: { color: '#fff', fontWeight: 500, textAlign: 'right' },
   input: { padding: '7px 10px', background: '#111113', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, fontSize: 13.5, color: '#fff', outline: 'none', fontFamily: 'inherit', width: 150 },
 };
@@ -50,16 +50,16 @@ function PatientSearch({ appId, onSelect }) {
 
   return (
     <div style={S.card}>
-      <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
+      <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
         Find patient
       </label>
       <input value={query} onChange={(e) => search(e.target.value)} placeholder="Name, UID or phone..." style={{ ...S.input, width: '100%' }} autoFocus />
-      {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>Searching...</p>}
+      {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>Searching...</p>}
       {results.map((p) => (
         <div key={p.id} onClick={() => onSelect(p.id)}
           style={{ padding: '10px 4px', cursor: 'pointer', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
           <p style={{ margin: 0, fontSize: 13.5, color: '#fff' }}>{p.full_name}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
             {p.patient_uid}{p.phone ? ` · ${p.phone}` : ''}
           </p>
         </div>
@@ -121,7 +121,7 @@ export default function PatientDetail({ patientId }) {
       <div style={S.page}>
         <div style={S.inner}>
           <div style={{ marginBottom: 24 }}>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Patient detail</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>Patient detail</p>
             <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Find a patient</h1>
           </div>
           <PatientSearch appId={tenant?.appId} onSelect={setId} />
@@ -135,7 +135,7 @@ export default function PatientDetail({ patientId }) {
     return (
       <div style={S.page}>
         <div style={S.inner}>
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
         </div>
       </div>
     );
@@ -155,7 +155,7 @@ export default function PatientDetail({ patientId }) {
           </div>
           <div>
             <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#fff' }}>{patient.full_name}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>
+            <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.4)' }}>
               {patient.patient_uid}{patient.abha_linked ? ' · ABHA ✓' : ''}
             </p>
           </div>
@@ -171,7 +171,7 @@ export default function PatientDetail({ patientId }) {
 
         {/* Directly editable — safety/time critical */}
         <div style={{ ...S.card, background: 'rgba(224,90,90,0.06)', border: '1px solid rgba(224,90,90,0.2)' }}>
-          <p style={{ fontSize: 12, color: '#E05A5A', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 10px' }}>Editable directly</p>
+          <p style={{ fontSize: 11, color: '#E05A5A', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 10px' }}>Editable directly</p>
 
           <div style={S.row}>
             <span style={S.label}>Phone</span>
@@ -184,7 +184,7 @@ export default function PatientDetail({ patientId }) {
               </div>
             ) : (
               <span style={S.value} onClick={() => startEdit('phone')} title="Click to edit">
-                {patient.phone || '—'} <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>✎</span>
+                {patient.phone || '—'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>✎</span>
               </span>
             )}
           </div>
@@ -200,7 +200,7 @@ export default function PatientDetail({ patientId }) {
               </div>
             ) : (
               <span style={S.value} onClick={() => startEdit('blood_group')} title="Click to edit">
-                {patient.blood_group || '—'} <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>✎</span>
+                {patient.blood_group || '—'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>✎</span>
               </span>
             )}
           </div>
@@ -216,7 +216,7 @@ export default function PatientDetail({ patientId }) {
               </div>
             ) : (
               <span style={S.value} onClick={() => startEdit('allergies')} title="Click to edit">
-                {patient.allergies || 'None recorded'} <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>✎</span>
+                {patient.allergies || 'None recorded'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>✎</span>
               </span>
             )}
           </div>

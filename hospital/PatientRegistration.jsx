@@ -35,7 +35,7 @@ const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
   inner: { maxWidth: 640, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 20, marginBottom: 16 },
-  sectionLabel: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 },
+  sectionLabel: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
 };
 
@@ -133,7 +133,7 @@ export default function PatientRegistration() {
 
       <div style={S.inner}>
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Patient Registration · రోగి నమోదు
           </p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0, letterSpacing: -0.5 }}>New Patient</h1>
@@ -258,7 +258,7 @@ export default function PatientRegistration() {
               />
 
               {form.abha_id && form.abha_id.length !== 14 && (
-                <p style={{ fontSize: 12, color: '#E8A020', marginTop: -10, marginBottom: 12 }}>
+                <p style={{ fontSize: 11, color: '#E8A020', marginTop: -10, marginBottom: 12 }}>
                   ⚠ ABHA ID must be exactly 14 digits
                 </p>
               )}
@@ -267,7 +267,7 @@ export default function PatientRegistration() {
                 <input type="checkbox" checked={form.abha_consent} onChange={(e) => update('abha_consent', e.target.checked)} style={{ marginTop: 2, accentColor: '#6AAA90', width: 16, height: 16 }} />
                 <div>
                   <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>Patient consent for ABHA Health ID obtained</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>ABHA Health ID కోసం రోగి అనుమతి తీసుకోబడింది</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>ABHA Health ID కోసం రోగి అనుమతి తీసుకోబడింది</p>
                 </div>
               </label>
             </div>
@@ -275,7 +275,7 @@ export default function PatientRegistration() {
             <WelfareSchemesPanel mode="patient" appId={tenant?.appId} compact={false} />
 
             {isDirty && (
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 12 }}>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginBottom: 12 }}>
                 📝 Draft auto-saved — data safe even if you close this page
               </p>
             )}
@@ -288,10 +288,10 @@ export default function PatientRegistration() {
         ) : (
           <>
             <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.25)', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-              <p style={{ margin: '0 0 4px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>PATIENT REGISTERED · రోగి నమోదైంది</p>
+              <p style={{ margin: '0 0 4px', fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 1 }}>PATIENT REGISTERED · రోగి నమోదైంది</p>
               <p style={{ margin: '6px 0 4px', fontSize: 20, fontWeight: 700, color: '#fff' }}>{registered.full_name}</p>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#6AAA90' }}>{registered.patient_uid}</p>
-              <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
                 {registered.gender}{registered.dob ? ` · DOB: ${registered.dob}` : ''}{registered.phone ? ` · ${registered.phone}` : ''}
               </p>
             </div>
