@@ -1,6 +1,5 @@
 // school/ReportsSearchIdCards.jsx — FINAL (Supabase wired)
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
@@ -36,22 +35,13 @@ const REPORT_CATALOG = [
 async function runReportQuery(reportId, appId) {
   const today = new Date().toISOString().slice(0, 10);
 
-  // .in() needs an actual array of ids, not an unresolved query builder —
-  // resolve this app's student ids once, only when a report actually
-  // needs to filter by them.
-  async function getStudentIds() {
-    const { data } = await supabase.from('students').select('id').eq('app_id', appId);
-    return (data || []).map((s) => s.id);
-  }
-
   switch (reportId) {
     case 'daily_attendance': {
-      const studentIds = await getStudentIds();
       const { data } = await supabase
         .from('attendance')
         .select('status, students(full_name, sid, section, classes(class_name))')
         .eq('date', today)
-        .in('student_id', studentIds);
+        .in('student_id', supabase.from('students').select('id').eq('app_id', appId));
       return { data: data || [], columns: ['Name', 'SID', 'Class', 'Status'] };
     }
     case 'low_attendance': {
@@ -70,21 +60,19 @@ async function runReportQuery(reportId, appId) {
       return { data: results, columns: ['Name', 'SID', 'Class', 'Attendance %'] };
     }
     case 'fee_defaulters': {
-      const studentIds = await getStudentIds();
       const { data } = await supabase
         .from('fee_dues')
         .select('amount_due, amount_paid, fee_type, due_date, students(full_name, sid, parent_phone, classes(class_name))')
         .lt('due_date', today)
-        .in('student_id', studentIds);
+        .in('student_id', supabase.from('students').select('id').eq('app_id', appId));
       const filtered = (data || []).filter((d) => Number(d.amount_due) > Number(d.amount_paid));
       return { data: filtered, columns: ['Name', 'SID', 'Class', 'Fee type', 'Balance', 'Due date'] };
     }
     case 'class_rank': {
-      const studentIds = await getStudentIds();
       const { data } = await supabase
         .from('marks')
         .select('percentage, students(full_name, sid, classes(class_name))')
-        .in('student_id', studentIds)
+        .in('student_id', supabase.from('students').select('id').eq('app_id', appId))
         .order('percentage', { ascending: false })
         .limit(100);
       return { data: data || [], columns: ['Name', 'SID', 'Class', 'Percentage'] };
@@ -135,7 +123,13 @@ export function ReportEngine({ userTier = 'basic' }) {
 
   return (
     <div style={S.page}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @media print {
+          .no-print { display: none !important; }
+          .print-safe, .print-safe * { background: #fff !important; color: #000 !important; border-color: #ccc !important; }
+        }
+      `}</style>
       <div style={S.inner}>
         <div style={{ marginBottom: 24 }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Reports · నివేదికలు</p>
@@ -149,7 +143,7 @@ export function ReportEngine({ userTier = 'basic' }) {
         )}
 
         {/* Report catalog */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="no-print" style={{ marginBottom: 20 }}>
           {REPORT_CATALOG.map((report) => {
             const locked    = !canAccess(userTier, report.tier);
             const isRunning = running === report.id;
@@ -181,7 +175,7 @@ export function ReportEngine({ userTier = 'basic' }) {
 
         {/* Report result */}
         {result && (
-          <div style={S.card}>
+          <div className="print-safe" style={S.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{result.report.name}</p>
@@ -189,7 +183,7 @@ export function ReportEngine({ userTier = 'basic' }) {
                   {result.data.length} records · Generated {result.generatedAt}
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="no-print" style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => window.print()}
                   style={{ padding: '6px 12px', border: 'none', borderRadius: 6, background: '#E8A020', color: '#111113', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                   🖨️ Print
@@ -469,10 +463,6 @@ export function UniversalSearch() {
                     {s.status}
                   </span>
                 </div>
-                <Link to={`/school/students/${s.id}`}
-                  style={{ display: 'inline-block', marginTop: 10, fontSize: 12, fontWeight: 600, color: '#E8A020', textDecoration: 'none' }}>
-                  View →
-                </Link>
               </div>
             ))}
             {tab === 'staff' && results.map((s) => (

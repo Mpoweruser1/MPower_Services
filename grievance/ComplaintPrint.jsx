@@ -6,6 +6,7 @@
 import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import GrievanceNav from './GrievanceNav';
 
 // ─── Shared print styles ───────────────────────────────────
 
@@ -15,10 +16,10 @@ const PRINT_STYLES = `
   @media print {
     body { margin: 0; padding: 0; background: #fff !important; color: #000 !important; }
     .no-print { display: none !important; }
+    @page { size: A4 portrait; margin: 12mm 15mm; }
     .print-page { 
       page-break-after: always; 
-      padding: 30mm 25mm;
-      min-height: 100vh;
+      padding: 0;
       font-family: 'Times New Roman', serif;
     }
     .print-page:last-child { page-break-after: avoid; }
@@ -84,6 +85,16 @@ function categoryLabel(cat) {
   return map[cat] || cat;
 }
 
+// Masks all but the last 4 digits — standard practice for a printed
+// document that may pass through several hands (staff, officials)
+// before reaching the citizen's own representative.
+function maskPhone(phone) {
+  if (!phone) return '—';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 4) return phone;
+  return 'X'.repeat(digits.length - 4) + digits.slice(-4);
+}
+
 // ═══════════════════════════════════════════════════════════
 // PRINT TYPE 1 — Citizen Representation Letter to MLA / MP
 // ═══════════════════════════════════════════════════════════
@@ -111,7 +122,7 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency }) {
           Sri/Smt. {mlaName || '________________________'},
         </p>
         <p style={{ margin: 0 }}>
-          {complaint.addressee_type === 'mp' ? 'Parliament Constituency' : 'Legislative Assembly Constituency'} — {constituency || complaint.constituency_name || '________________________'}
+          {complaint.addressee_type === 'mp' ? 'Parliament Constituency' : 'Legislative Assembly Constituency'} — {constituency || complaint.constituencies?.name || '________________________'}
         </p>
       </div>
 
@@ -130,9 +141,9 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency }) {
 
       {/* Body */}
       <p style={{ textIndent: '2em' }}>
-        I, <strong>{complaint.submitter_name || 'the undersigned'}</strong>, 
-        {complaint.submitter_village ? ` resident of ${complaint.submitter_village}, ` : ' '}
-        {complaint.submitter_mandal ? `${complaint.submitter_mandal} Mandal, ` : ''}
+        I, <strong>{complaint.citizens?.full_name || 'the undersigned'}</strong>, 
+        {complaint.villages?.name ? ` resident of ${complaint.villages.name}, ` : ' '}
+        {complaint.mandals?.name ? `${complaint.mandals.name} Mandal, ` : ''}
         humbly submit this representation to bring to your kind attention the following grievance pertaining to our area.
       </p>
 
@@ -145,7 +156,7 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency }) {
         <p style={{ margin: 0, fontSize: '10pt', color: '#444' }}>
           Category: {categoryLabel(complaint.category)} &nbsp;·&nbsp;
           Priority: {complaint.priority || 'Normal'} &nbsp;·&nbsp;
-          Location: {[complaint.submitter_village, complaint.submitter_mandal].filter(Boolean).join(', ') || 'Not specified'}
+          Location: {[complaint.villages?.name, complaint.mandals?.name].filter(Boolean).join(', ') || 'Not specified'}
         </p>
       </div>
 
@@ -181,12 +192,12 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency }) {
       {/* Signature section */}
       <div className="signature-line">
         <div>
-          <p style={{ margin: 0 }}><strong>{complaint.submitter_name || '________________________'}</strong></p>
+          <p style={{ margin: 0 }}><strong>{complaint.citizens?.full_name || '________________________'}</strong></p>
           <p style={{ margin: '2px 0 0', fontSize: '10pt' }}>
-            {[complaint.submitter_village, complaint.submitter_mandal].filter(Boolean).join(', ')}
+            {[complaint.villages?.name, complaint.mandals?.name].filter(Boolean).join(', ')}
           </p>
           <p style={{ margin: '2px 0 0', fontSize: '10pt' }}>
-            Phone: {complaint.submitter_phone_masked || '**********'}
+            Phone: {maskPhone(complaint.citizens?.phone)}
           </p>
           <p style={{ margin: '2px 0 0', fontSize: '10pt' }}>Date: {todayFormatted()}</p>
         </div>
@@ -237,9 +248,9 @@ function SingleComplaintPrint({ complaint, mlaName, constituency }) {
             ['Priority / ప్రాధాన్యత', complaint.priority || 'Normal'],
             ['Stage / దశ', stageLabel(complaint.stage)],
             ['Filed Date / దాఖలు తేదీ', new Date(complaint.created_at).toLocaleDateString('en-IN')],
-            ['Village / గ్రామం', complaint.submitter_village || '—'],
-            ['Mandal / మండలం', complaint.submitter_mandal || '—'],
-            ['Constituency / నియోజకవర్గం', complaint.constituency_name || constituency || '—'],
+            ['Village / గ్రామం', complaint.villages?.name || '—'],
+            ['Mandal / మండలం', complaint.mandals?.name || '—'],
+            ['Constituency / నియోజకవర్గం', complaint.constituencies?.name || constituency || '—'],
           ].map(([label, value]) => (
             <tr key={label}>
               <td style={{ fontWeight: 'bold', width: '40%', background: '#f7f7f7' }}>{label}</td>
@@ -410,7 +421,7 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
                   <td style={{ fontFamily: 'monospace', fontSize: '9pt' }}>{c.case_no}</td>
                   <td>{c.title}</td>
                   <td style={{ fontSize: '9pt' }}>
-                    {[c.submitter_village, c.submitter_mandal].filter(Boolean).join(', ') || '—'}
+                    {[c.villages?.name, c.mandals?.name].filter(Boolean).join(', ') || '—'}
                   </td>
                   <td style={{ fontSize: '9pt' }}>{new Date(c.created_at).toLocaleDateString('en-IN')}</td>
                   <td style={{ fontSize: '9pt' }}>{c.priority || 'Normal'}</td>
@@ -535,12 +546,41 @@ useEffect(() => {
     let query = supabase.from('complaints').select('*').eq('app_id', appId).order('created_at', { ascending: false });
     if (filterCategory) query = query.eq('category', filterCategory);
     if (filterStage) query = query.eq('stage', filterStage);
-    if (filterMandal) query = query.ilike('submitter_mandal', `%${filterMandal}%`);
     if (dateFrom) query = query.gte('created_at', dateFrom);
     if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59');
     const { data, error: err } = await query;
     if (err) { setError('Failed to load complaints.'); setLoading(false); return; }
-    setComplaints(data || []);
+
+    // The base query above has no joins at all — village/mandal names
+    // were always blank in this report before. Resolve them here in
+    // two batched queries (not one per row) using the distinct ids
+    // actually present in this result set.
+    const rows = data || [];
+    const mandalIds = [...new Set(rows.map((r) => r.mandal_id).filter(Boolean))];
+    const villageIds = [...new Set(rows.map((r) => r.village_id).filter(Boolean))];
+
+    const [mandalRes, villageRes] = await Promise.all([
+      mandalIds.length ? supabase.from('mandals').select('id, name').in('id', mandalIds) : { data: [] },
+      villageIds.length ? supabase.from('villages').select('id, name').in('id', villageIds) : { data: [] },
+    ]);
+    const mandalMap = Object.fromEntries((mandalRes.data || []).map((m) => [m.id, m.name]));
+    const villageMap = Object.fromEntries((villageRes.data || []).map((v) => [v.id, v.name]));
+
+    let enriched = rows.map((r) => ({
+      ...r,
+      mandals: r.mandal_id ? { name: mandalMap[r.mandal_id] } : null,
+      villages: r.village_id ? { name: villageMap[r.village_id] } : null,
+    }));
+
+    // filterMandal used to filter on a column ('submitter_mandal')
+    // that doesn't exist on complaints at all — silently matched
+    // nothing, ever. Filtering client-side on the resolved name instead.
+    if (filterMandal) {
+      const needle = filterMandal.toLowerCase();
+      enriched = enriched.filter((r) => (r.mandals?.name || '').toLowerCase().includes(needle));
+    }
+
+    setComplaints(enriched);
     setLoading(false);
   }
 
@@ -550,7 +590,7 @@ useEffect(() => {
     card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, marginBottom: 16 },
     input: { width: '100%', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, fontSize: 13, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
     select: { width: '100%', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, fontSize: 13, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' },
-    label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
+    label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
   };
 
   return (
@@ -560,9 +600,9 @@ useEffect(() => {
       <div style={S.inner} className="no-print">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Print / Export</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Print / Export</p>
             <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0, letterSpacing: -0.5 }}>Complaint Print Centre</h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>ఫిర్యాదు ముద్రణ కేంద్రం</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>ఫిర్యాదు ముద్రణ కేంద్రం</p>
           </div>
           <button onClick={() => window.print()} style={{ padding: '10px 24px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: 'inherit' }}>
             🖨️ Print now
@@ -581,15 +621,15 @@ useEffect(() => {
               <div key={opt.k} onClick={() => setPrintType(opt.k)} style={{ padding: 14, border: `1px solid ${printType === opt.k ? 'rgba(232,160,32,0.5)' : 'rgba(255,255,255,0.07)'}`, background: printType === opt.k ? 'rgba(232,160,32,0.08)' : '#111113', borderRadius: 10, cursor: 'pointer' }}>
                 <p style={{ fontSize: 22, margin: '0 0 6px' }}>{opt.icon}</p>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{opt.title}</p>
-                <p style={{ margin: '2px 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{opt.sub}</p>
-                <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{opt.te}</p>
+                <p style={{ margin: '2px 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{opt.sub}</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>{opt.te}</p>
               </div>
             ))}
           </div>
         </div>
       {!urlCaseNo && (
       <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>
           Case Number / Complaint ID
            </label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -705,7 +745,7 @@ useEffect(() => {
         )}
 
         {loading && (
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading complaint data...</p>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading complaint data...</p>
         )}
 
         {/* Print preview label */}
@@ -714,7 +754,7 @@ useEffect(() => {
             <p style={{ margin: 0, fontSize: 13, color: '#E8A020', fontWeight: 500 }}>
               📄 Print preview below — looks exactly like the printed output
             </p>
-            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
               Click "Print now" above or use Ctrl+P / ⌘+P to print
             </p>
           </div>
@@ -750,6 +790,7 @@ useEffect(() => {
           )}
         </>
       )}
+      <GrievanceNav />
     </div>
   );
 }

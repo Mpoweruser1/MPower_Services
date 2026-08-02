@@ -16,7 +16,9 @@ export default function SchoolNav() {
   const { tenant } = useTenant();
 
   return (
-    <nav style={{
+    <>
+    <style>{`@media print { .no-print { display: none !important; } }`}</style>
+    <nav className="no-print" style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
       background: '#111113',
       borderTop: '1px solid rgba(255,255,255,0.08)',
@@ -32,7 +34,7 @@ export default function SchoolNav() {
           <Link key={item.path} to={item.path}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, textDecoration: 'none', minWidth: 56, padding: '4px 0' }}>
             <span style={{ fontSize: 20, lineHeight: 1 }}>{item.icon}</span>
-            <span style={{ fontSize: 12, fontWeight: active ? 600 : 400, color: active ? '#E8A020' : 'rgba(255,255,255,0.4)', letterSpacing: 0.2 }}>
+            <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? '#E8A020' : 'rgba(255,255,255,0.4)', letterSpacing: 0.2 }}>
               {item.label}
             </span>
             {active && (
@@ -42,5 +44,6 @@ export default function SchoolNav() {
         );
       })}
     </nav>
+    </>
   );
 }

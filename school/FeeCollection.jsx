@@ -17,8 +17,8 @@ const S = {
   inner: { maxWidth: 640, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 12 },
   input: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }),
-  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
-  fieldErr: { fontSize: 12, color: '#E05A5A', marginTop: 4 },
+  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  fieldErr: { fontSize: 11, color: '#E05A5A', marginTop: 4 },
 };
 
 export default function FeeCollection() {
@@ -176,7 +176,16 @@ export default function FeeCollection() {
       });
     }
 
-    setReceipt({ receiptNo, amount: totalToCollect, student, paymentMode, date: new Date().toLocaleDateString('en-IN') });
+    setReceipt({
+      receiptNo, amount: totalToCollect, student, paymentMode, transactionId: transactionId.trim() || null,
+      date: new Date().toLocaleDateString('en-IN'),
+      orgName: tenant?.orgName || 'School',
+      items: rows.map((r) => {
+        const due = dues.find((d) => d.id === r.due_id);
+        return { label: due?.fee_type || due?.category || 'Fee', amount: r.amount };
+      }),
+      subtotal, discountPct: Number(discountPct || 0), discountAmount,
+    });
     setSelectedDueIds([]);
     setCustomAmount({});
     setAmountErrors({});
@@ -192,12 +201,20 @@ export default function FeeCollection() {
     <div style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @media print { .no-print { display: none !important; } }
+        @media print {
+          .no-print { display: none !important; }
+          .print-only { display: block !important; }
+          body { background: #fff !important; }
+          @page { size: A4 portrait; margin: 15mm 18mm; }
+        }
+        .print-only { display: none; }
       `}</style>
+
+      <div className="no-print">
 
       <div style={S.inner}>
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Fee Collection · ఫీజు వసూలు</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Fee Collection · ఫీజు వసూలు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Collect Fee</h1>
         </div>
 
@@ -212,20 +229,20 @@ export default function FeeCollection() {
               style={S.input(false)}
               autoFocus
             />
-            {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>Searching...</p>}
+            {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>Searching...</p>}
             {searchResults.length > 0 && (
               <div style={{ marginTop: 8, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden' }}>
                 {searchResults.map((s) => (
                   <div key={s.id} onClick={() => selectStudent(s)}
                     style={{ padding: '11px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', background: '#111113' }}>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{s.full_name}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{s.sid}{s.parent_phone ? ` · ${s.parent_phone}` : ''}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{s.sid}{s.parent_phone ? ` · ${s.parent_phone}` : ''}</p>
                   </div>
                 ))}
               </div>
             )}
             {searchQuery.length >= 2 && !searching && searchResults.length === 0 && (
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>No students found</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>No students found</p>
             )}
           </div>
         ) : (
@@ -234,7 +251,7 @@ export default function FeeCollection() {
             <div style={{ ...S.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div>
                 <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>{student.full_name}</p>
-                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{student.sid}{student.parent_phone ? ` · ${student.parent_phone}` : ''}</p>
+                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{student.sid}{student.parent_phone ? ` · ${student.parent_phone}` : ''}</p>
               </div>
               <button onClick={() => { setStudent(null); setDues([]); setSelectedDueIds([]); setReceipt(null); }}
                 style={{ padding: '6px 12px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
@@ -264,12 +281,12 @@ export default function FeeCollection() {
             )}
 
             {loading ? (
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>Loading dues...</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>Loading dues...</p>
             ) : dues.length === 0 ? (
               <div style={{ ...S.card, textAlign: 'center', padding: '32px 20px' }}>
                 <p style={{ fontSize: 32, marginBottom: 10 }}>✅</p>
                 <p style={{ fontSize: 14, color: '#6AAA90', fontWeight: 500 }}>No pending fees</p>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>All fees cleared for this student</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>All fees cleared for this student</p>
               </div>
             ) : (
               <>
@@ -288,7 +305,7 @@ export default function FeeCollection() {
                           style={{ marginTop: 2, accentColor: '#E8A020', width: 16, height: 16, flexShrink: 0 }} />
                         <div style={{ flex: 1 }}>
                           <p style={{ margin: 0, fontWeight: 500, fontSize: 13, color: '#fff' }}>{due.fee_type || due.category || 'Fee'}</p>
-                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                          <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
                             Due: {currency(due.amount_due)} · Paid: {currency(due.amount_due - balance)} · Balance: {currency(balance)}
                             {due.due_date ? ` · Due date: ${due.due_date}` : ''}
                             {isPaid ? ' — ✓ Cleared' : ''}
@@ -296,7 +313,7 @@ export default function FeeCollection() {
                           {/* Partial amount entry */}
                           {selected && !isPaid && (
                             <div style={{ marginTop: 8 }}>
-                              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
+                              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>
                                 Amount to collect (max {currency(balance)})
                               </p>
                               <input
@@ -323,14 +340,14 @@ export default function FeeCollection() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                       <div>
-                        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>Payment mode</label>
+                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>Payment mode</label>
                         <select value={paymentMode} onChange={(e) => { setPaymentMode(e.target.value); setTxnError(''); }}
                           style={S.select}>
                           {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>Discount %</label>
+                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>Discount %</label>
                         <input
                           value={discountPct}
                           onChange={(e) => updateDiscount(e.target.value)}
@@ -344,7 +361,7 @@ export default function FeeCollection() {
 
                     {['UPI', 'Card', 'Online', 'DD', 'Cheque'].includes(paymentMode) && (
                       <div style={{ marginBottom: 14 }}>
-                        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6, display: 'block' }}>
+                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>
                           Transaction ID / Reference number <span style={{ color: '#E05A5A' }}>*</span>
                         </label>
                         <input
@@ -391,6 +408,70 @@ export default function FeeCollection() {
           </>
         )}
       </div>
+      </div>
+
+      {/* Print-only receipt — hidden on screen, shown only when printing */}
+      {receipt && (
+        <div className="print-only" style={{ background: '#fff', color: '#000', padding: '32px 40px', fontFamily: 'serif', maxWidth: 640, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 24, borderBottom: '2px solid #000', paddingBottom: 16 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>{receipt.orgName}</h2>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '10px 0 0', textTransform: 'uppercase', letterSpacing: 2 }}>Fee Receipt</h3>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 20 }}>
+            <span>Receipt No: <strong>{receipt.receiptNo}</strong></span>
+            <span>Date: <strong>{receipt.date}</strong></span>
+          </div>
+
+          <div style={{ marginBottom: 20, fontSize: 13, lineHeight: 1.8 }}>
+            <div>Student: <strong>{receipt.student.full_name}</strong></div>
+            <div>SID: <strong>{receipt.student.sid}</strong></div>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 16 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '6px 10px', borderBottom: '1px solid #000' }}>Fee item</th>
+                <th style={{ textAlign: 'right', padding: '6px 10px', borderBottom: '1px solid #000' }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {receipt.items.map((item, i) => (
+                <tr key={i}>
+                  <td style={{ padding: '6px 10px', borderBottom: '1px solid #eee' }}>{item.label}</td>
+                  <td style={{ textAlign: 'right', padding: '6px 10px', borderBottom: '1px solid #eee' }}>{currency(item.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 13, marginBottom: 30, gap: 4 }}>
+            <div>Subtotal: {currency(receipt.subtotal)}</div>
+            {receipt.discountPct > 0 && (
+              <div>Discount ({receipt.discountPct}%): -{currency(receipt.discountAmount)}</div>
+            )}
+            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>Total paid: {currency(receipt.amount)}</div>
+          </div>
+
+          <div style={{ fontSize: 13, marginBottom: 40 }}>
+            Payment mode: <strong>{receipt.paymentMode}</strong>
+            {receipt.transactionId ? ` · Ref: ${receipt.transactionId}` : ''}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ borderTop: '1px solid #000', paddingTop: 8, width: 180 }}>
+                Authorised Signatory<br />
+                <span style={{ fontSize: 11, color: '#555' }}>{receipt.orgName}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 20, padding: '6px 10px', background: '#f5f5f5', borderRadius: 4, fontSize: 10, color: '#888', fontFamily: 'monospace' }}>
+            Receipt No: {receipt.receiptNo} · Generated: {new Date().toLocaleString('en-IN')} · MPower
+          </div>
+        </div>
+      )}
 
       <SchoolNav />
       <BugReporter screenName="fee_collection" />

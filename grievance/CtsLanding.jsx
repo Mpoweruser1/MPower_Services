@@ -144,6 +144,12 @@ export default function CtsLanding() {
           <button style={{ width: '100%', padding: 12, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#e8a020', color: '#1a1a2e' }}>
             🏛️ Register / Login → నమోదు / లాగిన్
           </button>
+          <div
+            onClick={(e) => { e.stopPropagation(); navigate(`/grievance/${slug}/request-access`); }}
+            style={{ textAlign: 'center', marginTop: 10, fontSize: 12, color: '#64748b', cursor: 'pointer' }}
+          >
+            New MLA/MP office? <span style={{ color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>Register here →</span>
+          </div>
         </div>
 
       </div>

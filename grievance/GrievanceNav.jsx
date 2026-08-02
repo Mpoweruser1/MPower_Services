@@ -15,7 +15,9 @@ export default function GrievanceNav() {
   ];
 
   return (
-    <nav style={{
+    <>
+    <style>{`@media print { .no-print { display: none !important; } }`}</style>
+    <nav className="no-print" style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
       background: '#1a1a2e', borderTop: '1px solid rgba(255,255,255,0.1)',
       display: 'flex', justifyContent: 'space-around',
@@ -31,7 +33,7 @@ export default function GrievanceNav() {
           }}>
             <span style={{ fontSize: 20 }}>{l.icon}</span>
             <span style={{
-              fontSize: 12,
+              fontSize: 10,
               fontWeight: active ? 700 : 400,
               color: active ? '#e8a020' : 'rgba(255,255,255,0.4)',
             }}>
@@ -47,5 +49,6 @@ export default function GrievanceNav() {
         );
       })}
     </nav>
+    </>
   );
 }
