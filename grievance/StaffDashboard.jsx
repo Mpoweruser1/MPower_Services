@@ -343,7 +343,7 @@ function ComplaintDetailDrawer({ complaint, role, staffUserId, onClose }) {
 
         {/* FIX 3: Print button */}
         <button
-          onClick={() => { window.location.href = `/grievance/print?case=${complaint.case_no}`; }}
+          onClick={() => { window.location.href = `/grievance/print?case=${encodeURIComponent(complaint.case_no)}`; }}
           style={{
             width: '100%', padding: '10px 14px', margin: '12px 0',
             background: '#fff', border: '1px solid #D9D5C8', borderRadius: 8,
