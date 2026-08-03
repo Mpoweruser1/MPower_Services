@@ -740,7 +740,7 @@ function ComplaintDetail({ complaint, citizenId, onClose }) {
 
 {/* ADD THIS — print button */}
 <button
-  onClick={() => window.open(`/grievance/print?case=${complaint.case_no}`, '_blank')}
+  onClick={() => { window.location.href = `/grievance/print?case=${complaint.case_no}`; }}
   style={{
     width: '100%', padding: '10px 14px', marginBottom: 12,
     background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
