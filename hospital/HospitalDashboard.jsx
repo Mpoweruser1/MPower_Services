@@ -83,14 +83,15 @@ export default function HospitalDashboard() {
       // Revenue today
       supabase.from('billing_invoices')
         .select('total_amount')
-        .eq('invoice_date', today)
-        .eq('payment_status', 'paid')
+        .gte('created_at', today)
+        .lt('created_at', new Date(new Date(today).getTime() + 86400000).toISOString().slice(0, 10))
+        .eq('status', 'paid')
         .in('patient_id', patientIds),
 
       // Pending payments
       supabase.from('billing_invoices')
         .select('id', { count: 'exact', head: true })
-        .eq('payment_status', 'pending')
+        .eq('status', 'pending')
         .in('patient_id', patientIds),
 
       // ABHA linked patients

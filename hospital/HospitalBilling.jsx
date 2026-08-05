@@ -34,11 +34,11 @@ const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
   inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 12 },
-  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
   input: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }),
   select: { width: '100%', padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 },
-  fieldErr: { fontSize: 12, color: '#E05A5A', marginTop: 4 },
+  fieldErr: { fontSize: 11, color: '#E05A5A', marginTop: 4 },
 };
 
 export default function HospitalBilling() {
@@ -126,16 +126,13 @@ export default function HospitalBilling() {
     const { data: inv, error: invErr } = await supabase
       .from('billing_invoices')
       .insert({
-        patient_id:     selectedPatient.id,
-        invoice_no:     invoiceNo,
-        invoice_date:   invoiceDate,
-        items:          items,
-        subtotal:       subtotal,
-        gst_amount:     totalGst,
-        discount:       discount,
-        total_amount:   totalAmount,
-        payment_mode:   paymentMode,
-        payment_status: 'paid',
+        patient_id:   selectedPatient.id,
+        invoice_no:   invoiceNo,
+        line_items:   items,
+        gst_amount:   totalGst,
+        total_amount: totalAmount,
+        payment_mode: paymentMode,
+        status:       'paid',
       })
       .select()
       .single();
@@ -148,7 +145,12 @@ export default function HospitalBilling() {
       });
     }
 
-    setInvoice({ ...inv, patient: selectedPatient });
+    // billing_invoices has no subtotal/discount/invoice_date columns —
+    // merging in the values already computed client-side so the
+    // print view (built earlier) still shows them correctly right
+    // after creating this invoice. A later re-fetch of an OLD invoice
+    // from the database won't have these, only a freshly-created one.
+    setInvoice({ ...inv, patient: selectedPatient, subtotal, discount, invoice_date: invoiceDate });
     setSaving(false);
   }
 
@@ -164,13 +166,18 @@ export default function HospitalBilling() {
     <div style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @media print { .no-print { display: none !important; } @page { size: A4 portrait; margin: 15mm 18mm; } }
+        @media print {
+          .no-print { display: none !important; }
+          .print-only { display: block !important; }
+          @page { size: A4 portrait; margin: 15mm 18mm; }
+        }
+        .print-only { display: none; }
       `}</style>
       <PrintHeader documentTitle="Hospital Invoice" />
 
-      <div style={S.inner}>
-        <div className="no-print" style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Billing · బిల్లింగ్</p>
+      <div className="no-print" style={S.inner}>
+        <div style={{ marginBottom: 24 }}>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Billing · బిల్లింగ్</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Hospital Billing</h1>
         </div>
 
@@ -188,7 +195,7 @@ export default function HospitalBilling() {
             {/* Billing items */}
             <div style={S.card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>Billing items</p>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>Billing items</p>
                 <button onClick={addItem}
                   style={{ padding: '6px 14px', border: 'none', borderRadius: 20, background: '#E8A020', color: '#111113', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                   + Add item
@@ -198,7 +205,7 @@ export default function HospitalBilling() {
               {items.map((item, idx) => (
                 <div key={idx} style={{ background: '#111113', borderRadius: 10, padding: 14, marginBottom: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Item {idx + 1}</p>
+                    <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Item {idx + 1}</p>
                     {items.length > 1 && (
                       <button onClick={() => removeItem(idx)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#E05A5A', padding: 0 }}>✕</button>
@@ -251,7 +258,7 @@ export default function HospitalBilling() {
 
             {/* Payment details */}
             <div style={S.card}>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Payment details</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Payment details</p>
 
               <div style={S.row2}>
                 <div>
@@ -329,6 +336,82 @@ export default function HospitalBilling() {
           />
         )}
       </div>
+
+      {/* Print-only invoice — hidden on screen, shown only when printing.
+          This didn't exist at all before — the invoice's actual content
+          (patient, line items, GST, total) was never displayed or
+          printed anywhere; only a small "what's next" nav card was. */}
+      {invoice && (
+        <div className="print-only" style={{ background: '#fff', color: '#000', padding: '32px 40px', fontFamily: 'serif', maxWidth: 680, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 24, borderBottom: '2px solid #000', paddingBottom: 16 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>{tenant?.orgName || 'Hospital'}</h2>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '10px 0 0', textTransform: 'uppercase', letterSpacing: 2 }}>Invoice</h3>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 20 }}>
+            <span>Invoice No: <strong>{invoice.invoice_no}</strong></span>
+            <span>Date: <strong>{new Date(invoice.invoice_date).toLocaleDateString('en-IN')}</strong></span>
+          </div>
+
+          <div style={{ marginBottom: 20, fontSize: 13, lineHeight: 1.8 }}>
+            <div>Patient: <strong>{invoice.patient?.full_name}</strong></div>
+            {invoice.patient?.patient_uid && <div>Patient ID: <strong>{invoice.patient.patient_uid}</strong></div>}
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 16 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #000' }}>Description</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #000' }}>Type</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #000' }}>Qty</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #000' }}>Unit Price</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #000' }}>GST</th>
+                <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #000' }}>Line Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(invoice.line_items || []).map((item, i) => {
+                const lineBase = Number(item.quantity) * Number(item.unit_price);
+                const lineGst = lineBase * Number(item.gst_rate) / 100;
+                return (
+                  <tr key={i}>
+                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.description}</td>
+                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.service_type}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.quantity}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>₹{Number(item.unit_price).toLocaleString('en-IN')}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.gst_rate}%</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>₹{(lineBase + lineGst).toLocaleString('en-IN')}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 13, marginBottom: 30, gap: 4 }}>
+            <div>Subtotal: ₹{Number(invoice.subtotal).toLocaleString('en-IN')}</div>
+            <div>GST: ₹{Number(invoice.gst_amount).toLocaleString('en-IN')}</div>
+            {Number(invoice.discount) > 0 && <div>Discount: -₹{Number(invoice.discount).toLocaleString('en-IN')}</div>}
+            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>Total: ₹{Number(invoice.total_amount).toLocaleString('en-IN')}</div>
+          </div>
+
+          <div style={{ fontSize: 13, marginBottom: 40 }}>
+            Payment mode: <strong>{invoice.payment_mode}</strong> · Status: <strong>{invoice.status}</strong>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ borderTop: '1px solid #000', paddingTop: 8, width: 180 }}>
+                Authorised Signatory<br />
+                <span style={{ fontSize: 11, color: '#555' }}>{tenant?.orgName || 'Hospital'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 20, padding: '6px 10px', background: '#f5f5f5', borderRadius: 4, fontSize: 10, color: '#888', fontFamily: 'monospace' }}>
+            Invoice No: {invoice.invoice_no} · Generated: {new Date().toLocaleString('en-IN')} · MPower
+          </div>
+        </div>
+      )}
 
       <HospitalNav />
       <BugReporter screenName="hospital_billing" />
