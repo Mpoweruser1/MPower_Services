@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MPower School — Complete School Management Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #1e293b; }
+@media print {
+  .nav { display: none !important; }
+  body { background: #fff !important; }
+  .hero, .cta { background: #fff !important; color: #1e293b !important; border: 2px solid #E8A020 !important; min-height: auto !important; padding: 32px !important; }
+  .hero *, .cta * { color: #1e293b !important; }
+  .metric { background: #fff !important; border: 1px solid #d1fae5 !important; }
+  .quote { background: #fff !important; }
+}
+
+/* Nav */
+.nav { position: fixed; top: 0; left: 0; right: 0; background: #0B1120; padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; z-index: 1000; box-shadow: 0 2px 12px rgba(11,17,32,0.3); }
+.nav-logo { display: flex; align-items: center; gap: 10px; }
+.nav-icon { width: 32px; height: 32px; background: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #E8A020; font-size: 14px; }
+.nav-title { font-size: 15px; font-weight: 700; color: #fff; }
+.nav-links { display: flex; gap: 2px; }
+.nav-btn { padding: 6px 12px; border-radius: 6px; font-size: 11px; color: rgba(255,255,255,0.8); cursor: pointer; border: none; background: none; font-family: inherit; font-weight: 500; transition: all 0.2s; }
+.nav-btn:hover, .nav-btn.active { color: #fff; background: rgba(255,255,255,0.15); }
+
+/* Slides */
+.slide { min-height: 100vh; padding: 80px 48px 60px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; justify-content: center; }
+
+/* Hero */
+.hero { min-height: 100vh; background: #0B1120; color: #fff; display: flex; align-items: center; }
+.hero .slide { padding-top: 80px; }
+.hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.9); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 20px; }
+.hero-title { font-size: clamp(38px, 6vw, 70px); font-weight: 900; line-height: 1.05; margin-bottom: 16px; }
+.hero-title span { color: #FAC775; }
+.hero-sub { font-size: 17px; color: rgba(255,255,255,0.7); max-width: 580px; line-height: 1.7; margin-bottom: 36px; }
+.hero-te { font-family: 'Noto Sans Telugu', sans-serif; font-size: 18px; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
+.stat-row { display: flex; gap: 40px; flex-wrap: wrap; }
+.stat-num { font-size: 34px; font-weight: 800; color: #FAC775; }
+.stat-label { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+/* Section */
+.section-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #1D9E75; background: rgba(29,158,117,0.08); padding: 5px 12px; border-radius: 20px; margin-bottom: 14px; }
+.section-title { font-size: clamp(26px, 4vw, 44px); font-weight: 800; line-height: 1.1; margin-bottom: 10px; color: #1e293b; }
+.section-title span { color: #1D9E75; }
+.section-sub { font-size: 15px; color: #64748b; max-width: 600px; line-height: 1.7; margin-bottom: 36px; }
+
+/* Cards */
+.card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); transition: all 0.25s; }
+.card:hover { border-color: #1D9E75; box-shadow: 0 4px 20px rgba(29,158,117,0.1); transform: translateY(-2px); }
+.card-icon { font-size: 28px; margin-bottom: 12px; }
+.card-title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+.card-desc { font-size: 13px; color: #64748b; line-height: 1.6; }
+
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+
+/* Feature list */
+.flist { list-style: none; display: grid; gap: 10px; }
+.fitem { display: flex; gap: 10px; align-items: flex-start; }
+.fcheck { color: #1D9E75; font-size: 14px; flex-shrink: 0; margin-top: 2px; font-weight: 700; }
+.ftext { font-size: 13px; color: #475569; line-height: 1.5; }
+
+/* Compare table */
+.ctable { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ctable th { padding: 11px 14px; text-align: left; background: #f0fdf4; color: #065f46; font-weight: 700; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid #d1fae5; }
+.ctable td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; color: #475569; }
+.ctable tr:hover td { background: #f8fafc; }
+.ctable .us { color: #1D9E75; font-weight: 700; }
+.cy { color: #1D9E75; font-weight: 600; }
+.cn { color: #cbd5e1; }
+.cp { color: #f59e0b; font-weight: 600; }
+
+/* Metric */
+.metric { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #d1fae5; border-radius: 14px; padding: 20px; text-align: center; }
+.metric-num { font-size: 34px; font-weight: 800; color: #1D9E75; }
+.metric-label { font-size: 12px; color: #64748b; margin-top: 4px; line-height: 1.4; }
+
+/* Improvement card */
+.improve-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; border-left: 4px solid #e8a020; }
+.improve-tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #e8a020; margin-bottom: 8px; }
+.improve-title { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+.improve-desc { font-size: 12px; color: #64748b; line-height: 1.6; }
+.improve-priority { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 8px; margin-top: 8px; }
+.p-high { background: #fee2e2; color: #991b1b; }
+.p-med { background: #fef3c7; color: #92400e; }
+.p-low { background: #f0fdf4; color: #166534; }
+
+/* Quote */
+.quote { background: #f0fdf4; border-left: 4px solid #1D9E75; border-radius: 0 12px 12px 0; padding: 18px 22px; font-size: 15px; color: #064e3b; font-style: italic; line-height: 1.7; }
+.quote-src { font-size: 12px; color: #1D9E75; margin-top: 8px; font-style: normal; font-weight: 600; }
+
+/* CTA */
+.cta { background: #0B1120; border-radius: 20px; padding: 48px; text-align: center; color: #fff; margin-top: 60px; }
+.cta-title { font-size: 30px; font-weight: 800; margin-bottom: 10px; }
+.cta-sub { font-size: 15px; color: rgba(255,255,255,0.6); margin-bottom: 28px; }
+.btn-primary { display: inline-block; padding: 13px 30px; background: #fff; color: #1D9E75; border-radius: 10px; font-size: 14px; font-weight: 800; text-decoration: none; }
+.btn-outline { display: inline-block; padding: 13px 30px; background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,0.4); border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none; margin-left: 10px; }
+
+/* Alt bg */
+.bg-light { background: #f8fafc; }
+.bg-white { background: #fff; }
+.bg-green { background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
+
+/* Divider */
+.divider { height: 1px; background: #e2e8f0; }
+
+/* Tier card */
+.tier { background: #fff; border: 2px solid #e2e8f0; border-radius: 14px; overflow: hidden; }
+.tier-header { padding: 18px; text-align: center; }
+.tier-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.tier-price { font-size: 28px; font-weight: 800; }
+.tier-sub { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+.tier-body { padding: 16px; }
+.tier.featured { border-color: #1D9E75; box-shadow: 0 4px 20px rgba(29,158,117,0.15); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .slide { padding: 80px 20px 40px; }
+  .nav-links { display: none; }
+  .stat-row { gap: 20px; }
+  .btn-outline { margin-left: 0; margin-top: 10px; display: block; }
+}
+
+/* Progress bar */
+.pbar { background: #e2e8f0; border-radius: 4px; height: 6px; overflow: hidden; margin-top: 6px; }
+.pfill { height: 100%; border-radius: 4px; background: #1D9E75; }
+
+/* Tag */
+.tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
+
+/* Badge row */
+.badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="nav-icon">M</div>
+    <span class="nav-title">MPower School</span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-btn active" onclick="go('s1')">Overview</button>
+    <button class="nav-btn" onclick="go('s2')">Problem</button>
+    <button class="nav-btn" onclick="go('s3')">Features</button>
+    <button class="nav-btn" onclick="go('s4')">Global Compare</button>
+    <button class="nav-btn" onclick="go('s5')">India Compare</button>
+    <button class="nav-btn" onclick="go('s6')">Welfare</button>
+    <button class="nav-btn" onclick="go('s7')">Pricing</button>
+    <button class="nav-btn" onclick="go('s8')">Roadmap</button>
+    <button class="nav-btn" onclick="go('s9')">Start</button>
+  </div>
+</nav>
+
+<!-- SLIDE 1: HERO -->
+<section id="s1" class="hero">
+  <div class="slide">
+    <p style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;letter-spacing:2px;margin-bottom:28px;">01 / 09 · MPower School Presentation</p>
+    <div class="hero-eyebrow">🏫 For School Principals, Correspondents & Management</div>
+    <p class="hero-te">MPower School — పాఠశాల నిర్వహణ సులభంగా</p>
+    <h1 class="hero-title">Run Your School<br><span>Smarter. Faster.</span><br>Without Paper.</h1>
+    <p class="hero-sub">From student admission to TC certificate — every school process digitized, automated, and connected to parents via WhatsApp. Built specifically for AP and Telangana schools.</p>
+    <div class="stat-row">
+      <div><div class="stat-num">₹999</div><div class="stat-label">Starting per month</div></div>
+      <div><div class="stat-num">6 Mo</div><div class="stat-label">Free trial on Basic</div></div>
+      <div><div class="stat-num">500+</div><div class="stat-label">Students on Basic plan</div></div>
+      <div><div class="stat-num">Telugu</div><div class="stat-label">Full bilingual support</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 2: PROBLEM -->
+<section id="s2" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">02 / 09 · THE PROBLEM</p>
+    <div class="section-badge">⚠️ Current Reality</div>
+    <h2 class="section-title">Paper Registers. WhatsApp Chaos.<br><span>Excel Fee Tracking.</span></h2>
+    <p class="section-sub">Every school principal in AP and Telangana faces the same daily challenges — manual work that steals time from education.</p>
+
+    <div class="grid-3" style="margin-bottom:36px;">
+      <div class="card" style="border-left:4px solid #ef4444;">
+        <div class="card-icon">📒</div>
+        <div class="card-title">Attendance on paper registers</div>
+        <div class="card-desc">Teachers spend 15-20 minutes every morning on paper attendance. Parents find out about absence only when the child comes home. No early warning system.</div>
+        <div class="pbar" style="margin-top:10px;"><div class="pfill" style="width:85%;background:#ef4444;"></div></div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">85% of schools still use paper attendance</div>
+      </div>
+      <div class="card" style="border-left:4px solid #f59e0b;">
+        <div class="card-icon">💸</div>
+        <div class="card-title">Fee collection in notebooks</div>
+        <div class="card-desc">Fee records in multiple notebooks, defaulters tracked manually, receipts hand-written. Month-end reconciliation takes days. Errors and disputes common.</div>
+        <div class="pbar" style="margin-top:10px;"><div class="pfill" style="width:70%;background:#f59e0b;"></div></div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">70% of schools have fee collection issues</div>
+      </div>
+      <div class="card" style="border-left:4px solid #8b5cf6;">
+        <div class="card-icon">📱</div>
+        <div class="card-title">Parent communication via WhatsApp</div>
+        <div class="card-desc">Multiple class groups, important messages buried, no formal record of communication. Circular lost, fee reminder ignored, exam schedule confusion.</div>
+        <div class="pbar" style="margin-top:10px;"><div class="pfill" style="width:92%;background:#8b5cf6;"></div></div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">92% of schools rely on WhatsApp for parent communication</div>
+      </div>
+      <div class="card" style="border-left:4px solid #06b6d4;">
+        <div class="card-icon">📄</div>
+        <div class="card-title">TC and certificates take days</div>
+        <div class="card-desc">Transfer certificate requires multiple registers, manual typing, principal signature, school seal. Parents wait 3-7 days. Urgent cases cause stress.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #10b981;">
+        <div class="card-icon">📊</div>
+        <div class="card-title">No real-time data for principal</div>
+        <div class="card-desc">Principal asks staff for attendance numbers — they count manually. Fee defaulters list takes a day to compile. No dashboard, no instant visibility.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #f43f5e;">
+        <div class="card-icon">🏛️</div>
+        <div class="card-title">Government scheme data missing</div>
+        <div class="card-desc">Talliki Vandanam, SC/ST scholarships — eligibility lists created manually, 75% attendance requirement tracked on paper. Errors cost students welfare benefits.</div>
+      </div>
+    </div>
+
+    <div class="quote">
+      "The Indian education technology market is expected to reach ₹2.4 lakh crore by 2030. Yet 78% of private schools in Tier 2 and Tier 3 cities still manage attendance and fees manually — losing thousands of staff hours annually to paperwork that technology can eliminate in seconds."
+      <div class="quote-src">— Indian EdTech Market Report 2026</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 3: FEATURES -->
+<section id="s3" class="bg-light">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">03 / 09 · FEATURES</p>
+    <div class="section-badge">⚡ MPower School</div>
+    <h2 class="section-title">Everything Your School Needs.<br><span>Nothing You Don't.</span></h2>
+    <p class="section-sub">10 fully integrated modules covering every aspect of school management — from student admission to alumni tracking.</p>
+
+    <div class="grid-3" style="margin-bottom:32px;">
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">Role-Based Dashboard</div>
+        <div class="card-desc">Principal, teacher, clerk, parent — each sees their own personalised dashboard. Today's attendance, fee collection, pending tasks — at a glance in real time.</div>
+        <div class="badge-row" style="margin-top:10px;">
+          <span class="badge" style="background:#f0fdf4;color:#166534;">Principal</span>
+          <span class="badge" style="background:#eff6ff;color:#1d4ed8;">Teacher</span>
+          <span class="badge" style="background:#fef3c7;color:#92400e;">Clerk</span>
+          <span class="badge" style="background:#f5f3ff;color:#6d28d9;">Parent</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <div class="card-title">Attendance + Instant WhatsApp Alert</div>
+        <div class="card-desc">Mark attendance in seconds on phone or tablet. Parent gets WhatsApp message the moment child is marked absent. Low attendance auto-alerts for welfare scheme eligibility.</div>
+        <div style="margin-top:10px;font-size:12px;color:#1D9E75;font-weight:600;">⚡ Alert sent in &lt; 30 seconds of marking</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💰</div>
+        <div class="card-title">Fee Collection + Digital Receipts</div>
+        <div class="card-desc">Cash, UPI, cheque, online — all modes. Instant digital receipt via WhatsApp. Defaulter list always up to date. Monthly reconciliation in one click.</div>
+        <div style="margin-top:10px;font-size:12px;color:#1D9E75;font-weight:600;">Welfare scheme discounts auto-suggested</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📝</div>
+        <div class="card-title">Marks Entry + Report Cards</div>
+        <div class="card-desc">Bulk marks grid — enter entire class in minutes. Auto rank calculation. Bilingual report cards in Telugu and English. WhatsApp delivery to parents instantly.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📄</div>
+        <div class="card-title">TC + Certificates</div>
+        <div class="card-desc">Transfer certificate in 2 minutes. Bonafide, study, conduct certificates — generated instantly. Print ready with school seal and principal signature line.</div>
+        <div style="margin-top:10px;font-size:12px;color:#1D9E75;font-weight:600;">Was 3-7 days. Now 2 minutes.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">👤</div>
+        <div class="card-title">Student Admission</div>
+        <div class="card-desc">Complete student profile — caste category, Aadhaar, parent details, previous school. APAAR ID and UDISE+ data captured at admission. No re-entry ever.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚌</div>
+        <div class="card-title">Transport Management</div>
+        <div class="card-desc">Route planning, stop-wise student list, driver assignment. Parents know which stop their child boards. Monthly transport fee tracking integrated.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏠</div>
+        <div class="card-title">Hostel Management</div>
+        <div class="card-desc">Room allocation, warden dashboard, hostel fee collection, student check-in/out. Residential school complete solution.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚽</div>
+        <div class="card-title">Activities & Coaching</div>
+        <div class="card-desc">Sports, cultural activities, extra coaching — enrolment, attendance, fee collection. Track student participation for certificates.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <div class="card-title">Reports & Search</div>
+        <div class="card-desc">30+ reports — class-wise, caste-wise, fee-wise, attendance-wise. Universal search — find any student instantly. ID card generation with QR code.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏫</div>
+        <div class="card-title">Class & Section Management</div>
+        <div class="card-desc">Create classes, sections, assign teachers. Manage promotions at year end. Section-wise reports and dashboards.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📱</div>
+        <div class="card-title">Parent Portal</div>
+        <div class="card-desc">Parents see attendance, marks, fee status, announcements — on their phone browser. No app download needed. WhatsApp OTP login.</div>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px;">
+      <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;">Day in the life — How MPower School works</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+        <div style="text-align:center;padding:16px;background:#f0fdf4;border-radius:10px;">
+          <div style="font-size:20px;margin-bottom:8px;">7:30 AM</div>
+          <div style="font-size:12px;color:#475569;">Teacher marks attendance on phone. Parents instantly notified of absent students.</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#eff6ff;border-radius:10px;">
+          <div style="font-size:20px;margin-bottom:8px;">9:00 AM</div>
+          <div style="font-size:12px;color:#475569;">Principal checks real-time dashboard — attendance %, defaulters, pending tasks.</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#fef3c7;border-radius:10px;">
+          <div style="font-size:20px;margin-bottom:8px;">11:00 AM</div>
+          <div style="font-size:12px;color:#475569;">Clerk collects fee. Digital receipt sent to parent via WhatsApp. Zero paper.</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#f5f3ff;border-radius:10px;">
+          <div style="font-size:20px;margin-bottom:8px;">2:00 PM</div>
+          <div style="font-size:12px;color:#475569;">TC requested. Generated in 2 minutes. Print and hand over. Done.</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#fff7ed;border-radius:10px;">
+          <div style="font-size:20px;margin-bottom:8px;">4:00 PM</div>
+          <div style="font-size:12px;color:#475569;">Teacher enters marks in bulk grid. Report cards auto-generated. Parents get WhatsApp.</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#f0fdf4;border-radius:10px;">
+          <div style="font-size:20px;margin-bottom:8px;">5:00 PM</div>
+          <div style="font-size:12px;color:#475569;">Monthly fee report downloaded. Welfare scheme eligibility list ready for submission.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 4: GLOBAL COMPARISON -->
+<section id="s4" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">04 / 09 · GLOBAL BENCHMARK</p>
+    <div class="section-badge">🌍 Global Standards</div>
+    <h2 class="section-title">How MPower School Compares<br><span>Against World Leaders</span></h2>
+    <p class="section-sub">We benchmarked against PowerSchool, Classter, Fedena — the world's top school management platforms — to see where MPower stands.</p>
+
+    <!-- Global players -->
+    <div class="grid-3" style="margin-bottom:36px;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:22px;">🇺🇸</span>
+          <span class="tag" style="background:#eff6ff;color:#1d4ed8;">MARKET LEADER</span>
+        </div>
+        <div class="card-title">PowerSchool (USA)</div>
+        <div class="card-desc" style="margin-bottom:12px;">Used by 50+ million students worldwide. Full SIS + LMS + HR. AI-powered analytics. District-level compliance tools. Schoology LMS integration.</div>
+        <div style="font-size:12px;color:#94a3b8;">❌ Not designed for India · ❌ No Telugu · ❌ No WhatsApp · ❌ No welfare schemes · 💰 Enterprise pricing — ₹50L+/year</div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:22px;">🌐</span>
+          <span class="tag" style="background:#f5f3ff;color:#6d28d9;">MODULAR</span>
+        </div>
+        <div class="card-title">Classter (Greece/Global)</div>
+        <div class="card-desc" style="margin-bottom:12px;">All-in-one SIS + LMS + CRM. Modular — turn on what you need. GDPR compliant. Used by international schools. Multi-language support.</div>
+        <div style="font-size:12px;color:#94a3b8;">❌ No India-specific features · ❌ No WhatsApp OTP · ❌ No welfare schemes · 💰 $200-500/month for small schools</div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:22px;">🌏</span>
+          <span class="tag" style="background:#f0fdf4;color:#166534;">OPEN SOURCE</span>
+        </div>
+        <div class="card-title">Fedena (India/Global)</div>
+        <div class="card-desc" style="margin-bottom:12px;">50+ modules. Open-source base. Used globally including India. Strong exam and timetable modules. Multi-campus support.</div>
+        <div style="font-size:12px;color:#94a3b8;">❌ WhatsApp needs add-on · ❌ No welfare scheme integration · ❌ UPI needs add-on · 💰 ₹20,000-50,000/year</div>
+      </div>
+    </div>
+
+    <!-- Feature comparison -->
+    <div style="overflow-x:auto;border-radius:14px;border:1px solid #e2e8f0;margin-bottom:28px;">
+      <table class="ctable">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>PowerSchool</th>
+            <th>Classter</th>
+            <th>Fedena</th>
+            <th style="background:#f0fdf4;color:#065f46;">MPower School</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Attendance tracking</td><td class="cy">✓</td><td class="cy">✓</td><td class="cy">✓</td><td class="us">✓ + WhatsApp instant alert</td></tr>
+          <tr><td>Fee collection</td><td class="cy">✓</td><td class="cy">✓</td><td class="cy">✓</td><td class="us">✓ + UPI + WhatsApp receipt</td></tr>
+          <tr><td>WhatsApp integration</td><td class="cn">✗</td><td class="cn">✗</td><td class="cp">Add-on</td><td class="us">✓ Native — every module</td></tr>
+          <tr><td>Telugu language</td><td class="cn">✗</td><td class="cn">✗</td><td class="cn">✗</td><td class="us">✓ Full bilingual</td></tr>
+          <tr><td>Welfare scheme integration</td><td class="cn">✗</td><td class="cn">✗</td><td class="cn">✗</td><td class="us">✓ Talliki Vandanam, SC/ST</td></tr>
+          <tr><td>UPI payment</td><td class="cn">✗</td><td class="cn">✗</td><td class="cp">Add-on</td><td class="us">✓ Native</td></tr>
+          <tr><td>APAAR ID / UDISE+</td><td class="cn">✗</td><td class="cn">✗</td><td class="cn">✗</td><td class="us">✓ India mandate ready</td></tr>
+          <tr><td>Works on basic Android</td><td class="cn">✗</td><td class="cn">✗</td><td class="cp">Partial</td><td class="us">✓ Browser-only, no app</td></tr>
+          <tr><td>AP/TG board formats</td><td class="cn">✗</td><td class="cn">✗</td><td class="cn">✗</td><td class="us">✓ State board compliant</td></tr>
+          <tr><td>TC + Certificates</td><td class="cy">✓</td><td class="cy">✓</td><td class="cy">✓</td><td class="us">✓ 2 minutes — print ready</td></tr>
+          <tr><td>Parent portal</td><td class="cy">✓</td><td class="cy">✓</td><td class="cy">✓</td><td class="us">✓ Browser — no app needed</td></tr>
+          <tr><td>Multi-branch</td><td class="cy">✓</td><td class="cy">✓</td><td class="cy">✓</td><td class="us">✓ Enterprise plan</td></tr>
+          <tr><td>Hostel management</td><td class="cn">✗</td><td class="cp">Add-on</td><td class="cy">✓</td><td class="us">✓</td></tr>
+          <tr><td>Transport management</td><td class="cp">Add-on</td><td class="cp">Add-on</td><td class="cy">✓</td><td class="us">✓</td></tr>
+          <tr><td>Starting price</td><td style="color:#94a3b8;">₹50L+/year</td><td style="color:#94a3b8;">₹1.5L+/year</td><td style="color:#94a3b8;">₹20K+/year</td><td class="us">₹11,988/year</td></tr>
+          <tr><td>Free trial</td><td class="cn">✗</td><td class="cp">30 days</td><td class="cp">30 days</td><td class="us">✓ 6 months free</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="background:#f0fdf4;border:1px solid #d1fae5;border-radius:12px;padding:20px;text-align:center;">
+      <p style="font-size:16px;font-weight:700;color:#065f46;margin-bottom:6px;">MPower School is the only platform built specifically for AP and Telangana schools</p>
+      <p style="font-size:13px;color:#166534;">WhatsApp native · Telugu bilingual · Welfare scheme integrated · UPI payments · State board compliant · Starts at ₹999/month</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 5: INDIA COMPARISON -->
+<section id="s5" class="bg-light">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">05 / 09 · INDIA COMPARISON</p>
+    <div class="section-badge">🇮🇳 vs Indian Competitors</div>
+    <h2 class="section-title">vs Other Indian School<br><span>Management Software</span></h2>
+    <p class="section-sub">Compared against Entab, MyClassboard, Teachmint, Vidyalaya — the most used Indian school ERPs in AP and Telangana.</p>
+
+    <div class="grid-4" style="margin-bottom:32px;">
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Entab / CampusCare</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:10px;">Legacy ERP, large schools, complex implementation</div>
+        <ul class="flist">
+          <li class="fitem"><span style="color:#ef4444;font-weight:700;">✗</span><span class="ftext">Complex setup — 2-3 months</span></li>
+          <li class="fitem"><span style="color:#ef4444;font-weight:700;">✗</span><span class="ftext">Opaque pricing</span></li>
+          <li class="fitem"><span style="color:#ef4444;font-weight:700;">✗</span><span class="ftext">Not mobile optimised</span></li>
+          <li class="fitem"><span style="color:#ef4444;font-weight:700;">✗</span><span class="ftext">No WhatsApp native</span></li>
+          <li class="fitem"><span style="color:#1D9E75;font-weight:700;">✓</span><span class="ftext">Comprehensive features</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:6px;">MyClassboard</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:10px;">Strong in AP/TG, custom pricing</div>
+        <ul class="flist">
+          <li class="fitem"><span style="color:#1D9E75;font-weight:700;">✓</span><span class="ftext">AP/TG board support</span></li>
+          <li class="fitem"><span style="color:#ef4444;font-weight:700;">✗</span><span class="ftext">No transparent pricing</span></li>
+          <li class="fitem"><span style="color:#ef4444;font-weight:700;">✗</span><span class="ftext">No free trial</span></li>
+          <li class="fitem"><span style="color:#f59e0b;font-weight:700;">~</span><span class="ftext">WhatsApp partial</span></li>
+          <li class="fitem"><span style="color:#ef4444;font-weight:700;">✗</span><span class="ftext">No welfare scheme auto-suggest</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Teachmint</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:10px;">Started as online teaching, added admin</div>
+        <ul class="flist">
+          <li class="fitem"><span style="color:#1D9E75;font-weight:700;">✓</span><span class="ftext">Good mobile UI</span></li>
+          <li class="fitem"><span style="color:#1D9E75;font-weight:700;">✓</span><span class="ftext">Online classes</span></li>
+          <li class="fitem"><span style="color:#ef4444;font-weight:700;">✗</span><span class="ftext">Weak admin modules</span></li>
+          <li class="fitem"><span style="color:#ef4444;font-weight:700;">✗</span><span class="ftext">No TC/certificate module</span></li>
+          <li class="fitem"><span style="color:#ef4444;font-weight:700;">✗</span><span class="ftext">No hostel/transport</span></li>
+        </ul>
+      </div>
+      <div class="card" style="border-color:#1D9E75;border-width:2px;background:#f0fdf4;">
+        <div style="font-size:14px;font-weight:700;margin-bottom:6px;color:#1D9E75;">MPower School</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:10px;">Built for AP/TG schools specifically</div>
+        <ul class="flist">
+          <li class="fitem"><span style="color:#1D9E75;font-weight:700;">✓</span><span class="ftext">Telugu + English native</span></li>
+          <li class="fitem"><span style="color:#1D9E75;font-weight:700;">✓</span><span class="ftext">WhatsApp every module</span></li>
+          <li class="fitem"><span style="color:#1D9E75;font-weight:700;">✓</span><span class="ftext">Welfare schemes built-in</span></li>
+          <li class="fitem"><span style="color:#1D9E75;font-weight:700;">✓</span><span class="ftext">6 months free trial</span></li>
+          <li class="fitem"><span style="color:#1D9E75;font-weight:700;">✓</span><span class="ftext">₹999/month transparent</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Price comparison -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;">
+      <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">💰 Price comparison — 500 students, standard features</p>
+      <div style="display:grid;gap:10px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:120px;font-size:12px;font-weight:600;color:#475569;">Entab</div>
+          <div style="flex:1;background:#fee2e2;border-radius:4px;height:28px;position:relative;">
+            <div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:#991b1b;">₹40,000-80,000/year</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:120px;font-size:12px;font-weight:600;color:#475569;">Fedena</div>
+          <div style="flex:1;background:#fef3c7;border-radius:4px;height:28px;width:60%;position:relative;">
+            <div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:#92400e;">₹20,000-40,000/year</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:120px;font-size:12px;font-weight:600;color:#475569;">MyClassboard</div>
+          <div style="flex:1;background:#fef3c7;border-radius:4px;height:28px;width:50%;position:relative;">
+            <div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:#92400e;">₹15,000-30,000/year</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:120px;font-size:12px;font-weight:600;color:#1D9E75;font-weight:700;">MPower School</div>
+          <div style="flex:1;background:#d1fae5;border-radius:4px;height:28px;width:20%;position:relative;">
+            <div style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:#065f46;">₹11,988/year — 6 months FREE</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 6: WELFARE SCHEME INTEGRATION -->
+<section id="s6" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">06 / 09 · UNIQUE FEATURE</p>
+    <div class="section-badge">🏛️ AP/TG Specific</div>
+    <h2 class="section-title">No Other Software Knows<br><span>Your State's Welfare Schemes</span></h2>
+    <p class="section-sub">MPower School is the only platform with AP and Telangana government welfare schemes built directly into the student management workflow.</p>
+
+    <div class="grid-2" style="margin-bottom:32px;">
+      <div>
+        <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">Andhra Pradesh Schemes</p>
+        <div style="display:grid;gap:12px;">
+          <div class="card" style="border-left:4px solid #1D9E75;">
+            <div class="card-title">Talliki Vandanam</div>
+            <div class="card-desc">System auto-tracks 75% attendance requirement per student. Eligibility list generated automatically. Principal sees which students are at risk of losing benefit. Report ready for MEO submission.</div>
+          </div>
+          <div class="card" style="border-left:4px solid #185FA5;">
+            <div class="card-title">Amma Vodi</div>
+            <div class="card-desc">Mother's benefit linked to child's enrollment and attendance. System tracks eligibility status. Alerts when student attendance drops below threshold.</div>
+          </div>
+          <div class="card" style="border-left:4px solid #8b5cf6;">
+            <div class="card-title">SC/ST Scholarships</div>
+            <div class="card-desc">Caste category captured at admission. Eligible students auto-identified. List generated for district welfare office. Attendance proof attached automatically.</div>
+          </div>
+          <div class="card" style="border-left:4px solid #f59e0b;">
+            <div class="card-title">Jagananna Vidya Deevena / Vasathi Deevena</div>
+            <div class="card-desc">Fee reimbursement tracking. Student eligibility verification. Amount pending vs received tracking for each eligible student.</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">Telangana Schemes</p>
+        <div style="display:grid;gap:12px;">
+          <div class="card" style="border-left:4px solid #1D9E75;">
+            <div class="card-title">Vidya Bharosa</div>
+            <div class="card-desc">Student card tracking. Eligibility based on family income and caste. Auto-flag students who qualify but have not yet applied.</div>
+          </div>
+          <div class="card" style="border-left:4px solid #185FA5;">
+            <div class="card-title">Dalit Bandhu Education Support</div>
+            <div class="card-desc">SC students auto-identified at admission. Support amount tracking. Attendance maintained for compliance.</div>
+          </div>
+          <div class="card" style="border-left:4px solid #8b5cf6;">
+            <div class="card-title">BC/OBC Welfare Scholarships</div>
+            <div class="card-desc">Caste-wise student lists. Fee concession calculation. District submission reports auto-generated.</div>
+          </div>
+          <div class="card" style="border-left:4px solid #f59e0b;">
+            <div class="card-title">APAAR ID + NEP Integration</div>
+            <div class="card-desc">APAAR ID captured and stored per student. UDISE+ data ready. National Education Policy compliance built in.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#f0fdf4;border:1px solid #d1fae5;border-radius:16px;padding:24px;">
+      <p style="font-size:13px;font-weight:700;color:#065f46;margin-bottom:12px;">📊 What this means for your school</p>
+      <div class="grid-3">
+        <div style="text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:#1D9E75;">Zero</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Students miss welfare benefit due to tracking errors</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:#1D9E75;">1 click</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Generate district submission report for any scheme</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:#1D9E75;">Auto</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Early warning when student's eligibility at risk</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 7: PRICING -->
+<section id="s7" class="bg-light">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">07 / 09 · PRICING</p>
+    <div class="section-badge">💰 Transparent Pricing</div>
+    <h2 class="section-title">Simple Plans.<br><span>No Hidden Costs.</span></h2>
+    <p class="section-sub">One price. All modules included. 6 months free on Basic. No setup fee. No per-student charges. No surprises.</p>
+
+    <div class="grid-4" style="margin-bottom:28px;">
+      <div class="tier">
+        <div class="tier-header" style="background:#1D9E75;color:#fff;">
+          <div class="tier-name">Basic</div>
+          <div class="tier-price">₹999<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">6 months FREE trial</div>
+        </div>
+        <div class="tier-body">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">Up to 500 students · 2,000 SMS/month</div>
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Attendance + WhatsApp alerts</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Fee collection + receipts</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">TC + certificates</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Basic reports</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Parent portal</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier featured">
+        <div style="background:#1D9E75;color:#e8a020;text-align:center;font-size:10px;font-weight:700;padding:4px;letter-spacing:1px;">MOST POPULAR</div>
+        <div class="tier-header" style="background:#064e3b;color:#fff;">
+          <div class="tier-name">Standard</div>
+          <div class="tier-price">₹1,999<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">Up to 1,500 students</div>
+        </div>
+        <div class="tier-body">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">5,000 SMS/month included</div>
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Everything in Basic</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Reports + search</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Hostel management</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Transport management</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Email support 48hrs</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier">
+        <div class="tier-header" style="background:#185FA5;color:#fff;">
+          <div class="tier-name">Advanced</div>
+          <div class="tier-price">₹3,499<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">Up to 3,000 students</div>
+        </div>
+        <div class="tier-body">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">10,000 SMS/month included</div>
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Everything in Standard</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Activities & coaching</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Analytics dashboard</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Multi-filter reports</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Phone support 24hrs</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier">
+        <div class="tier-header" style="background:#854F0B;color:#fff;">
+          <div class="tier-name">Enterprise</div>
+          <div class="tier-price">₹5,999<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">Unlimited students</div>
+        </div>
+        <div class="tier-body">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">25,000 SMS/month included</div>
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Everything in Advanced</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Multi-branch management</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Custom reports</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">AI insights</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">24×7 dedicated support</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROI calculation -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;">
+      <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">📊 Your ROI — 500 student school on Basic plan</p>
+      <div class="grid-3">
+        <div>
+          <p style="font-size:12px;color:#64748b;margin-bottom:8px;">Time saved per month</p>
+          <div style="font-size:22px;font-weight:800;color:#1D9E75;">120 hours</div>
+          <p style="font-size:11px;color:#94a3b8;margin-top:4px;">Attendance 20h + Fee 30h + Reports 40h + TC 30h</p>
+        </div>
+        <div>
+          <p style="font-size:12px;color:#64748b;margin-bottom:8px;">Fee collection improvement</p>
+          <div style="font-size:22px;font-weight:800;color:#1D9E75;">15-20%</div>
+          <p style="font-size:11px;color:#94a3b8;margin-top:4px;">Automated reminders reduce defaulters significantly</p>
+        </div>
+        <div>
+          <p style="font-size:12px;color:#64748b;margin-bottom:8px;">MPower cost per month</p>
+          <div style="font-size:22px;font-weight:800;color:#1D9E75;">₹999</div>
+          <p style="font-size:11px;color:#94a3b8;margin-top:4px;">Less than ₹2 per student per month</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 8: IMPROVEMENTS FROM GLOBAL ANALYSIS -->
+<section id="s8" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">08 / 09 · ROADMAP</p>
+    <div class="section-badge">🚀 What's Coming Next</div>
+    <h2 class="section-title">Features We Are Building<br><span>Inspired by Global Standards</span></h2>
+    <p class="section-sub">After analysing PowerSchool, Classter, Fedena and Indian competitors — here are the improvements we are building into MPower School — with our own India-first approach.</p>
+
+    <div class="grid-3" style="margin-bottom:28px;">
+      <div class="improve-card">
+        <div class="improve-tag">📅 Phase 2 — Month 2</div>
+        <div class="improve-title">AI Timetable Generator</div>
+        <div class="improve-desc">Global standard: PowerSchool and Classter both have AI timetable generation. Currently: manual timetable. We will build: Auto-generate conflict-free timetable based on teacher availability, subjects, rooms. What was 3 weeks of work becomes 10 minutes.</div>
+        <span class="improve-priority p-high">High Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">📚 Phase 2 — Month 2</div>
+        <div class="improve-title">Library Management</div>
+        <div class="improve-desc">Global standard: Fedena and Vidyalaya have library modules. Currently: MPower has no library. We will build: Book catalog, issue/return tracking, overdue alerts via WhatsApp, fine calculation. Important for schools with large libraries.</div>
+        <span class="improve-priority p-high">High Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">📋 Phase 2 — Month 3</div>
+        <div class="improve-title">Online Admission CRM</div>
+        <div class="improve-desc">Global standard: Classter has full admissions CRM with lead pipeline. Currently: MPower has only offline admission. We will build: Online enquiry form on school website, WhatsApp follow-up, admission funnel tracking. Schools can manage 100s of applications digitally.</div>
+        <span class="improve-priority p-high">High Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">🤖 Phase 3 — Month 4</div>
+        <div class="improve-title">AI At-Risk Student Alert</div>
+        <div class="improve-desc">Global standard: PowerSchool has predictive analytics — identifies at-risk students 4-6 weeks early. Currently: MPower shows attendance % but no prediction. We will build: AI spots students whose attendance + marks pattern suggests they may drop below welfare scheme threshold or fail exams — before it happens.</div>
+        <span class="improve-priority p-med">Medium Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">🏥 Phase 3 — Month 4</div>
+        <div class="improve-title">Health & Medical Records</div>
+        <div class="improve-desc">Global standard: Vidyalaya has health management module. Currently: MPower has no health module. We will build: Student health record, vaccination tracking, medical alerts, school nurse dashboard. Important for residential schools.</div>
+        <span class="improve-priority p-med">Medium Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">👨‍👩‍👧 Phase 3 — Month 5</div>
+        <div class="improve-title">Enhanced Parent Engagement</div>
+        <div class="improve-desc">Global standard: Classter and Gradelink emphasise parent self-service portals. Currently: MPower has basic parent portal. We will build: Parent can see full fee history, download receipts, request TC, view all marks, communicate with teacher — all from WhatsApp link without login complexity.</div>
+        <span class="improve-priority p-med">Medium Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">🎓 Phase 4 — Month 6</div>
+        <div class="improve-title">Alumni Management</div>
+        <div class="improve-desc">Global standard: Fedena and Vidyalaya have alumni modules. Currently: MPower has no alumni tracking. We will build: After student graduates, system maintains contact. School can send annual messages, track alumni achievements, build reputation.</div>
+        <span class="improve-priority p-low">Future</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">📦 Phase 4 — Month 6</div>
+        <div class="improve-title">Inventory & Asset Management</div>
+        <div class="improve-desc">Global standard: Vidyalaya has inventory and asset modules. Currently: MPower has no inventory. We will build: School furniture, equipment, textbook stock tracking. Purchase orders, stock alerts, annual audit reports.</div>
+        <span class="improve-priority p-low">Future</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">🎮 Phase 4 — Month 7</div>
+        <div class="improve-title">Student Achievement Badges</div>
+        <div class="improve-desc">Global standard: Research shows gamification increases engagement 40-60%. Currently: MPower has no gamification. We will build: Students earn badges for 100% attendance, top marks, activities. Parents get WhatsApp with child's achievement badge — positive engagement.</div>
+        <span class="improve-priority p-low">Future</span>
+      </div>
+    </div>
+
+    <!-- What we intentionally chose NOT to build -->
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:20px;">
+      <p style="font-size:13px;font-weight:700;color:#475569;margin-bottom:12px;">🎯 What we intentionally did NOT copy — and why</p>
+      <div class="grid-3">
+        <div style="font-size:12px;color:#64748b;line-height:1.6;">
+          <span style="font-weight:700;color:#1e293b;">LMS / Online Classes</span><br>
+          Teachmint and PowerSchool built full LMS. We chose NOT to — AP and TG schools primarily need admin efficiency, not another online teaching tool. Parents need attendance and fee info, not video lectures.
+        </div>
+        <div style="font-size:12px;color:#64748b;line-height:1.6;">
+          <span style="font-weight:700;color:#1e293b;">Per-student pricing</span><br>
+          Many competitors charge ₹30-50 per student per month. For a 1,000-student school that is ₹30,000-50,000/month. We chose flat pricing — ₹999 to ₹5,999/month regardless of student count beyond base tier.
+        </div>
+        <div style="font-size:12px;color:#64748b;line-height:1.6;">
+          <span style="font-weight:700;color:#1e293b;">App download requirement</span><br>
+          Classter, Fedena, Entab all require app download. We chose browser-only — works on any basic Android without storage. Teachers in rural AP/TG have 16GB phones with no space for another app.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 9: CTA -->
+<section id="s9" class="bg-light">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">09 / 09 · GET STARTED</p>
+    <div class="section-badge">🎯 Start Today</div>
+    <h2 class="section-title">Your School Deserves<br><span>Better Tools.</span></h2>
+    <p class="section-sub">6 months completely free on Basic plan. No setup fee. No credit card. Get started in 30 minutes.</p>
+
+    <div class="grid-4" style="margin-bottom:36px;">
+      <div class="metric">
+        <div class="metric-num">30 min</div>
+        <div class="metric-label">Setup time from registration to first attendance</div>
+      </div>
+      <div class="metric">
+        <div class="metric-num">6 months</div>
+        <div class="metric-label">Free trial on Basic — no payment needed</div>
+      </div>
+      <div class="metric">
+        <div class="metric-num">₹0</div>
+        <div class="metric-label">Setup fee, training fee, or hidden charges</div>
+      </div>
+      <div class="metric">
+        <div class="metric-num">Telugu</div>
+        <div class="metric-label">Full bilingual support from day one</div>
+      </div>
+    </div>
+
+    <!-- Getting started steps -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;margin-bottom:36px;">
+      <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;">How to get started — 3 simple steps</p>
+      <div class="grid-3">
+        <div style="text-align:center;padding:20px;">
+          <div style="width:48px;height:48px;background:#f0fdf4;border:2px solid #1D9E75;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#1D9E75;margin:0 auto 12px;">1</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Register Online</div>
+          <div style="font-size:12px;color:#64748b;">Go to mpowerind.in/registration — fill school name, your contact number, school type. 2 minutes.</div>
+        </div>
+        <div style="text-align:center;padding:20px;">
+          <div style="width:48px;height:48px;background:#f0fdf4;border:2px solid #1D9E75;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#1D9E75;margin:0 auto 12px;">2</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Add Your Students</div>
+          <div style="font-size:12px;color:#64748b;">Import from Excel or add one by one. Our team helps you during setup. 20-30 minutes for most schools.</div>
+        </div>
+        <div style="text-align:center;padding:20px;">
+          <div style="width:48px;height:48px;background:#f0fdf4;border:2px solid #1D9E75;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#1D9E75;margin:0 auto 12px;">3</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Go Live Tomorrow</div>
+          <div style="font-size:12px;color:#64748b;">Teachers mark attendance on their phones. Parents get WhatsApp alerts. Principal sees real-time dashboard.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cta">
+      <div style="font-size:13px;color:rgba(255,255,255,0.6);font-weight:600;letter-spacing:2px;margin-bottom:14px;">READY TO START?</div>
+      <div class="cta-title">Start Your Free 6-Month Trial</div>
+      <div class="cta-sub">No payment. No credit card. No setup fee.<br>Cancel anytime. Telugu support available.</div>
+      <a href="https://mpowerind.in/registration" class="btn-primary">🏫 Start Free Trial →</a>
+      <a href="https://mpowerind.in" class="btn-outline">See Live Demo</a>
+      <div style="margin-top:20px;font-size:12px;color:rgba(255,255,255,0.4);">mpowerind.in · support@mpowerind.in · Telugu support available</div>
+    </div>
+  </div>
+</section>
+
+<section id="s3b" class="bg-white">
+  <div class="container">
+    <h2 class="section-title">The Real Data Model.<br><span>Not a Mockup.</span></h2>
+    <p style="text-align:center;max-width:700px;margin:0 auto 40px;color:#555;font-size:16px;line-height:1.7;">
+      Every screen you've seen is backed by a real, working database — not placeholder data. Here's exactly how student records, attendance, fees, and academics connect to each other underneath the app.
+    </p>
+    <div class="mermaid" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:32px;overflow-x:auto;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+erDiagram
+    STUDENTS ||--o{ ATTENDANCE : "marked daily"
+    STUDENTS ||--o{ FEE_DUES : "owes"
+    STUDENTS ||--o{ CERTIFICATES : "issued"
+    STUDENTS ||--o{ CORRECTION_REQUESTS : "requests changes"
+    CLASSES ||--o{ STUDENTS : "enrolled in"
+    CLASSES ||--o{ EXAMS : "scheduled for"
+    FEE_DUES ||--o{ FEE_PAYMENTS : "settled by"
+    TRANSPORT_ROUTES ||--o{ TRANSPORT_STOPS : "stops along"
+    HOSTEL_ROOMS ||--o{ STUDENTS : "houses"
+
+    STUDENTS {
+        uuid id PK
+        text full_name
+        text sid
+        uuid class_id FK
+        text section
+        text parent_phone
+        text blood_group
+        text caste_category
+        text apaar_id
+        text status
+    }
+    CLASSES {
+        uuid id PK
+        text class_name
+        int class_order
+        text medium
+    }
+    ATTENDANCE {
+        uuid id PK
+        uuid student_id FK
+        date date
+        text status
+    }
+    FEE_DUES {
+        uuid id PK
+        uuid student_id FK
+        text fee_type
+        numeric amount_due
+        numeric amount_paid
+        date due_date
+    }
+    FEE_PAYMENTS {
+        uuid id PK
+        uuid due_id FK
+        numeric amount
+        text payment_mode
+        text receipt_no
+        timestamp paid_at
+    }
+    CERTIFICATES {
+        uuid id PK
+        uuid student_id FK
+        text cert_type
+        text cert_no
+        date issue_date
+    }
+    EXAMS {
+        uuid id PK
+        text exam_name
+        uuid class_id FK
+        date start_date
+    }
+    TRANSPORT_ROUTES {
+        uuid id PK
+        text route_no
+        text driver_name
+        text vehicle_no
+    }
+    TRANSPORT_STOPS {
+        uuid id PK
+        uuid route_id FK
+        text stop_name
+        text pickup_time
+    }
+    HOSTEL_ROOMS {
+        uuid id PK
+        text room_no
+        int total_beds
+    }
+    CORRECTION_REQUESTS {
+        uuid id PK
+        uuid student_id FK
+        text field_name
+        text status
+    }
+    </div>
+    <p style="text-align:center;margin-top:24px;color:#888;font-size:13px;">
+      Every table is scoped to your school specifically — no other school using MPower can ever see or touch your data.
+    </p>
+  </div>
+</section>
+
+<script>
+function go(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id;
+      const idx = ['s1','s2','s3','s4','s5','s6','s7','s8','s9'].indexOf(id);
+      document.querySelectorAll('.nav-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('section[id]').forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

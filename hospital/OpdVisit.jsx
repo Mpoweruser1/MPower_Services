@@ -55,8 +55,8 @@ export default function OpdVisit() {
   const { errors, touched, validate, touch, onChange: onValidate, reset } =
     useFormValidation(RULES);
 
-  const { hasDraft, draftData, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft } =
-    useAutoSave(`opd_visit_${tenant?.userRowId}`, form);
+  const { hasDraft, lastSaved, isDirty, clearDraft, dismissDraft } =
+    useAutoSave('opd_visit', form, { onRestore: (d) => setForm(d) });
 
   useEffect(() => {
     if (tenant?.appId) loadDoctors();
@@ -128,29 +128,30 @@ export default function OpdVisit() {
     const validMeds = prescription.filter((m) => m.medicine.trim());
     setSaving(true);
 
-    // Save prescription
-    let prescriptionId = null;
-    if (validMeds.length > 0) {
-      const { data: prescRow } = await supabase.from('prescriptions').insert({
-        patient_id: selectedPatient.id,
-        doctor_id:  form.doctor_id || null,
-        medicines:  validMeds,
-      }).select().single();
-      if (prescRow) prescriptionId = prescRow.id;
-    }
-
+    // opd_visits has no prescription_id or status column, and the
+    // real field is "symptoms" not "chief_complaint" — this insert
+    // was failing every single time before. The relationship also
+    // actually goes the other way: prescriptions.opd_visit_id points
+    // back to the visit, so the visit must be created first.
     const { data: visitRow, error: visitErr } = await supabase.from('opd_visits').insert({
-      patient_id:      selectedPatient.id,
-      doctor_id:       form.doctor_id || null,
-      visit_date:      form.visit_date,
-      visit_type:      form.visit_type.toLowerCase(),
-      chief_complaint: form.chief_complaint.trim(),
-      diagnosis:       form.diagnosis.trim(),
-      prescription_id: prescriptionId,
-      status:          'completed',
+      patient_id: selectedPatient.id,
+      doctor_id:  form.doctor_id || null,
+      visit_date: form.visit_date,
+      visit_type: form.visit_type.toLowerCase(),
+      symptoms:   form.chief_complaint.trim(),
+      diagnosis:  form.diagnosis.trim(),
     }).select().single();
 
     if (visitErr) { setSubmitError('Failed to save visit. Please try again.'); setSaving(false); return; }
+
+    if (validMeds.length > 0) {
+      await supabase.from('prescriptions').insert({
+        patient_id:   selectedPatient.id,
+        opd_visit_id: visitRow.id,
+        doctor_id:    form.doctor_id || null,
+        medicines:    validMeds,
+      });
+    }
 
     if (selectedPatient.phone && validMeds.length > 0) {
       await supabase.functions.invoke('send-whatsapp', {
@@ -191,7 +192,7 @@ export default function OpdVisit() {
 
         {!saved ? (
           <>
-            {hasDraft && <DraftBanner lastSaved={lastSaved} onRestore={() => setForm(restoreDraft())} onDiscard={dismissDraft} />}
+            {hasDraft && <DraftBanner lastSaved={lastSaved} onRestore={() => {}} onDiscard={dismissDraft} />}
 
             <div style={{ ...S.card, marginBottom: 16 }}>
               <PatientSelector

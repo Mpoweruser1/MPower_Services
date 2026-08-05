@@ -333,6 +333,7 @@ export default function Pricing() {
 
       {/* Header */}
       <div style={{ background: '#1a1a2e', padding: '40px 20px 32px', textAlign: 'center', color: '#fff' }}>
+        <Link to="/" style={{ display: 'inline-block', fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none', marginBottom: 16 }}>← Back to home</Link>
         <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Simple, Transparent Pricing</h1>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 24 }}>
           Free to start. Pay only when you grow.

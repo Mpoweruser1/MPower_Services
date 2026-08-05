@@ -475,7 +475,6 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId }) {
   const [searchParams] = useSearchParams();
   const urlCaseNo = caseNo || searchParams.get('case') || searchParams.get('id') || '';
   const [manualCaseNo, setManualCaseNo] = useState('');
-  console.log('searchParams case:', searchParams.get('case'), 'id:', searchParams.get('id'), 'full URL:', window.location.href);
 
   // Addressee config
   const [mlaName, setMlaName] = useState('');
@@ -598,6 +597,15 @@ useEffect(() => {
       <style>{PRINT_STYLES}</style>
 
       <div style={S.inner} className="no-print">
+        {/* Works correctly whether a citizen or staff member arrived
+            here — always returns to wherever they actually came from,
+            without needing to know which type of session this is. */}
+        <button
+          onClick={() => window.history.back()}
+          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', padding: 0, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 4 }}
+        >
+          ← Back
+        </button>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Print / Export</p>
@@ -640,7 +648,7 @@ useEffect(() => {
             style={{ flex: 1, padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }}
               />
               <button
-                onClick={() => { window.location.href = `/grievance/print?case=${manualCaseNo}`; }}
+                onClick={() => { window.location.href = `/grievance/print?case=${encodeURIComponent(manualCaseNo)}`; }}
                 style={{ padding: '8px 16px', background: '#185FA5', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
               >
                   Load

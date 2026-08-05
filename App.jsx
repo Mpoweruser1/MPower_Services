@@ -174,6 +174,7 @@ function AppRoutes() {
   return (
     <>
       {showNav && <TopNav screen={SCREEN_NAMES[path] || ''} />}
+      <VisitProvider>
       <Routes>
 
       {/* ── Website — public ── */}
@@ -253,21 +254,21 @@ function AppRoutes() {
 
       {/* ── Hospital ── */}
       <Route path="/hospital/dashboard"
-        element={<RequireAuth><VisitProvider><HospitalDashboard /></VisitProvider></RequireAuth>} />
+        element={<RequireAuth><HospitalDashboard /></RequireAuth>} />
       <Route path="/hospital/patients/new"
-        element={<RequireAuth><VisitProvider><PatientRegistration userTier={tenant?.tier} /></VisitProvider></RequireAuth>} />
+        element={<RequireAuth><PatientRegistration userTier={tenant?.tier} /></RequireAuth>} />
       <Route path="/hospital/opd"
-        element={<RequireAuth><VisitProvider><OpdVisit /></VisitProvider></RequireAuth>} />
+        element={<RequireAuth><OpdVisit /></RequireAuth>} />
       <Route path="/hospital/lab"
-        element={<RequireAuth><VisitProvider><LabReports /></VisitProvider></RequireAuth>} />
+        element={<RequireAuth><LabReports /></RequireAuth>} />
       <Route path="/hospital/billing"
-        element={<RequireAuth><VisitProvider><HospitalBilling /></VisitProvider></RequireAuth>} />
+        element={<RequireAuth><HospitalBilling /></RequireAuth>} />
       <Route path="/hospital/ipd"
-        element={<RequireAuth><VisitProvider><IPDManagement /></VisitProvider></RequireAuth>} />
+        element={<RequireAuth><IPDManagement /></RequireAuth>} />
       <Route path="/hospital/patients/find"
-        element={<RequireAuth><VisitProvider><PatientDetail /></VisitProvider></RequireAuth>} />
+        element={<RequireAuth><PatientDetail /></RequireAuth>} />
       <Route path="/hospital/patients/:id"
-        element={<RequireAuth><VisitProvider><PatientDetailWrapper /></VisitProvider></RequireAuth>} />
+        element={<RequireAuth><PatientDetailWrapper /></RequireAuth>} />
 
       {/* ── Grievance — staff (auth required) ── */}
       <Route path="/grievance/staff"
@@ -299,6 +300,7 @@ function AppRoutes() {
       <Route path="*" element={<Navigate to="/" replace />} />
 
     </Routes>
+    </VisitProvider>
     </>
   );
 }

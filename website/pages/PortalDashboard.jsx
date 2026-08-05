@@ -90,7 +90,7 @@ export default function PortalDashboard() {
   if (tenantLoading || loading) {
     return (
       <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading your dashboard...</p>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading your dashboard...</p>
       </div>
     );
   }
@@ -135,10 +135,10 @@ export default function PortalDashboard() {
 
       {/* Top bar */}
       <div style={{ background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
           <div style={{ width: 28, height: 28, borderRadius: 6, background: '#E8A020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#111113', fontSize: 13 }}>M</div>
           <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>MPower Portal</span>
-        </div>
+        </Link>
         <button onClick={logout}
           style={{ fontSize: 12, padding: '6px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
           Log out
@@ -148,11 +148,11 @@ export default function PortalDashboard() {
       <div style={S.inner}>
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '0 0 4px' }}>Welcome back</p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '0 0 4px' }}>Welcome back</p>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: '#fff', margin: '0 0 4px', letterSpacing: -0.5 }}>
             {appInfo?.org_name || tenant?.orgName || 'Dashboard'}
           </h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
             {tenant?.fullName && `${tenant.fullName} · `}{tenant?.role}
           </p>
         </div>
@@ -173,7 +173,7 @@ export default function PortalDashboard() {
         </div>
 
         {/* Quick access */}
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>
           Quick access
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 24 }}>
@@ -192,7 +192,7 @@ export default function PortalDashboard() {
             <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 500, color: '#E8A020' }}>
               ✏️ Data corrections & deletions
             </p>
-            <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+            <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
               Review and approve correction requests from staff
             </p>
             <Link to="/corrections"
@@ -208,7 +208,7 @@ export default function PortalDashboard() {
             <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 500, color: '#5A9ADF' }}>
               🏛️ Citizen Portal
             </p>
-            <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+            <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
               Share this link with citizens to file complaints
             </p>
             <Link to="/grievance/andhra-pradesh/citizen"
@@ -219,7 +219,7 @@ export default function PortalDashboard() {
         )}
 
         {/* Setup link — if first time */}
-        <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '14px 16px', fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7 }}>
+        <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '14px 16px', fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.7 }}>
           Need help getting started?{' '}
           <Link to="/portal/setup" style={{ color: '#E8A020', textDecoration: 'none' }}>
             Open setup wizard →

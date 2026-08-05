@@ -263,7 +263,9 @@ export default function Registration() {
       <div style={S.card}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: '#E8A020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#111113', fontSize: 20, margin: '0 auto 12px' }}>M</div>
+          <Link to="/" style={{ display: 'inline-block' }}>
+            <div style={{ width: 44, height: 44, borderRadius: 10, background: '#E8A020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#111113', fontSize: 20, margin: '0 auto 12px' }}>M</div>
+          </Link>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#fff', margin: '0 0 4px', letterSpacing: -0.5 }}>
             Start your free trial
           </h1>

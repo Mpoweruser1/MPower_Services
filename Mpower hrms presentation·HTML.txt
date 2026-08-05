@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MPower HRMS — Complete HR & Payroll Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:#f8fafc;color:#1e293b}
+.nav{position:fixed;top:0;left:0;right:0;background:#0D1321;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;z-index:1000;box-shadow:0 2px 12px rgba(13,19,33,0.3)}
+.nav-logo{display:flex;align-items:center;gap:10px}
+.nav-icon{width:32px;height:32px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#0C447C;font-size:14px}
+.nav-title{font-size:15px;font-weight:700;color:#fff}
+.nav-links{display:flex;gap:2px}
+.nav-btn{padding:6px 12px;border-radius:6px;font-size:11px;color:rgba(255,255,255,0.8);cursor:pointer;border:none;background:none;font-family:inherit;font-weight:500;transition:all 0.2s}
+.nav-btn:hover,.nav-btn.active{color:#fff;background:rgba(255,255,255,0.15)}
+.slide{min-height:100vh;padding:80px 48px 60px;max-width:1200px;margin:0 auto;display:flex;flex-direction:column;justify-content:center}
+.hero{min-height:100vh;background:#0D1321;color:#fff;display:flex;align-items:center}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.9);padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;letter-spacing:0.5px;margin-bottom:20px}
+.hero-title{font-size:clamp(38px,6vw,70px);font-weight:900;line-height:1.05;margin-bottom:16px}
+.hero-title span{color:#9FC6E8}
+.hero-sub{font-size:17px;color:rgba(255,255,255,0.7);max-width:580px;line-height:1.7;margin-bottom:36px}
+.hero-te{font-family:'Noto Sans Telugu',sans-serif;font-size:18px;color:rgba(255,255,255,0.5);margin-bottom:6px}
+.stat-row{display:flex;gap:40px;flex-wrap:wrap}
+.stat-num{font-size:34px;font-weight:800;color:#9FC6E8}
+.stat-label{font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px}
+.badge-section{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#534AB7;background:rgba(83,74,183,0.08);padding:5px 12px;border-radius:20px;margin-bottom:14px}
+.section-title{font-size:clamp(26px,4vw,44px);font-weight:800;line-height:1.1;margin-bottom:10px;color:#1e293b}
+.section-title span{color:#534AB7}
+.section-sub{font-size:15px;color:#64748b;max-width:600px;line-height:1.7;margin-bottom:36px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.25s}
+.card:hover{border-color:#534AB7;box-shadow:0 4px 20px rgba(83,74,183,0.1);transform:translateY(-2px)}
+.card-icon{font-size:28px;margin-bottom:12px}
+.card-title{font-size:15px;font-weight:700;color:#1e293b;margin-bottom:6px}
+.card-desc{font-size:13px;color:#64748b;line-height:1.6}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.flist{list-style:none;display:grid;gap:10px}
+.fitem{display:flex;gap:10px;align-items:flex-start}
+.fcheck{color:#534AB7;font-size:14px;flex-shrink:0;margin-top:2px;font-weight:700}
+.ftext{font-size:13px;color:#475569;line-height:1.5}
+.ctable{width:100%;border-collapse:collapse;font-size:12px}
+.ctable th{padding:11px 14px;text-align:left;background:#f5f3ff;color:#4c1d95;font-weight:700;font-size:10px;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid #ddd6fe}
+.ctable td{padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#475569}
+.ctable tr:hover td{background:#f8fafc}
+.ctable .us{color:#534AB7;font-weight:700}
+.cy{color:#534AB7;font-weight:600}
+.cn{color:#cbd5e1}
+.cp{color:#f59e0b;font-weight:600}
+.metric{background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1px solid #ddd6fe;border-radius:14px;padding:20px;text-align:center}
+.metric-num{font-size:34px;font-weight:800;color:#534AB7}
+.metric-label{font-size:12px;color:#64748b;margin-top:4px;line-height:1.4}
+.quote{background:#f5f3ff;border-left:4px solid #534AB7;border-radius:0 12px 12px 0;padding:18px 22px;font-size:15px;color:#2d1d6e;font-style:italic;line-height:1.7}
+.quote-src{font-size:12px;color:#534AB7;margin-top:8px;font-style:normal;font-weight:600}
+.cta{background:#0D1321;border-radius:20px;padding:48px;text-align:center;color:#fff;margin-top:60px}
+.cta-title{font-size:30px;font-weight:800;margin-bottom:10px}
+.cta-sub{font-size:15px;color:rgba(255,255,255,0.6);margin-bottom:28px}
+.btn-primary{display:inline-block;padding:13px 30px;background:#fff;color:#534AB7;border-radius:10px;font-size:14px;font-weight:800;text-decoration:none}
+.btn-outline{display:inline-block;padding:13px 30px;background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:10px;font-size:14px;font-weight:600;text-decoration:none;margin-left:10px}
+.bg-light{background:#f8fafc}
+.bg-white{background:#fff}
+.divider{height:1px;background:#e2e8f0}
+.tier{background:#fff;border:2px solid #e2e8f0;border-radius:14px;overflow:hidden}
+.tier-header{padding:18px;text-align:center}
+.tier-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.tier-price{font-size:28px;font-weight:800}
+.tier-sub{font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px}
+.tier-body{padding:16px}
+.tier.featured{border-color:#534AB7;box-shadow:0 4px 20px rgba(83,74,183,0.15)}
+.improve-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;border-left:4px solid #e8a020}
+.improve-tag{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#e8a020;margin-bottom:8px}
+.improve-title{font-size:14px;font-weight:700;color:#1e293b;margin-bottom:6px}
+.improve-desc{font-size:12px;color:#64748b;line-height:1.6}
+.p-high{background:#fee2e2;color:#991b1b;display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-top:8px}
+.p-med{background:#fef3c7;color:#92400e;display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-top:8px}
+.p-low{background:#f0fdf4;color:#166534;display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-top:8px}
+@media(max-width:768px){.slide{padding:80px 20px 40px}.nav-links{display:none}.stat-row{gap:20px}.btn-outline{margin-left:0;margin-top:10px;display:block}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="nav-icon">M</div>
+    <span class="nav-title">MPower HRMS</span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-btn active" onclick="go('s1')">Overview</button>
+    <button class="nav-btn" onclick="go('s2')">Problem</button>
+    <button class="nav-btn" onclick="go('s3')">Features</button>
+    <button class="nav-btn" onclick="go('s4')">World Standards</button>
+    <button class="nav-btn" onclick="go('s5')">Compliance</button>
+    <button class="nav-btn" onclick="go('s6')">Pricing</button>
+    <button class="nav-btn" onclick="go('s7')">Roadmap</button>
+    <button class="nav-btn" onclick="go('s8')">Start</button>
+  </div>
+</nav>
+
+<!-- SLIDE 1: HERO -->
+<section id="s1" class="hero">
+  <div class="slide">
+    <p style="font-size:11px;color:rgba(255,255,255,0.3);font-weight:600;letter-spacing:2px;margin-bottom:28px;">01 / 08 · MPower HRMS Presentation</p>
+    <div class="hero-eyebrow">👥 For HR Managers, Business Owners & Finance Teams</div>
+    <p class="hero-te">MPower HRMS — ఉద్యోగుల నిర్వహణ సులభంగా</p>
+    <h1 class="hero-title">Manage Your People.<br><span>Automate Payroll.</span><br>Stay Compliant.</h1>
+    <p class="hero-sub">From employee onboarding to full-and-final settlement — complete HR and payroll management with Indian Labour Code 2025 compliance, biometric integration, and WhatsApp notifications.</p>
+    <div class="stat-row">
+      <div><div class="stat-num">₹1,499</div><div class="stat-label">Starting per month</div></div>
+      <div><div class="stat-num">ILC 2025</div><div class="stat-label">Labour Code compliant</div></div>
+      <div><div class="stat-num">PF + ESI</div><div class="stat-label">Statutory auto-calculated</div></div>
+      <div><div class="stat-num">Telugu</div><div class="stat-label">Full bilingual support</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 2: PROBLEM -->
+<section id="s2" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">02 / 08 · THE PROBLEM</p>
+    <div class="badge-section">⚠️ Current Reality</div>
+    <h2 class="section-title">Excel Payroll. WhatsApp Leave.<br><span>Manual PF Challans.</span></h2>
+    <p class="section-sub">Most businesses in AP and Telangana still manage their HR on Excel spreadsheets, WhatsApp groups, and paper forms — costing time, causing errors, and creating compliance risk.</p>
+
+    <div class="grid-3" style="margin-bottom:36px;">
+      <div class="card" style="border-left:4px solid #ef4444;">
+        <div class="card-icon">📊</div>
+        <div class="card-title">Payroll on Excel every month</div>
+        <div class="card-desc">HR team spends 5-8 days every month calculating salaries manually. PF, ESI, TDS calculations done on Excel. One wrong formula — entire payroll wrong. Errors discovered only after salary credited.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #f59e0b;">
+        <div class="card-icon">📱</div>
+        <div class="card-title">Leave approval on WhatsApp</div>
+        <div class="card-desc">Employee messages manager on WhatsApp for leave. Manager forwards to HR. HR updates Excel. No audit trail. Disputes common — "you approved on WhatsApp but not in records."</div>
+      </div>
+      <div class="card" style="border-left:4px solid #8b5cf6;">
+        <div class="card-icon">📋</div>
+        <div class="card-title">Attendance in registers</div>
+        <div class="card-desc">Biometric machine data exported to Excel manually every month. Staff at multiple locations — data comes days late. Half-days, late-coming, overtime — all calculated manually.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #06b6d4;">
+        <div class="card-icon">🏛️</div>
+        <div class="card-title">PF & ESI compliance stress</div>
+        <div class="card-desc">PF challan calculated manually every month. ECR file prepared in Excel. Errors cause EPFO rejections. ESI return missed — ₹5,000 penalty per month. Labour inspector visits — no organised records.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #10b981;">
+        <div class="card-icon">📄</div>
+        <div class="card-title">Payslips by WhatsApp PDF</div>
+        <div class="card-desc">HR generates payslip PDF, sends via WhatsApp one by one. 50 employees = 50 messages. Employee loses payslip, asks for duplicate — another 30 minutes of work.</div>
+      </div>
+      <div class="card" style="border-left:4px solid #f43f5e;">
+        <div class="card-icon">⚠️</div>
+        <div class="card-title">Indian Labour Code 2025 risk</div>
+        <div class="card-desc">New Labour Code 2025 changed PF calculation base, overtime rules, fixed-term employment norms. Most businesses don't know if their payroll is compliant. One inspection = massive penalties.</div>
+      </div>
+    </div>
+
+    <div class="quote">
+      "Mid-market Indian firms lose around 30% of HR Operations time to manual payroll rectification. That number spikes sharply past the 50-employee mark. The right HRMS eliminates this entirely — freeing HR to focus on people, not paperwork."
+      <div class="quote-src">— KPMG India HR Benchmark Study 2025</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 3: FEATURES -->
+<section id="s3" class="bg-light">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">03 / 08 · FEATURES</p>
+    <div class="badge-section">⚡ MPower HRMS</div>
+    <h2 class="section-title">Complete HR Management.<br><span>Zero Spreadsheets.</span></h2>
+    <p class="section-sub">From employee joining to exit — every HR process automated, compliant with Indian Labour Code 2025, and integrated with biometric attendance.</p>
+
+    <div class="grid-3" style="margin-bottom:32px;">
+      <div class="card">
+        <div class="card-icon">👤</div>
+        <div class="card-title">Employee Management</div>
+        <div class="card-desc">Complete employee profile — personal, bank, documents, emergency contacts. Department, designation, reporting structure. Joining documents checklist. ESIC, PF, UAN numbers stored securely.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <div class="card-title">Attendance + Biometric Integration</div>
+        <div class="card-desc">Biometric punch data imported automatically. Face recognition support. WhatsApp self-punch for remote staff. Late coming, early departure, overtime — all auto-calculated. Daily attendance WhatsApp to manager.</div>
+        <div style="margin-top:10px;font-size:12px;color:#534AB7;font-weight:600;">Biometric + Face + WhatsApp — all three modes</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📅</div>
+        <div class="card-title">Leave Management</div>
+        <div class="card-desc">Leave application on phone. Manager approval workflow. Leave balance visible to employee anytime. Carry-forward rules, encashment calculation. Leave calendar for planning.</div>
+        <div style="margin-top:10px;font-size:12px;color:#534AB7;font-weight:600;">No more WhatsApp leave requests</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💰</div>
+        <div class="card-title">Payroll Processing</div>
+        <div class="card-desc">One-click payroll every month. Attendance auto-imported. All deductions calculated — PF 12%, ESI 0.75%, TDS, PT, LWF. Configurable salary structure per department. Multiple payment modes.</div>
+        <div style="margin-top:10px;font-size:12px;color:#534AB7;font-weight:600;">5-8 days reduced to 2 hours</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📄</div>
+        <div class="card-title">Payslips + Salary Register</div>
+        <div class="card-desc">Auto-generated payslips. WhatsApp delivery to each employee. Password-protected PDF. Monthly salary register ready for auditor. Annual Form 16 generation.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏛️</div>
+        <div class="card-title">PF + ESI + TDS Compliance</div>
+        <div class="card-desc">PF challan auto-calculated as per Indian Labour Code 2025. ECR file generated for EPFO upload. ESI challan and return. TDS computation and Form 24Q. Professional Tax per state.</div>
+        <div style="margin-top:10px;font-size:12px;color:#534AB7;font-weight:600;">ILC 2025 compliant from day one</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">HR Analytics Dashboard</div>
+        <div class="card-desc">Headcount by department, attrition rate, average tenure, leave utilisation, overtime trends. Management gets instant visibility without asking HR team for reports.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏥</div>
+        <div class="card-title">Health Insurance Tracking</div>
+        <div class="card-desc">Employee and family insurance policy details. Premium tracking. Claim history. Policy renewal alerts. Enrollment and de-enrollment managed within HRMS.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📈</div>
+        <div class="card-title">Promotion + Increment History</div>
+        <div class="card-desc">Complete career history per employee. Promotion records, salary revision history, performance notes. Bulk increment processing — apply % increase to entire department.</div>
+      </div>
+    </div>
+
+    <!-- Who uses MPower HRMS -->
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px;">
+      <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:20px;">MPower HRMS is built for every type of organisation</p>
+      <div class="grid-4">
+        <div style="text-align:center;padding:16px;background:#f5f3ff;border-radius:10px;">
+          <div style="font-size:24px;margin-bottom:8px;">🏫</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Schools</div>
+          <div style="font-size:11px;color:#64748b;">Teaching + non-teaching staff. Academic calendar integration.</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#eff6ff;border-radius:10px;">
+          <div style="font-size:24px;margin-bottom:8px;">🏥</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Hospitals</div>
+          <div style="font-size:11px;color:#64748b;">Doctors, nurses, ward staff — shift-based attendance.</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#f0fdf4;border-radius:10px;">
+          <div style="font-size:24px;margin-bottom:8px;">🏭</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Manufacturing</div>
+          <div style="font-size:11px;color:#64748b;">Factory workers, biometric punch, shift management.</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#fff7ed;border-radius:10px;">
+          <div style="font-size:24px;margin-bottom:8px;">🏢</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Offices</div>
+          <div style="font-size:11px;color:#64748b;">Corporate, retail, service businesses. Remote + office.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 4: WORLD STANDARDS -->
+<section id="s4" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">04 / 08 · WORLD STANDARDS</p>
+    <div class="badge-section">🌍 Global Benchmark</div>
+    <h2 class="section-title">World-Class HR Tools.<br><span>India-First Design.</span></h2>
+    <p class="section-sub">Global HR systems define best practice. MPower HRMS delivers those same standards — built specifically for Indian compliance, Indian payroll, and Indian business realities.</p>
+
+    <div class="grid-2" style="margin-bottom:36px;">
+      <div>
+        <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">What world-class HRMS delivers</p>
+        <div style="display:grid;gap:12px;">
+          <div class="card">
+            <div class="card-title">🔄 Hire-to-retire on one platform</div>
+            <div class="card-desc">From job application to full and final settlement — every HR lifecycle event in the same system. No switching between payroll, attendance, and leave software.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">📱 Employee self-service</div>
+            <div class="card-desc">Employee applies for leave, views payslip, updates bank details, checks leave balance — all from their phone without calling HR. Reduces HR workload by 40%.</div>
+          </div>
+          <div class="card">
+            <div class="card-title">📊 Predictive HR analytics</div>
+            <div class="card-desc">Identify attrition risk before resignation, overtime patterns before burnout, absenteeism trends before they impact operations.</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">What MPower HRMS adds for India</p>
+        <div style="display:grid;gap:12px;">
+          <div class="card" style="border-color:#534AB7;border-width:2px;background:#f5f3ff;">
+            <div class="card-title" style="color:#534AB7;">🇮🇳 Indian Labour Code 2025</div>
+            <div class="card-desc">PF 12%+12%, ESI 3.25%+0.75%, new wage code definitions, fixed-term employment — all built in and auto-calculated. No manual compliance tracking.</div>
+          </div>
+          <div class="card" style="border-color:#534AB7;border-width:2px;background:#f5f3ff;">
+            <div class="card-title" style="color:#534AB7;">📱 WhatsApp-first India</div>
+            <div class="card-desc">Payslips on WhatsApp. Leave approval via WhatsApp. Attendance punch via WhatsApp. Most Indian employees use WhatsApp daily — not email or apps.</div>
+          </div>
+          <div class="card" style="border-color:#534AB7;border-width:2px;background:#f5f3ff;">
+            <div class="card-title" style="color:#534AB7;">🔌 Biometric integration</div>
+            <div class="card-desc">Auto-import from any biometric machine. Face recognition. Hardware failure fallback to WhatsApp self-punch. Idempotent data import — no duplicates.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature table -->
+    <div style="overflow-x:auto;border-radius:14px;border:1px solid #e2e8f0;">
+      <table class="ctable">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>World Standard</th>
+            <th>Typical India HRMS</th>
+            <th style="background:#f5f3ff;color:#4c1d95;">MPower HRMS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Payroll auto-calculation</td><td class="cy">✓</td><td class="cy">✓</td><td class="us">✓ + ILC 2025 compliant</td></tr>
+          <tr><td>PF + ESI + TDS</td><td class="cn">N/A (US)</td><td class="cy">✓</td><td class="us">✓ + ECR + Form 24Q</td></tr>
+          <tr><td>WhatsApp payslips</td><td class="cn">✗</td><td class="cn">Rare</td><td class="us">✓ Every employee</td></tr>
+          <tr><td>WhatsApp leave approval</td><td class="cn">✗</td><td class="cn">✗</td><td class="us">✓ Full workflow</td></tr>
+          <tr><td>Biometric integration</td><td class="cy">✓</td><td class="cp">Most systems</td><td class="us">✓ + Face + WhatsApp punch</td></tr>
+          <tr><td>Indian Labour Code 2025</td><td class="cn">N/A</td><td class="cp">Partial</td><td class="us">✓ Full compliance</td></tr>
+          <tr><td>Telugu language UI</td><td class="cn">✗</td><td class="cn">✗</td><td class="us">✓ Full bilingual</td></tr>
+          <tr><td>Multi-currency payroll</td><td class="cy">✓</td><td class="cn">✗</td><td class="us">✓ Built in</td></tr>
+          <tr><td>Shift-based attendance</td><td class="cy">✓</td><td class="cp">Extra cost</td><td class="us">✓ Native</td></tr>
+          <tr><td>Consultant / hourly workers</td><td class="cy">✓</td><td class="cn">✗</td><td class="us">✓ Separate workflow</td></tr>
+          <tr><td>Health insurance tracking</td><td class="cy">✓</td><td class="cn">✗</td><td class="us">✓ Built in</td></tr>
+          <tr><td>Employee self-service</td><td class="cy">✓</td><td class="cy">✓</td><td class="us">✓ WhatsApp-first</td></tr>
+          <tr><td>Works in browser — no app</td><td class="cn">App required</td><td class="cn">App required</td><td class="us">✓ Any phone</td></tr>
+          <tr><td>Starting price</td><td style="color:#94a3b8;">₹30L+/year</td><td style="color:#94a3b8;">₹15K-1L/year</td><td class="us">₹17,988/year</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 5: COMPLIANCE -->
+<section id="s5" class="bg-light">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">05 / 08 · COMPLIANCE</p>
+    <div class="badge-section">⚖️ Indian Labour Code 2025</div>
+    <h2 class="section-title">Fully Compliant with<br><span>Indian Labour Code 2025</span></h2>
+    <p class="section-sub">The new Labour Code changed everything — PF calculations, wage definitions, overtime rules. MPower HRMS is built from the ground up for ILC 2025 compliance.</p>
+
+    <div class="grid-2" style="margin-bottom:32px;">
+      <div style="display:grid;gap:12px;">
+        <div class="card" style="border-left:4px solid #534AB7;">
+          <div class="card-title">PF Contributions — ILC 2025</div>
+          <div class="card-desc">Employee: 12% of basic+DA. Employer: 12% (8.33% to EPS, 3.67% to EPF). New wage code changes what counts as "basic" — our system applies correct definition. ECR file auto-generated for EPFO upload.</div>
+        </div>
+        <div class="card" style="border-left:4px solid #1D9E75;">
+          <div class="card-title">ESI Contributions</div>
+          <div class="card-desc">Employee: 0.75% of gross wages. Employer: 3.25% of gross wages. Auto-identify ESIC-eligible employees (gross ≤ ₹21,000/month). Monthly challan auto-calculated. Return filing support.</div>
+        </div>
+        <div class="card" style="border-left:4px solid #f59e0b;">
+          <div class="card-title">TDS on Salary — Section 192</div>
+          <div class="card-desc">Annual TDS computation per employee. Old vs new tax regime comparison. Investment declaration collection. Form 16 generation. TDS deposited on time — avoid penalties.</div>
+        </div>
+        <div class="card" style="border-left:4px solid #ef4444;">
+          <div class="card-title">Professional Tax — State-wise</div>
+          <div class="card-desc">AP and Telangana PT slabs built in. Auto-deduction per state slab. PT returns supported. Multiple states — system applies correct slab automatically.</div>
+        </div>
+      </div>
+      <div>
+        <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">Compliance Calendar — Auto-managed</p>
+        <div style="display:grid;gap:10px;">
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;background:#f5f3ff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">📅</div>
+            <div>
+              <div style="font-size:13px;font-weight:700;">By 15th every month</div>
+              <div style="font-size:12px;color:#64748b;">PF challan deposit + ESI challan. System alerts 3 days before due date.</div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;background:#f5f3ff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">📊</div>
+            <div>
+              <div style="font-size:13px;font-weight:700;">Quarterly</div>
+              <div style="font-size:12px;color:#64748b;">TDS returns Form 24Q. System generates file ready for upload to TRACES.</div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;background:#f5f3ff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">📋</div>
+            <div>
+              <div style="font-size:13px;font-weight:700;">Annual</div>
+              <div style="font-size:12px;color:#64748b;">Form 16 generated per employee. ESI Annual Return. PF Annual Return. All ready in one click.</div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;background:#fee2e2;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">⚠️</div>
+            <div>
+              <div style="font-size:13px;font-weight:700;">Labour Inspector Visit</div>
+              <div style="font-size:12px;color:#64748b;">All records organised digitally — attendance register, salary register, leave register. Download and present instantly.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:16px;padding:24px;text-align:center;">
+      <p style="font-size:16px;font-weight:700;color:#4c1d95;margin-bottom:6px;">MPower HRMS = Zero compliance penalty risk</p>
+      <p style="font-size:13px;color:#6d28d9;">PF · ESI · TDS · PT · Labour Code 2025 · All auto-calculated · All on time</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 6: PRICING -->
+<section id="s6" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">06 / 08 · PRICING</p>
+    <div class="badge-section">💰 Simple Pricing</div>
+    <h2 class="section-title">Per Employee or Flat Rate.<br><span>You Choose.</span></h2>
+    <p class="section-sub">Transparent pricing. No hidden fees. No per-module charges. Everything included.</p>
+
+    <div class="grid-4" style="margin-bottom:28px;">
+      <div class="tier">
+        <div class="tier-header" style="background:#534AB7;color:#fff;">
+          <div class="tier-name">Basic</div>
+          <div class="tier-price">₹1,499<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">Up to 50 employees</div>
+        </div>
+        <div class="tier-body">
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Employee profiles</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Attendance tracking</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Leave management</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Basic payroll</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Payslips on WhatsApp</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier featured">
+        <div style="background:#534AB7;color:#c4b5fd;text-align:center;font-size:10px;font-weight:700;padding:4px;letter-spacing:1px;">MOST POPULAR</div>
+        <div class="tier-header" style="background:#2d2780;color:#fff;">
+          <div class="tier-name">Standard</div>
+          <div class="tier-price">₹2,999<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">Up to 200 employees</div>
+        </div>
+        <div class="tier-body">
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Everything in Basic</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">PF + ESI + TDS</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Biometric integration</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Shift management</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">HR analytics</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier">
+        <div class="tier-header" style="background:#185FA5;color:#fff;">
+          <div class="tier-name">Advanced</div>
+          <div class="tier-price">₹4,999<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">Up to 500 employees</div>
+        </div>
+        <div class="tier-body">
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Everything in Standard</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Multi-branch management</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Health insurance tracking</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Performance reviews</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Custom reports</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="tier">
+        <div class="tier-header" style="background:#854F0B;color:#fff;">
+          <div class="tier-name">Enterprise</div>
+          <div class="tier-price">₹7,999<span style="font-size:14px;font-weight:400;">/mo</span></div>
+          <div class="tier-sub">Unlimited employees</div>
+        </div>
+        <div class="tier-body">
+          <ul class="flist">
+            <li class="fitem"><span class="fcheck">✓</span><span class="fcheck">✓</span><span class="ftext">Everything in Advanced</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">Multi-currency</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">AI attendance analysis</span></li>
+            <li class="fitem"><span class="fcheck">✓</span><span class="ftext">24×7 dedicated support</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;">
+      <p style="font-size:13px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">📊 Your savings — 100 employee organisation on Standard plan</p>
+      <div class="grid-3">
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#534AB7;">40 hrs</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">HR time saved per month on payroll processing</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#534AB7;">Zero</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">PF/ESI penalty risk with auto-compliance</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:22px;font-weight:800;color:#534AB7;">₹2,999</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">Monthly — less than ₹30 per employee per month</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 7: ROADMAP -->
+<section id="s7" class="bg-light">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">07 / 08 · ROADMAP</p>
+    <div class="badge-section">🚀 What's Coming</div>
+    <h2 class="section-title">More Features.<br><span>Every Month.</span></h2>
+    <p class="section-sub">Based on what world-class HRMS delivers and what our customers ask for — here is what we are building next.</p>
+
+    <div class="grid-3">
+      <div class="improve-card">
+        <div class="improve-tag">📋 Phase 2 — Month 2</div>
+        <div class="improve-title">Employee Self-Service Portal</div>
+        <div class="improve-desc">Employee views payslips, applies for leave, updates bank details, downloads Form 16 — all from their WhatsApp or browser. Reduces 40% of HR team's daily enquiries instantly.</div>
+        <span class="p-high">High Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">📦 Phase 2 — Month 3</div>
+        <div class="improve-title">Recruitment & Onboarding</div>
+        <div class="improve-desc">Job posting, application tracking, interview scheduling, offer letter generation, document collection at joining. Complete hiring-to-joining workflow without switching tools.</div>
+        <span class="p-high">High Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">🎯 Phase 3 — Month 4</div>
+        <div class="improve-title">Performance Management</div>
+        <div class="improve-desc">Goal setting, KPI tracking, 360-degree feedback, appraisal workflow, rating calibration. Appraisal results link directly to salary revision in payroll module.</div>
+        <span class="p-med">Medium Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">💼 Phase 3 — Month 4</div>
+        <div class="improve-title">Expense Management</div>
+        <div class="improve-desc">Employee submits expense claim with receipt photo via WhatsApp. Manager approves digitally. Finance reimbursement in payroll automatically. Full audit trail.</div>
+        <span class="p-med">Medium Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">🚪 Phase 3 — Month 5</div>
+        <div class="improve-title">Exit Management</div>
+        <div class="improve-desc">Resignation workflow, notice period tracking, clearance checklist, full and final settlement calculation, experience letter generation. Complete exit without manual calculation.</div>
+        <span class="p-med">Medium Priority</span>
+      </div>
+      <div class="improve-card">
+        <div class="improve-tag">🤖 Phase 4 — Month 6</div>
+        <div class="improve-title">AI Attrition Prediction</div>
+        <div class="improve-desc">System analyses attendance patterns, leave frequency, overtime, and salary history to predict which employees are likely to resign — 60 days before they actually do.</div>
+        <span class="p-low">Future</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SLIDE 8: CTA -->
+<section id="s8" class="bg-white">
+  <div class="slide">
+    <p style="font-size:11px;color:#94a3b8;font-weight:600;letter-spacing:2px;margin-bottom:28px;">08 / 08 · GET STARTED</p>
+    <div class="badge-section">🎯 Start Today</div>
+    <h2 class="section-title">Your Team Deserves<br><span>Better HR Tools.</span></h2>
+    <p class="section-sub">Stop managing HR on Excel and WhatsApp. Start with MPower HRMS today — setup in one day, compliant from day one.</p>
+
+    <div class="grid-4" style="margin-bottom:36px;">
+      <div class="metric"><div class="metric-num">1 day</div><div class="metric-label">Setup time — start managing HR digitally from tomorrow</div></div>
+      <div class="metric"><div class="metric-num">ILC 2025</div><div class="metric-label">Labour Code compliant from day one</div></div>
+      <div class="metric"><div class="metric-num">₹0</div><div class="metric-label">Setup fee, training fee, penalty risk</div></div>
+      <div class="metric"><div class="metric-num">WhatsApp</div><div class="metric-label">Every notification — payslip, leave, attendance</div></div>
+    </div>
+
+    <div class="cta">
+      <div style="font-size:13px;color:rgba(255,255,255,0.6);font-weight:600;letter-spacing:2px;margin-bottom:14px;">READY TO TRANSFORM HR?</div>
+      <div class="cta-title">Start Your Free Trial</div>
+      <div class="cta-sub">No payment. No credit card. No setup fee.<br>Telugu support available. Our team helps with data migration from Excel.</div>
+      <a href="https://mpowerind.in/registration" class="btn-primary">👥 Start Free Trial →</a>
+      <a href="https://mpowerind.in" class="btn-outline">See Live Demo</a>
+      <div style="margin-top:20px;font-size:12px;color:rgba(255,255,255,0.4);">mpowerind.in · support@mpowerind.in · Telugu support available</div>
+    </div>
+  </div>
+</section>
+
+<script>
+function go(id){document.getElementById(id).scrollIntoView({behavior:'smooth'});document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));event.target.classList.add('active')}
+const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){const id=e.target.id;const idx=['s1','s2','s3','s4','s5','s6','s7','s8'].indexOf(id);document.querySelectorAll('.nav-btn').forEach((b,i)=>b.classList.toggle('active',i===idx))}})},{threshold:0.3});
+document.querySelectorAll('section[id]').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

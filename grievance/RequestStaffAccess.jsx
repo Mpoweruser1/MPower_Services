@@ -1,7 +1,7 @@
 // grievance/RequestStaffAccess.jsx
 // MLA/MP office requests access to the grievance portal
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { fetchAppIdBySlug, fetchConstituencies } from './grievanceApi';
 
@@ -94,9 +94,12 @@ export default function RequestStaffAccess() {
           <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6, marginBottom: 20 }}>
             Thank you. MPower team will verify your details and activate your portal within 1 working day. You will receive a confirmation on WhatsApp at {form.phone}.
           </div>
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#15803d' }}>
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#15803d', marginBottom: 20 }}>
             Reference: {form.constituencyName} · {new Date().toLocaleDateString('en-IN')}
           </div>
+          <Link to={`/grievance/${stateSlug || 'andhra-pradesh'}`} style={{ display: 'inline-block', fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>
+            ← Back to home
+          </Link>
         </div>
       </div>
     );
@@ -107,13 +110,13 @@ export default function RequestStaffAccess() {
 
       {/* Header */}
       <div style={{ background: '#1a1a2e', padding: '14px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Link to={`/grievance/${stateSlug || 'andhra-pradesh'}`} style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: '#e8a020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1a1a2e', fontSize: 15 }}>M</div>
           <div>
             <div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>MPower CTS</div>
             <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>MLA / MP Office Registration</div>
           </div>
-        </div>
+        </Link>
       </div>
 
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px 40px' }}>

@@ -98,7 +98,7 @@ export default function CitizenPortal({ stateSlug }) {
 
   if (appId === undefined) return <CenteredNote>Loading…</CenteredNote>;
   if (appId === null) {
-    return <CenteredNote>This state isn't set up on this platform yet. Check the link you were given, or contact your local office.</CenteredNote>;
+    return <CenteredNote showHomeLink>This state isn't set up on this platform yet. Check the link you were given, or contact your local office.</CenteredNote>;
   }
   if (!appSettings) return <CenteredNote>Loading…</CenteredNote>;
 
@@ -139,8 +139,19 @@ function CitizenTopBar({ stateSlug }) {
   );
 }
 
-function CenteredNote({ children }) {
-  return <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 14 }}>{children}</div>;
+function CenteredNote({ children, showHomeLink }) {
+  return (
+    <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 14 }}>
+      {children}
+      {showHomeLink && (
+        <div style={{ marginTop: 16 }}>
+          <a href="/" style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>
+            ← Back to home
+          </a>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ---------------------------------------------------------------------
@@ -307,7 +318,7 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
  * ------------------------------------------------------------------- */
 
 function ComplaintWorkspace({ appId, appSettings, citizen, language, t, onSignOut }) {
-  const [showForm, setShowForm] = useState(true);
+  const [showForm, setShowForm] = useState(false);
   const [complaints, setComplaints] = useState([]);
   const [activeComplaint, setActiveComplaint] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -341,6 +352,7 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t, onSignOu
           citizen={citizen}
           language={language}
           t={t}
+          onCancel={() => setShowForm(false)}
           onSubmitted={() => {
             setShowForm(false);
             loadComplaints();
@@ -456,7 +468,7 @@ export function FeedbackWidget({ appId, citizenId, userId, context, onClose }) {
   );
 }
 
-function ComplaintForm({ appId, appSettings, citizen, language, t, onSubmitted }) {
+function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onSubmitted }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('Normal');
@@ -700,6 +712,11 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onSubmitted }
       <button type="submit" disabled={busy} style={buttonStyle}>
         {busy ? 'Submitting…' : `📮 ${t('submit_button', 'Submit Complaint')}`}
       </button>
+      {onCancel && (
+        <button type="button" onClick={onCancel} disabled={busy} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: '8px 0' }}>
+          Cancel
+        </button>
+      )}
     </form>
   );
 }

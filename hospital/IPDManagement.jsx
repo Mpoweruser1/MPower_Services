@@ -15,9 +15,9 @@ const S = {
   card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 12 },
   stat: { background: '#111113', borderRadius: 10, padding: 14, textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' },
   input: (err) => ({ width: '100%', padding: '10px 14px', background: '#111113', border: `1px solid ${err ? '#E05A5A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }),
-  label: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
+  label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' },
   textarea: { width: '100%', padding: '10px 14px', background: '#1C1C1E', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'none' },
-  fieldErr: { fontSize: 12, color: '#E05A5A', marginTop: 4 },
+  fieldErr: { fontSize: 11, color: '#E05A5A', marginTop: 4 },
 };
 
 export default function IPDManagement() {
@@ -31,6 +31,14 @@ export default function IPDManagement() {
 
   // Admit patient
   const [admitPatient, setAdmitPatient] = useState(null);
+
+  // Was importing activePatient from context but never actually using
+  // it — a patient set active on Registration never carried through
+  // to here. Only takes it on mount, so switching to a different
+  // patient later within the same IPD screen doesn't get overridden.
+  useEffect(() => {
+    if (activePatient) setAdmitPatient(activePatient);
+  }, []);
   const [admitWardId, setAdmitWardId]   = useState('');
   const [admitBedNo, setAdmitBedNo]     = useState('');
   const [admitBedError, setAdmitBedError] = useState('');
@@ -167,7 +175,7 @@ export default function IPDManagement() {
 
       <div style={S.inner}>
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>IPD Management · IPD నిర్వహణ</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>IPD Management · IPD నిర్వహణ</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>IPD / Bed Management</h1>
         </div>
 
@@ -181,7 +189,7 @@ export default function IPDManagement() {
           ].map((s) => (
             <div key={s.label} style={{ ...S.stat, border: `1px solid ${s.alert ? 'rgba(224,90,90,0.2)' : 'rgba(255,255,255,0.05)'}` }}>
               <p style={{ fontSize: 18, fontWeight: 700, margin: 0, color: s.alert ? '#E05A5A' : s.color }}>{s.value}</p>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '3px 0 0' }}>{s.label}</p>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '3px 0 0' }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -201,14 +209,14 @@ export default function IPDManagement() {
         </div>
 
         {loading ? (
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
         ) : (
           <>
             {/* Ward overview */}
             {tab === 'overview' && (
               wards.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No wards configured yet.</p>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No wards configured yet.</p>
                 </div>
               ) : (
                 wards.map((ward) => (
@@ -216,11 +224,11 @@ export default function IPDManagement() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                       <div>
                         <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>{ward.ward_type} Ward</p>
-                        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{ward.occupied}/{ward.total_beds} beds occupied</p>
+                        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{ward.occupied}/{ward.total_beds} beds occupied</p>
                       </div>
                       <div style={{ background: '#111113', borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
                         <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: ward.available === 0 ? '#E05A5A' : '#6AAA90' }}>{ward.available}</p>
-                        <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>available</p>
+                        <p style={{ margin: 0, fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>available</p>
                       </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 6 }}>
@@ -228,7 +236,7 @@ export default function IPDManagement() {
                         const adm = admissions.find((a) => a.bedNo === bed.bedNo && a.wardId === ward.id);
                         return (
                           <div key={bed.bedNo} title={bed.occupied ? (adm?.patientName || 'Occupied') : 'Available'}
-                            style={{ padding: '6px 4px', borderRadius: 6, textAlign: 'center', fontSize: 12, fontWeight: 500, background: bed.occupied ? 'rgba(224,90,90,0.15)' : 'rgba(106,170,144,0.12)', color: bed.occupied ? '#E05A5A' : '#6AAA90', border: `1px solid ${bed.occupied ? 'rgba(224,90,90,0.25)' : 'rgba(106,170,144,0.2)'}` }}>
+                            style={{ padding: '6px 4px', borderRadius: 6, textAlign: 'center', fontSize: 9, fontWeight: 500, background: bed.occupied ? 'rgba(224,90,90,0.15)' : 'rgba(106,170,144,0.12)', color: bed.occupied ? '#E05A5A' : '#6AAA90', border: `1px solid ${bed.occupied ? 'rgba(224,90,90,0.25)' : 'rgba(106,170,144,0.2)'}` }}>
                             {bed.bedNo.split('-').pop()}
                           </div>
                         );
@@ -244,7 +252,7 @@ export default function IPDManagement() {
               admissions.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 20px' }}>
                   <p style={{ fontSize: 32, marginBottom: 12 }}>🛏️</p>
-                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>No patients currently admitted.</p>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No patients currently admitted.</p>
                 </div>
               ) : (
                 admissions.map((a) => (
@@ -252,10 +260,10 @@ export default function IPDManagement() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                       <div>
                         <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#fff' }}>{a.patientName}</p>
-                        <p style={{ margin: '3px 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{a.patientUid} · {a.patientGender}</p>
-                        <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Bed {a.bedNo} · {a.wardName} Ward · Admitted {a.admittedOn}</p>
+                        <p style={{ margin: '3px 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{a.patientUid} · {a.patientGender}</p>
+                        <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>Bed {a.bedNo} · {a.wardName} Ward · Admitted {a.admittedOn}</p>
                       </div>
-                      <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: 'rgba(106,170,144,0.12)', color: '#6AAA90', border: '1px solid rgba(106,170,144,0.2)', fontWeight: 500 }}>Admitted</span>
+                      <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: 'rgba(106,170,144,0.12)', color: '#6AAA90', border: '1px solid rgba(106,170,144,0.2)', fontWeight: 500 }}>Admitted</span>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button onClick={() => { setDischargingAdm(a); setDischargeSummary(''); setDischargeSummaryError(''); }}
@@ -275,7 +283,7 @@ export default function IPDManagement() {
             {/* Admit patient */}
             {tab === 'admit' && (
               <div style={S.card}>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Admit patient · రోగిని చేర్చండి</p>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Admit patient · రోగిని చేర్చండి</p>
 
                 {admitError && (
                   <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A' }}>
@@ -303,7 +311,7 @@ export default function IPDManagement() {
                     ))}
                   </select>
                   {wards.filter((w) => w.available > 0).length === 0 && (
-                    <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4 }}>⚠ No beds available in any ward</p>
+                    <p style={{ fontSize: 11, color: '#E05A5A', marginTop: 4 }}>⚠ No beds available in any ward</p>
                   )}
                 </div>
 
@@ -358,9 +366,9 @@ export default function IPDManagement() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
           <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 480, fontFamily: 'Inter, sans-serif' }}>
             <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600, color: '#fff' }}>Discharge — {dischargingAdm.patientName}</p>
-            <p style={{ margin: '0 0 16px', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Bed {dischargingAdm.bedNo} · {dischargingAdm.wardName} · Admitted {dischargingAdm.admittedOn}</p>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Bed {dischargingAdm.bedNo} · {dischargingAdm.wardName} · Admitted {dischargingAdm.admittedOn}</p>
 
-            <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
+            <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
               Discharge summary <span style={{ color: '#E05A5A' }}>*</span>
             </label>
             <textarea
@@ -372,13 +380,13 @@ export default function IPDManagement() {
               autoFocus
             />
             {dischargeSummaryError && <p style={S.fieldErr}>⚠ {dischargeSummaryError}</p>}
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
               {dischargeSummary.length} characters · minimum 10
             </p>
 
             <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
               <button onClick={() => { setDischargingAdm(null); setDischargeSummary(''); setDischargeSummaryError(''); }}
-                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'inherit' }}>
                 Cancel
               </button>
               <button onClick={discharge} disabled={discharging || dischargeSummary.trim().length < 10}

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
+import { useVisit } from '../context/VisitContext';
 import { useFormValidation, validators, sanitize } from '../shared/useFormValidation';
 import { useAutoSave } from '../shared/useAutoSave';
 import FormField from '../shared/FormField';
@@ -41,6 +42,7 @@ const S = {
 
 export default function PatientRegistration() {
   const { tenant } = useTenant();
+  const { setActivePatient } = useVisit();
   const [form, setForm]           = useState(EMPTY);
   const [saving, setSaving]       = useState(false);
   const [registered, setRegistered] = useState(null);
@@ -49,8 +51,10 @@ export default function PatientRegistration() {
   const { errors, touched, validate, touch, onChange: onValidate, reset } =
     useFormValidation(RULES);
 
-  const { hasDraft, draftData, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft } =
-    useAutoSave(`patient_registration_${tenant?.userRowId}`, form);
+  const { hasDraft, lastSaved, isDirty, clearDraft, dismissDraft } =
+    useAutoSave('patient_registration', form, {
+      onRestore: (data) => setForm(data),
+    });
 
   function update(field, value) {
     let v = value;
@@ -114,6 +118,7 @@ export default function PatientRegistration() {
 
     clearDraft();
     reset();
+    setActivePatient(newPatient);
     setRegistered(newPatient);
     setSaving(false);
   }
@@ -141,7 +146,7 @@ export default function PatientRegistration() {
 
         {!registered ? (
           <>
-            {hasDraft && <DraftBanner lastSaved={lastSaved} onRestore={() => setForm(restoreDraft())} onDiscard={dismissDraft} />}
+            {hasDraft && <DraftBanner lastSaved={lastSaved} onRestore={() => {}} onDiscard={dismissDraft} />}
 
             {submitError && (
               <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A' }}>
