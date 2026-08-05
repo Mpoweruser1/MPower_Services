@@ -14,7 +14,7 @@ import HospitalNav from '../shared/HospitalNav';
 import NextActions from '../shared/NextActions';
 import BugReporter from '../shared/BugReporter';
 
-const VISIT_TYPES = ['New', 'Follow-up', 'Emergency', 'Review'];
+const VISIT_TYPES = ['New patient', 'Follow-up', 'Emergency', 'Review'];
 
 const RULES = {
   chief_complaint: [validators.required, validators.minLength(5)],
@@ -23,7 +23,7 @@ const RULES = {
 };
 
 const EMPTY_FORM = {
-  visit_type: 'New',
+  visit_type: 'New patient',
   visit_date: new Date().toISOString().slice(0, 10),
   chief_complaint: '', history: '', examination: '',
   diagnosis: '', doctor_id: '', follow_up_date: '', follow_up_notes: '',
@@ -66,9 +66,8 @@ export default function OpdVisit() {
 
   async function loadDoctors() {
     const { data } = await supabase.from('doctors')
-      .select('id, full_name, specialisation')
-      .eq('app_id', tenant.appId)
-      .eq('is_active', true);
+      .select('id, designation, users(full_name)')
+      .eq('app_id', tenant.appId);
     setDoctors(data || []);
     if (data?.length) setForm((f) => ({ ...f, doctor_id: data[0].id }));
   }
@@ -137,7 +136,7 @@ export default function OpdVisit() {
       patient_id: selectedPatient.id,
       doctor_id:  form.doctor_id || null,
       visit_date: form.visit_date,
-      visit_type: form.visit_type.toLowerCase(),
+      visit_type: form.visit_type,
       symptoms:   form.chief_complaint.trim(),
       diagnosis:  form.diagnosis.trim(),
     }).select().single();
@@ -233,7 +232,7 @@ export default function OpdVisit() {
                       <label style={S.label}>Doctor</label>
                       <select value={form.doctor_id} onChange={(e) => update('doctor_id', e.target.value)}
                         style={{ ...S.input(false), cursor: 'pointer' }}>
-                        {doctors.map((d) => <option key={d.id} value={d.id}>{d.full_name}{d.specialisation ? ` — ${d.specialisation}` : ''}</option>)}
+                        {doctors.map((d) => <option key={d.id} value={d.id}>{d.users?.full_name || 'Unnamed'}{d.designation ? ` — ${d.designation}` : ''}</option>)}
                       </select>
                     </div>
                   )}

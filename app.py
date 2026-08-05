@@ -1,0 +1,262 @@
+import pandas as pd
+import streamlit as st
+
+# 1. Page Configuration
+st.set_page_config(page_title="Andhra Pradesh Constituency Lookup", layout="wide")
+
+st.title("🗳️ AP Constituency & Mandal Finder")
+st.write("Enter a Mandal name below to find its corresponding constituency, MLA, and district details.")
+
+@st.cache_data
+def parse_dataset_from_text(raw_text):
+    """Parses the multiline string dataset into a structured pandas DataFrame."""
+    data = []
+    lines = raw_text.strip().split('\n')
+    
+    for line in lines:
+        try:
+            parts = []
+            in_quotes = False
+            current = ""
+            
+            for char in line:
+                if char == '"':
+                    in_quotes = not in_quotes
+                elif char == ',' and not in_quotes:
+                    parts.append(current.strip())
+                    current = ""
+                    continue
+                current += char
+            parts.append(current.strip())
+            
+            if len(parts) >= 7:
+                mandals_str = parts[6].strip('"')
+                
+                row = {
+                    "id": int(parts[0]),
+                    "constituency": parts[1],
+                    "district": parts[2],
+                    "reservation": parts[3],
+                    "mla_name": parts[4],
+                    "party": parts[5],
+                    "mandals": [m.strip() for m in mandals_str.split(",")]
+                }
+                data.append(row)
+        except Exception:
+            continue
+            
+    return pd.DataFrame(data)
+
+def get_constituency_info_by_mandal(df, target_mandal):
+    """Searches for a specific mandal (case-insensitive) and returns matches."""
+    if not target_mandal:
+        return pd.DataFrame()
+    target_clean = target_mandal.strip().lower()
+    matches = df[df['mandals'].apply(lambda m_list: any(m.lower() == target_clean for m in m_list))]
+    return matches
+
+# 2. Raw Dataset Loading
+raw_dataset = """1,Ichchapuram,Srikakulam,None,Bendalam Ashok,TDP,"Ichchapuram, Kanchili, Kaviti, Sompeta"
+2,Palasa,Srikakulam,None,Gouthu Sireesha,TDP,"Palasa, Vajrapukotturu, Mandasa"
+3,Tekkali,Srikakulam,None,Kinjarapu Atchannaidu,TDP,"Tekkali, Kotabommali, Santhabommali, Nandigam"
+4,Pathapatnam,Srikakulam,None,Mamidi Govinda Rao,TDP,"Pathapatnam, Meliaputti, Kothur, Hiramandalam"
+5,Srikakulam,Srikakulam,None,Gowthu Hari Sita Mahalakshmi,TDP,"Srikakulam, Gara"
+6,Amadalavalasa,Srikakulam,None,Koona Ravi Kumar,TDP,"Amadalavalasa, Sarubujjili, Ponduru, Laveru"
+7,Etcherla,Srikakulam,None,Nadukuditi Eswara Rao,BJP,"Etcherla, Laveru, G.Sigadam, Ranasthalam"
+8,Narasannapeta,Srikakulam,None,Baggu Ramana Murthy,TDP,"Narasannapeta, Saravakota, Jalumuru, Polaki"
+9,Rajam,Vizianagaram,SC,Kondeti Murali Mohan,TDP,"Rajam, Regidi Amadalavalasa, Vangara, Santhakaviti"
+10,Palakonda,Parvathipuram Manyam,ST,Nimmaka Jayakrishna,JSP,"Palakonda, Seethanagaram, Veeraghattam, Bhamini"
+11,Kurupam,Parvathipuram Manyam,ST,Toyaka Jagadeswari,TDP,"Kurupam, Jiyyammavalasa, Gummalakshmipuram, Komarada"
+12,Parvathipuram,Parvathipuram Manyam,SC,Bonela Vijaya Chandra,TDP,"Parvathipuram, Seethanagaram"
+13,Salur,Parvathipuram Manyam,ST,Ghatraju Sandhyarani,TDP,"Salur, Pachipenta, Mentada"
+14,Bobbili,Vizianagaram,None,R.V.S.K.K. Ranga Rao (Baby Nayana),TDP,"Bobbili, Ramabhadrapuram, Badangi, Terlam"
+15,Cheepurupalli,Vizianagaram,None,Kimidi Kalavenkata Rao,TDP,"Cheepurupalli, Merakamudidam, Garividi, Gurla"
+16,Gajapathinagaram,Vizianagaram,None,Kondapalli Srinivas,TDP,"Gajapathinagaram, Bondapalle, Dattirajeru, Gantyada"
+17,Nellimarla,Vizianagaram,None,Locana Cherukuvada,JSP,"Nellimarla, Pusapatirega, Denkada, Vizianagaram (Rural)"
+18,Vizianagaram,Vizianagaram,None,P. Adithya Ashok,TDP,Vizianagaram Urban
+19,Srungavarapukota,Vizianagaram,None,Kolla Lalitha Kumari,TDP,"Srungavarapukota, Lakkavarapukota, Kothavalasa, Vepada"
+20,Bhimili,Visakhapatnam,None,Ganta Srinivasa Rao,TDP,"Bheemunipatnam, Padmanabham, Anandapuram"
+21,Visakhapatnam East,Visakhapatnam,None,Velagapudi Ramakrishna Babu,TDP,Visakhapatnam Urban (Part)
+22,Visakhapatnam South,Visakhapatnam,None,Vamsi Krishna Srinivas Yadav,JSP,Visakhapatnam Urban (Part)
+23,Visakhapatnam North,Visakhapatnam,None,P.G.V.R. Naidu (Gana Babu),TDP,Visakhapatnam Urban (Part)
+24,Visakhapatnam West,Visakhapatnam,None,P.G. Ramesh Babu,TDP,Visakhapatnam Urban (Part)
+25,Gajuwaka,Visakhapatnam,None,Palla Srinivasa Rao,TDP,Gajuwaka (Urban/Rural)
+26,Chodavaram,Anakapalli,None,Kalidindi Surya Naga Sanyasi Raju,TDP,"Chodavaram, Rolugunta, Butchayyapeta, K.Kotapadu"
+27,Madugula,Anakapalli,None,Bandaru Satyanarayana Murthy,TDP,"Madugula, Cheedikada, Devarapalle, K.Kotapadu"
+28,Araku Valley,Alluri Sitharama Raju,ST,Regam Matyalingam,YSRCP,"Araku Valley, Dumbriguda, Ananthagiri, Hukumpeta, Munchingi Puttu"
+29,Paderu,Alluri Sitharama Raju,ST,Matsa Phalguna,TDP,"Paderu, G.Madugula, Chintapalle, Koyyuru, Pedabayalu"
+30,Anakapalle,Anakapalli,None,Konathala Ramakrishna,JSP,"Anakapalle, Kasimkota"
+31,Pendurthi,Visakhapatnam,None,Panchakarla Ramesh Babu,JSP,"Pendurthi, Sabbavaram, Visakhapatnam Rural"
+32,Elamanchili,Anakapalli,None,Sundarapu Vijaya Kumar,JSP,"Elamanchili, Rambilli, Munagapaka, Atchutapuram"
+33,Payakaraopet,Anakapalli,SC,Vangalapudi Anitha,TDP,"Payakaraopet, Nakkapalle, Kotauratla, S.Rayavaram"
+34,Narsipatnam,Anakapalli,None,Chintakayala Ayyanna Patrudu,TDP,"Narsipatnam, Golugonda, Narsipatnam Rural, Makavarapalem"
+35,Tuni,Kakinada,None,Yanamala Divya,TDP,"Tuni, Thondangi, Kotananduru"
+36,Prathipadu,Kakinada,None,Varupula Satyaprabha,TDP,"Prathipadu, Sankhavaram, Yeleswaram, Rowthulapudi"
+37,Pithapuram,Kakinada,None,Konidela Pawan Kalyan,JSP,"Pithapuram, Gollaprolu, Kothapalle"
+38,Kakinada Rural,Kakinada,None,Pantham Nanaji,JSP,"Kakinada Rural, Karapa"
+39,Peddapuram,Kakinada,None,Nimmakayala Chinarajappa,TDP,"Peddapuram, Samalkota"
+40,Anaparthy,East Godavari,None,Ramakrishna Reddy Nallamilli,BJP,"Anaparthy, Bikkavolu, Rangampeta, Pedapudi"
+41,Kakinada City,Kakinada,None,Vanamadi Venkateswara Rao,TDP,Kakinada Urban
+42,Ramachandrapuram,Dr. B.R. Ambedkar Konaseema,None,Vasamsetti Subhash,TDP,"Ramachandrapuram, Kalluru, Draedara, Pamarru"
+43,Mummidivaram,Dr. B.R. Ambedkar Konaseema,None,Pada Venkata Satish Kumar,TDP,"Mummidivaram, I.Polavaram, Katrenikona, Thallarevu"
+44,Amalapuram,Dr. B.R. Ambedkar Konaseema,SC,Aithabathula Anandarao,TDP,"Amalapuram, Uppalaguptam, Allavaram"
+45,Razole,Dr. B.R. Ambedkar Konaseema,SC,Deva Vara Prasad,JSP,"Razole, Malikipuram, Sakhinetipalli, Mamidikuduru"
+46,Gannavaram,Dr. B.R. Ambedkar Konaseema,SC,Giddi Satyanarayana,JSP,"Gannavaram, Ambajipeta, P.Gannavaram, Ainavilli"
+47,Kothapeta,Dr. B.R. Ambedkar Konaseema,None,Bandaru Satyananda Rao,TDP,"Kothapeta, Alamuru, Atreyapuram"
+48,Mandapeta,Dr. B.R. Ambedkar Konaseema,None,Vegulla Jogeswara Rao,TDP,"Mandapeta, Rayavaram, Kapileswarapuram"
+49,Rajanagaram,East Godavari,None,Battula Balaramakrishna,JSP,"Rajanagaram, Seethanagaram, Korukonda"
+50,Rajahmundry City,East Godavari,None,Adireddy Vasu,TDP,Rajahmundry Urban (Part)"
+51,Rajahmundry Rural,East Godavari,None,Gorantla Butchaiah Chowdary,TDP,"Rajahmundry Rural, Kadiam"
+52,Jaggampeta,Kakinada,None,Jyothula Nehru,TDP,"Jaggampeta, Gandepalle, Kirlampudi, Gollaprolu"
+53,Rampachodavaram,Alluri Sitharama Raju,ST,Miriyala Sirisha Devi,TDP,"Rampachodavaram, Y.Ramavaram, Gangavaram, Maredumilli, Devipatnam, Addateegala, Rajavommangi"
+54,Kovvur,East Godavari,SC,Muppidi Venkateswara Rao,TDP,"Kovvur, Chagallu, Tallapudi"
+55,Nidadavole,East Godavari,None,Kandula Durgesh,JSP,"Nidadavole, Peravali, Undrajavaram"
+56,Achanta,West Godavari,None,Satyanarayana Pithani,TDP,"Achanta, Penumantra, Poduru"
+57,Palakollu,West Godavari,None,Nimmala Ramanaidu,TDP,"Palakollu, Yelamanchili"
+58,Narasapuram,West Godavari,None,Bommidi Nayakar,JSP,"Narasapuram, Mogalthur"
+59,Bhimavaram,West Godavari,None,Pulaparthi Ramanjaneyulu (Anjibabu),JSP,"Bhimavaram, Veeravasaram"
+60,Undi,West Godavari,None,Kanumuru Raghu Rama Krishna Raju,TDP,"Undi, Akividu, Kalla"
+61,Tanuku,West Godavari,None,Arimilli Radha Krishna,TDP,"Tanuku, Attili, Iragavaram"
+62,Tadepalligudem,West Godavari,None,Bolisetti Srinivas,JSP,"Tadepalligudem, Pentapadu"
+63,Unguturu,Eluru,None,Parthasarathi Dharmaraju,JSP,"Unguturu, Ganapavaram, Nidamarru"
+64,Denduluru,Eluru,None,Chintamaneni Prabhakar,TDP,"Denduluru, Pedapadu, Eluru Rural"
+65,Eluru,Eluru,None,Badeti Radha Krishnayya (Chanti),TDP,Eluru Urban
+66,Gopalapuram,East Godavari,SC,Maddala Rajesh Kumar,TDP,"Gopalapuram, Dwarka Tirumala, Nallajerla, Devarapalli"
+67,Polavaram,Eluru,ST,Chirri Balaraju,TDP,"Polavaram, Buttayagudem, Jeelugumilli, Koyyuru"
+68,Chintalapudi,Eluru,SC,Songa Roshan Kumar,TDP,"Chintalapudi, Lingapalem, Kamavarapukota, T.Narasapuram"
+69,Tiruvuru,NTR,SC,Kholleti Swamy,TDP,"Tiruvuru, A.Konduru, Vissannapeta, Gampalagudem"
+70,Nuzvid,Eluru,None,Methukumilli Venkata Appa Rao,TDP,"Nuzvid, Agiripalle, Chatrai"
+71,Gannavaram,Krishna,None,Yarlagadda Venkata Rao,TDP,"Gannavaram, Bapulapadu, Unguturu"
+72,Gudivada,Krishna,None,Venigandla Ramu,TDP,"Gudivada, Gudlavalleru"
+73,Kaikalur,Eluru,None,Kamineni Srinivas,BJP,"Kaikalur, Mandavalli, Kalidindi, Mudinepalli"
+74,Pedana,Krishna,None,Kagita Krishna Prasad,TDP,"Pedana, Guduru, Bantumilli"
+75,Machilipatnam,Krishna,None,Kollu Ravindra,TDP,"Machilipatnam Urban, Machilipatnam Rural"
+76,Avanigadda,Krishna,None,Mandali Buddha Prasad,JSP,"Avanigadda, Challapalle, Ghantasala, Mopidevi, Nagayalanka"
+77,Pamarru,Krishna,SC,Varla Kumar Raja,TDP,"Pamarru, Thotlavalluru, Pamidimukkala, Movva"
+78,Penamaluru,Krishna,None,Bode Prasad,TDP,"Penamaluru, Kankipadu, Vuyyuru"
+79,Vijayawada West,NTR,None,Y. Sujana Chowdary,BJP,Vijayawada Urban (Part)
+80,Vijayawada Central,NTR,None,Bonda Umamaheswara Rao,TDP,Vijayawada Urban (Part)
+81,Vijayawada East,NTR,None,Gadde Rama Mohan,TDP,Vijayawada Urban (Part)
+82,Mylavaram,NTR,None,Vasantha Venkata Krishna Prasad,TDP,"Mylavaram, Ibrahimpatnam, G.Kotturu, Reddigudem"
+83,Nandigama,NTR,SC,Tangirala Sowmya,TDP,"Nandigama, Kanchikacherla, Chandarlapadu, Veuluru"
+84,Jaggayyapeta,NTR,None,Sriraghavendra Rao,TDP,"Jaggayyapeta, Vatsavai, Penuganchiprolu"
+85,Pedakurapadu,Palnadu,None,Bhashyam Praveen,TDP,"Pedakurapadu, Atchampet, Krosuru, Amaravathi"
+86,Tadikonda,Guntur,SC,Tenali Sravan Kumar,TDP,"Tadikonda, Thullur, Amaravathi (Part), Vatticherukuru"
+87,Mangalagiri,Guntur,None,Nara Lokesh,TDP,"Mangalagiri, Tadepalle"
+88,Ponnuru,Guntur,None,Dhulipalla Narendra Kumar,TDP,"Ponnuru, Chebrolu, Pedakakani"
+89,Vemuru,Bapatla,SC,Nakka Anand Babu,TDP,"Vemuru, Kolluru, Kollipara, Bhattiprolu"
+90,Repalle,Bapatla,None,Anagani Satya Prasad,TDP,"Repalle, Nagaram, Nizampatnam, Cherukupalle"
+91,Tenali,Guntur,None,Nadendla Manohar,JSP,"Tenali, Kollipara"
+92,Bapatla,Bapatla,None,Vegesana Narendra Raju,TDP,"Bapatla, Karlapalem, Pittalavanipalem"
+93,Prathipadu,Guntur,SC,Babu Rao Ballem,TDP,"Prathipadu, Kakumanu, Vatticherukuru, Guntur Rural"
+94,Guntur West,Guntur,None,Galla Madhavi,TDP,Guntur Urban (Part)
+95,Guntur East,Guntur,None,Mohammed Naseer Ahmed,TDP,Guntur Urban (Part)
+96,Chilakaluripet,Palnadu,None,Prathipati Pullarao,TDP,"Chilakaluripet, Nadendla, Edlapadu"
+97,Narasaraopet,Palnadu,None,Chada Srinivas Reddy,TDP,"Narasaraopet, Rompicherla"
+98,Sattenapalle,Palnadu,None,Kansani Venkateswarlu,TDP,"Sattenapalle, Rajupalem, Phirangipuram"
+99,Vinukonda,Palnadu,None,G.V. Anjaneyulu,TDP,"Vinukonda, Bollapalle, Nuzendla, Savalyapuram"
+100,Gurajala,Palnadu,None,Yarapathineni Srinivasa Rao,TDP,"Gurajala, Dachepalle, Piduguralla, Karempudi"
+101,Macherla,Palnadu,None,Julakanti Brahmananda Reddy,TDP,"Macherla, Veldurthi, Rentachintala, Durgi"
+102,Yerragondapalem,Prakasam,SC,Dr. Damerla Satya Rao,TDP,"Yerragondapalem, Pullalacheruvu, Tripuranthakam, Dornala, Markapur (Part)"
+103,Darsi,Prakasam,None,Buchepalli Siva Prasad Reddy,YSRCP,"Darsi, Donakonda, Kurichedu, Mundlamuru, Tallur"
+104,Parchur,Bapatla,None,Daggubati Venkateswara Rao (Yeluri Sambasiva Rao),TDP,"Parchur, Yaddanapudi, Martur, Inkollu, Chinaganjam"
+105,Addanki,Prakasam,None,Gottipati Ravi Kumar,TDP,"Addanki, Ballikurava, Korisapadu, J.P.Romcherla"
+106,Chirala,Bapatla,None,Madduluri Mala Kondaiah,TDP,"Chirala, Vetapalem"
+107,Santhanuthalapadu,Prakasam,SC,B.N. Vijay Kumar,TDP,"Santhanuthalapadu, Naguluppalapadu, Maddipadu, Chimakurthy"
+108,Ongole,Prakasam,None,Damacharla Janardhana Rao,TDP,"Ongole, Kothapatnam"
+109,Kandukur,Sri Potti Sriramulu Nellore,None,Inturi Nageswara Rao,TDP,"Kandukur, Lingasamudram, Voletivaripalem, Gudluru"
+110,Kondapi,Prakasam,SC,Dola Sree Bala Veeranjaneya Swamy,TDP,"Kondapi, Tangutur, Zarugumilli, Singarayakonda, Marripudi"
+111,Markapuram,Prakasam,None,Kandula Narayana Reddy,TDP,"Markapur, Konakanamitla, Tarlupadu"
+112,Giddalur,Prakasam,None,Muthumula Ashok Reddy,TDP,"Giddalur, Bestawaripeta, C.Belagal, Komarolu, Racherla"
+113,Kanigiri,Prakasam,None,Dr. Mukku Ugra Narasimha Reddy,TDP,"Kanigiri, Peddaraveedu, Hanumanthunipadu, Pamur, Veligandla"
+114,Kavali,Sri Potti Sriramulu Nellore,None,Dagupati Venkata Krishna Reddy,TDP,"Kavali, Bogole, Jaladanki"
+115,Atmakur,Sri Potti Sriramulu Nellore,None,Anam Ramanarayana Reddy,TDP,"Atmakur, Anumasamudrampeta, Marripadu, Chejerla"
+116,Kovur,Sri Potti Sriramulu Nellore,None,Vemireddy Prashanthi Reddy,TDP,"Kovur, Vidavaluru, Kodavalur, Buchireddypalem"
+117,Nellore City,Sri Potti Sriramulu Nellore,None,Panguluru Srinivasa Rao,TDP,Nellore Urban (Part)
+118,Nellore Rural,Sri Potti Sriramulu Nellore,None,Kotamreddy Sridhar Reddy,TDP,"Nellore Rural, Venkatachalam, Manubolu"
+119,Sarvepalli,Sri Potti Sriramulu Nellore,None,Somireddy Chandra Mohan Reddy,TDP,"Sarvepalli, Muthukur, Podalakur, Ojili"
+120,Gudur,Sri Potti Sriramulu Nellore,SC,Pasapareddy Sunil Kumar,TDP,"Gudur, Chillakur, Sydapuram, Dakkili"
+121,Sullurpeta,Tirupati,SC,Nelavhala Vijayasree,TDP,"Sullurpeta, Tada, Naidupet, Pellakuru, Doravarisatram, Ojili"
+122,Venkatagiri,Sri Potti Sriramulu Nellore,None,Kurugondla Ramakrishna,TDP,"Venkatagiri, Balayapalle, Dakkili, Kaluvaya, Rapur"
+123,Udayagiri,Sri Potti Sriramulu Nellore,None,Kakarla Suresh,TDP,"Udayagiri, Duttalur, Varikuntapadu, Jaladanki, Vinjamur"
+124,Badvel,YSR Kadapa,SC,Dasari Sudha,YSRCP,"Badvel, Kalasapadu, B.Kodur, Porumamilla, Gopavaram"
+125,Rajampet,YSR Kadapa,None,Akkarampani Amarnath Reddy,TDP,"Rajampet, Mandapalli, Nandalur, Obulavaripalle, Penagaluru"
+126,Kadapa,YSR Kadapa,None,Madhavi Reddy,TDP,"Kadapa Urban, Cuddapah Rural"
+127,Kodur,Tirupati,SC,S. Purushottam,TDP,"Kodur, Penagaluru, Chitvel, Pullampeta"
+128,Rayachoti,Annamayya,None,Mandepalli Ramprasad Reddy,TDP,"Rayachoti, Lakkireddipalli, Ramapuram, Sambepalle"
+129,Pulivendla,YSR Kadapa,None,Y. S. Jagan Mohan Reddy,YSRCP,"Pulivendla, Simhadripuram, Vempalle, Vemula, Thallapalle"
+130,Kamalapuram,YSR Kadapa,None,Puttepalli Veera Siva Reddy,TDP,"Kamalapuram, Vallur, Chennur, Pendlimarri, Yerraguntla"
+131,Jammalamadugu,YSR Kadapa,None,C. Adinarayana Reddy,BJP,"Jammalamadugu, Mylavaram, Peddamudium, Kondapuram"
+132,Proddatur,YSR Kadapa,None,Nandyala Varadarajulu Reddy,TDP,"Proddatur, Raju Palem"
+133,Mydukur,YSR Kadapa,None,Putta Sudhakar Yadav,TDP,"Mydukur, Duvoor, Khajipet, Chapadu"
+134,Allagadda,Nandyal,None,Bhuma Akhila Priya,TDP,"Allagadda, Dornipadu, Chagalamarri, Sirivella, Uyyalawada"
+135,Srisailam,Nandyal,None,Budda Sesha Reddy,TDP,"Srisailam, Atmakur, Velgode, Bandi Atmakur"
+136,Nandikotkur,Nandyal,SC,Githaiah,TDP,"Nandikotkur, Jupadu Bunglow, Pamulapadu, Kothapalle"
+137,Kurnool,Kurnool,None,T.G. Bharath,TDP,Kurnool Urban"
+138,Panyam,Nandyal,None,Gaurisankara Reddy,TDP,"Panyam, Gadivemula, Orvakal, Kothapalle"
+139,Nandyal,Nandyal,None,N.M. Farooq,TDP,"Nandyal Urban, Nandyal Rural"
+140,Banaganapalle,Nandyal,None,B.C. Janardhan Reddy,TDP,"Banaganapalle, Owk, Koilkuntla, Sanjamala"
+141,Dhone,Nandyal,None,Kotla Jayasurya Prakasha Reddy,TDP,"Dhone, Peapally, Bethamcherla"
+142,Pattikonda,Kurnool,None,K.E. Shyam Kumar,TDP,"Pattikonda, Maddikera East, Tuggali, Krishnagiri"
+143,Kodumur,Kurnool,SC,B. Bonthu Sri Hari,TDP,"Kodumur, C.Belagal, Gonegandla"
+144,Yemmiganur,Kurnool,None,Jaya Nageswara Reddy,TDP,"Yemmiganur, Nandavaram, Gonegandla"
+145,Mantralayam,Kurnool,None,Y. Balanagi Reddy,YSRCP,"Mantralayam, Kosigi, Kowthalam, Pedda Kadubur"
+146,Adoni,Kurnool,None,Dr. P. Parthasarathi,BJP,Adoni"
+147,Alur,Kurnool,None,B. Virupakshi,YSRCP,"Alur, Aspari, Devanakonda, Halaharvi, Chippagiri, Holagunda"
+148,Rayadurg,Ananthapuramu,None,Kalava Srinivasulu,TDP,"Rayadurg, D.Hirehal, Kanekal, Bommanahal"
+149,Uravakonda,Ananthapuramu,None,Payyavula Keshav,TDP,"Uravakonda, Vidapanakal, Vajrakarur, Beluguppa"
+150,Guntakal,Ananthapuramu,None,Gummanur Jayaram,TDP,"Guntakal, Gooty, Pamidi"
+151,Tadipatri,Ananthapuramu,None,J.C. Asmith Reddy,TDP,"Tadipatri, Peddapappur, Yadiki"
+152,Singanamala,Ananthapuramu,SC,Bandaru Alivelu Mangamma,TDP,"Singanamala, Garladinne, Putlur, Yellanur, Kudair"
+153,Anantapur Urban,Ananthapuramu,None,Daggupati Venkateswara Prasad,TDP,Anantapur Urban"
+154,Kalyandurg,Ananthapuramu,None,Amilineni Surendra Babu,TDP,"Kalyandurg, Kothacheruvu, Settur, Brahmasamudram"
+155,Raptadu,Ananthapuramu,None,Paritala Sunitha,TDP,"Raptadu, Atmakur, Kanaganapalle, Ramagiri, Anantapur Rural"
+156,Madakasira,Sri Sathya Sai,SC,M.S. Raju,TDP,"Madakasira, Amarapuram, Gudibanda, Rolla, Agali"
+157,Hindupur,Sri Sathya Sai,None,Nandamuri Balakrishna,TDP,"Hindupur, Lepakshi, Chilamathur"
+158,Puttaparthi,Sri Sathya Sai,None,Palle Sindhura Reddy,TDP,"Puttaparthi, Bukkapatnam, Kothacheruvu, Nallada, ODC, Gandlapenta"
+159,Penukonda,Sri Sathya Sai,None,S. Savitha,TDP,"Penukonda, Roddam, Somandepalle, Pargi"
+160,Puttaparthi / Kadiri,Sri Sathya Sai,None,Kandikunta Venkata Prasad,TDP,"Kadiri, Nallamada, Talupula, Gandlapenta, Tanakallu"
+161,Thurtanur / Dharmavaram,Sri Sathya Sai,None,Satya Kumar Yadav,BJP,"Dharmavaram, Bathalapalli, Mudigubba, Tadimarri"
+162,Punganur,Chittoor,None,P. Ramachandra Reddy,YSRCP,"Punganur, Chowdepalle, Somala, Sadum, Peddathippasamudram"
+163,Nagari,Tirupati,None,Gali Bhanu Prakash,TDP,"Nagari, Nindra, Vijayapuram, Puttur, Vadamalapeta"
+164,Gangadhara Nellore,Chittoor,SC,V. Munaswamy,TDP,"Gangadhara Nellore, Palasamudram, Penumuru, S.R.Puram, Vedurukuppam"
+165,Chittoor,Chittoor,None,Gurajala Jagan Mohan,TDP,"Chittoor Urban, Chittoor Rural, Gudipala"
+166,Puthalapattu,Chittoor,SC,K. Murali Mohan,TDP,"Puthalapattu, Irala, Thallampalle, Yadamari, Pakala"
+167,Palamaner,Chittoor,None,N. Amaranatha Reddy,TDP,"Palamaner, Gangavaram, Baireddipalle, V.K.Kota"
+168,Kuppam,Chittoor,None,N. Chandrababu Naidu,TDP,"Kuppam, Gudupalle, Santhipuram, Ramakuppam"
+169,Tirupati,Tirupati,None,Arani Srinivasulu,JSP,"Tirupati Urban, Tirupati Rural"
+170,Srikalahasti,Tirupati,None,Bojjala Venkata Sudhir Reddy,TDP,"Srikalahasti, Thottambedu, Yerpedu, Renigunta"
+171,Sathyavedu,Tirupati,SC,Talari Surendra,TDP,"Sathyavedu, Varadaiahpalem, K.V.B.Puram, Nagalapuram, Pichatur, Nindra"
+172,Sarvepalli / Sullurpeta,Tirupati,SC,Nelavhala Vijayasree,TDP,"Sullurpeta, Tada, Naidupet, Pellakuru, Doravarisatram"
+173,Madanapalle,Annamayya,None,Shajahan Basha,TDP,"Madanapalle, Nimmanapalle, Ramasamudram"
+174,Pileru,Annamayya,None,Nallari Kishore Kumar Reddy,TDP,"Pileru, Kalikiri, Kothacheruvu, Gurramkonda, Vayalpad, Valmikipuram"
+175,Thamballapalle,Annamayya,None,Javeed Mohammad,TDP,"Thamballapalle, Mulakalacheruvu, Peddamandyam, Kurabalakota, B.Kothakota\""""
+
+df_constituencies = parse_dataset_from_text(raw_dataset)
+
+# 3. Streamlit UI Input Field (Replaces terminal input())
+mandal_name = st.text_input("Enter the Mandal name to look up:", "Kavali")
+
+# 4. Filter and Render Results on the Webpage (Replaces print statements)
+if mandal_name:
+    results = get_constituency_info_by_mandal(df_constituencies, mandal_name)
+    
+    if not results.empty:
+        st.success(f"Found {len(results)} constituency match(es) for Mandal: **'{mandal_name}'**")
+        
+        for idx, row in results.iterrows():
+            with st.container():
+                st.markdown(f"### Constituency: {row['constituency']}")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**ID:** {row['id']}")
+                    st.write(f"**District:** {row['district']}")
+                    st.write(f"**Reservation:** {row['reservation']}")
+                with col2:
+                    st.write(f"**MLA Name:** {row['mla_name']}")
+                    st.write(f"**Party:** {row['party']}")
+                
+                st.write(f"**Associated Mandals:** {', '.join(row['mandals'])}")
+                st.markdown("---")
+    else:
+        st.warning(f"No constituency found containing the Mandal: **'{mandal_name}'**.")
