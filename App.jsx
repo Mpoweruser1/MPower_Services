@@ -46,6 +46,7 @@ import PatientDetail from './hospital/PatientDetail';
 
 // Grievance
 import CtsLanding from './grievance/CtsLanding';
+import GrievanceStateSelect from './website/pages/GrievanceStateSelect';
 import CitizenPortal from './grievance/CitizenPortal';
 import StaffDashboard from './grievance/StaffDashboard';
 import ReportsDashboard from './grievance/ReportsDashboard';
@@ -193,6 +194,7 @@ function AppRoutes() {
       <Route path="/pay/:token"      element={<PayFee />} />
 
       {/* ── Grievance — public (citizens, no login needed) ── */}
+      <Route path="/grievance" element={<GrievanceStateSelect />} />
       <Route path="/grievance/:stateSlug" element={<CtsLanding />} />
 <Route path="/grievance/:stateSlug/citizen"
   element={<CitizenPortalWrapper />} />

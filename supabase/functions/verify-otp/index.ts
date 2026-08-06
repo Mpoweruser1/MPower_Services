@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { phone, otp, purpose } = await req.json();
+    const { phone, otp, purpose, newAuthId, appId } = await req.json();
     if (!phone || !otp || !purpose) return new Response(
       JSON.stringify({ verified: false, error: 'phone, otp, and purpose are required' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -48,6 +48,28 @@ Deno.serve(async (req) => {
     await supabase.from('otp_verifications')
       .update({ verified: true, verified_at: new Date().toISOString() })
       .eq('id', record.id);
+
+    // Re-link any existing citizen profile for this phone (within this
+    // same state/app) to the new anonymous session, so a returning
+    // citizen keeps their real profile and complaint history instead of
+    // silently becoming a brand-new, disconnected identity every fresh
+    // login. Scoped by BOTH phone and app_id — the same phone number
+    // could legitimately be a citizen in more than one state, and this
+    // must never cross-link those.
+    if (newAuthId && appId) {
+      const { data: existing } = await supabase
+        .from('citizens')
+        .select('id')
+        .eq('phone', phone)
+        .eq('app_id', appId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from('citizens')
+          .update({ auth_id: newAuthId })
+          .eq('id', existing.id);
+      }
+    }
 
     return new Response(
       JSON.stringify({ verified: true }),

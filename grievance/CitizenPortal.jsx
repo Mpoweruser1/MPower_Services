@@ -19,7 +19,7 @@ import {
   createMandal, createVillage,
   fetchCategories, fetchCategoryTranslations, fetchSubissueTranslations, fetchCategoryDocuments,
   submitComplaint, fetchMyComplaints, fetchComplaintHistory, uploadEvidence, submitFeedback,
-} from './grievanceApi';
+} from '../lib/grievanceApi';
 
 // Plain emoji, not an icon library — works everywhere with zero new
 // dependencies, and is genuinely more scannable than text alone for
@@ -278,7 +278,6 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
   constituency_id: geo.constituencyId || null,
     ward_no: wardNo || null,
       membership_id: membershipId || null,
-      phone: auth.session.user.phone,
       sachivalayam_id: geo.sachivalayamId || null,
     });
     setBusy(false);
@@ -752,21 +751,19 @@ function ComplaintDetail({ complaint, citizenId, onClose }) {
         <h3 style={{ fontSize: 16, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 22 }}>{CATEGORY_EMOJI[complaint.category] || '📄'}</span>{complaint.title}
         </h3>
-        // In ComplaintDetail function — after StageBadge line, add:
-<div style={{ margin: '8px 0' }}><StageBadge stage={complaint.stage} /></div>
+        <div style={{ margin: '8px 0' }}><StageBadge stage={complaint.stage} /></div>
 
-{/* ADD THIS — print button */}
-<button
-  onClick={() => { window.location.href = `/grievance/print?case=${encodeURIComponent(complaint.case_no)}`; }}
-  style={{
-    width: '100%', padding: '10px 14px', marginBottom: 12,
-    background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-    fontSize: 13, fontWeight: 600, color: '#1a1a2e', cursor: 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-  }}
->
-  🖨️ Print Representation Letter
-</button>
+        <button
+          onClick={() => { window.location.href = `/grievance/print?case=${encodeURIComponent(complaint.case_no)}`; }}
+          style={{
+            width: '100%', padding: '10px 14px', marginBottom: 12,
+            background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+            fontSize: 13, fontWeight: 600, color: '#1a1a2e', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          🖨️ Print Representation Letter
+        </button>
 
         <p style={{ fontSize: 13, color: '#374151', margin: '10px 0' }}>{complaint.description}</p>
         <h4 style={{ fontSize: 13, fontWeight: 600, marginTop: 20 }}>History</h4>

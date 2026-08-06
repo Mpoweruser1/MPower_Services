@@ -1,7 +1,7 @@
 // grievance/ReportsDashboard.jsx
 import { useState, useEffect } from 'react';
 import { useTenant } from '../context/TenantContext';
-import { fetchReportRollup } from './grievanceApi';
+import { fetchReportRollup } from '../lib/grievanceApi';
 import GrievanceNav from './GrievanceNav';
 
 const LEVELS = [

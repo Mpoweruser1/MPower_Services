@@ -1,7 +1,7 @@
 // grievance/useCitizenAuth.js
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { fetchCitizenProfile, createCitizenProfile } from './grievanceApi';
+import { fetchCitizenProfile, createCitizenProfile } from '../lib/grievanceApi';
 
 export function useCitizenAuth(appId) {
   const [session, setSession] = useState(null);

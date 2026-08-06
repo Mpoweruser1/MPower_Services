@@ -525,7 +525,6 @@ useEffect(() => {
     data.citizen_id ? supabase.from('citizens').select('full_name, phone, address, father_husband_name').eq('id', data.citizen_id).single() : { data: null },
     supabase.from('complaint_history').select('*').eq('complaint_id', data.id).order('created_at'),
   ]);
-  console.log('COMPLAINT DATA:', data, constData.data, citizenData.data);
   setComplaint({
     ...data,
     constituencies: constData.data,

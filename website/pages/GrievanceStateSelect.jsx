@@ -63,7 +63,7 @@ export default function GrievanceStateSelect() {
           <div style={{ width: 36, height: 36, borderRadius: 8, background: '#e8a020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1a1a2e', fontSize: 16 }}>M</div>
           <div>
             <div style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>MPower CTS</div>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Complaint Tracking System</div>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Complaint Tracking System</div>
           </div>
         </Link>
         <Link to="/products/grievance" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', padding: '6px 14px', borderRadius: 20, fontSize: 12, textDecoration: 'none' }}>
