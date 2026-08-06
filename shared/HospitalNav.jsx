@@ -6,15 +6,19 @@ const NAV_ITEMS = [
   { path: '/hospital/dashboard',    icon: '📊', label: 'Home' },
   { path: '/hospital/patients/new', icon: '👤', label: 'Register' },
   { path: '/hospital/opd',          icon: '🩺', label: 'OPD' },
+  { path: '/hospital/lab',          icon: '🔬', label: 'Lab' },
   { path: '/hospital/billing',      icon: '💳', label: 'Billing' },
   { path: '/hospital/ipd',          icon: '🛏️', label: 'IPD' },
+  { path: '/hospital/patients/find', icon: '🔍', label: 'Find' },
 ];
 
 export default function HospitalNav() {
   const location = useLocation();
 
   return (
-    <nav style={{
+    <>
+    <style>{`@media print { .no-print { display: none !important; } }`}</style>
+    <nav className="no-print" style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
       background: '#111113',
       borderTop: '1px solid rgba(255,255,255,0.08)',
@@ -40,5 +44,6 @@ export default function HospitalNav() {
         );
       })}
     </nav>
+    </>
   );
 }
