@@ -56,18 +56,27 @@ Deno.serve(async (req) => {
     // login. Scoped by BOTH phone and app_id — the same phone number
     // could legitimately be a citizen in more than one state, and this
     // must never cross-link those.
+    //
+    // Uses order+limit rather than maybeSingle(): if more than one
+    // citizen row already exists for this phone (which can happen from
+    // before this fix existed), maybeSingle() throws on multiple
+    // matches — silently, since the error here was never checked —
+    // meaning the relink would never run at all and each login would
+    // keep creating yet another duplicate. Picking the most recently
+    // created one instead is safe either way.
     if (newAuthId && appId) {
-      const { data: existing } = await supabase
+      const { data: existingRows } = await supabase
         .from('citizens')
         .select('id')
         .eq('phone', phone)
         .eq('app_id', appId)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (existing) {
+      if (existingRows && existingRows.length > 0) {
         await supabase.from('citizens')
           .update({ auth_id: newAuthId })
-          .eq('id', existing.id);
+          .eq('id', existingRows[0].id);
       }
     }
 
