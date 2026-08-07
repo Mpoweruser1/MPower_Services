@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-export default function EvidenceGallery({ complaintId, uploaderUserId, canUpload = false }) {
+export default function EvidenceGallery({ complaintId, uploaderCitizenId, uploaderUserId, canUpload = false }) {
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
@@ -16,7 +16,7 @@ export default function EvidenceGallery({ complaintId, uploaderUserId, canUpload
   async function loadPhotos() {
     const { data } = await supabase
       .from('complaint_evidence')
-      .select('id, file_url, uploaded_at, uploaded_by')
+      .select('id, file_url, uploaded_at, uploaded_by_citizen_id, uploaded_by_user_id')
       .eq('complaint_id', complaintId)
       .order('uploaded_at', { ascending: false });
 
@@ -60,7 +60,8 @@ export default function EvidenceGallery({ complaintId, uploaderUserId, canUpload
           complaint_id: complaintId,
           file_url: urlData.publicUrl,
           file_path: path,
-          uploaded_by: uploaderUserId,
+          uploaded_by_citizen_id: uploaderCitizenId || null,
+          uploaded_by_user_id: uploaderUserId || null,
         });
 
       if (dbError) throw dbError;

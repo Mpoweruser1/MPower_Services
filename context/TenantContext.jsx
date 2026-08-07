@@ -40,6 +40,18 @@ export function TenantProvider({ children }) {
       setLoading(false);
       return;
     }
+    // Anonymous sessions (signInAnonymously()) are always citizens in
+    // this app — staff always sign in with a real email or phone-based
+    // account, never anonymously. Without this check, every single
+    // citizen login triggered a guaranteed-to-fail lookup here (a
+    // citizen's auth_id never has a matching users row, by design),
+    // harmlessly but needlessly — a wasted request and a 406 in the
+    // console on every citizen page load.
+    if (session.user.is_anonymous) {
+      setTenant(null);
+      setLoading(false);
+      return;
+    }
 
     async function loadTenant() {
       const { data, error } = await supabase
