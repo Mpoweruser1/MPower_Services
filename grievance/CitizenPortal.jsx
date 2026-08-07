@@ -19,7 +19,7 @@ import {
   createMandal, createVillage,
   fetchCategories, fetchCategoryTranslations, fetchSubissueTranslations, fetchCategoryDocuments,
   submitComplaint, fetchMyComplaints, fetchComplaintHistory, uploadEvidence, submitFeedback,
-} from '../lib/grievanceApi';
+} from './grievanceApi';
 
 // Plain emoji, not an icon library — works everywhere with zero new
 // dependencies, and is genuinely more scannable than text alone for

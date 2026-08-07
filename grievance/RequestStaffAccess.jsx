@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { fetchAppIdBySlug, fetchConstituencies } from '../lib/grievanceApi';
+import { fetchAppIdBySlug, fetchConstituencies } from './grievanceApi';
 
 export default function RequestStaffAccess() {
   const { stateSlug } = useParams();

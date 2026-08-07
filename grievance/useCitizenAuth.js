@@ -1,7 +1,7 @@
 // grievance/useCitizenAuth.js
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { fetchCitizenProfile, createCitizenProfile } from '../lib/grievanceApi';
+import { fetchCitizenProfile, createCitizenProfile } from './grievanceApi';
 
 export function useCitizenAuth(appId) {
   const [session, setSession] = useState(null);
@@ -10,6 +10,17 @@ export function useCitizenAuth(appId) {
   const [otpSent, setOtpSent] = useState(false);
   const [pendingPhone, setPendingPhone] = useState(null);
   const [error, setError] = useState(null);
+  // Tracks whether verifyOtp() is actively handling a login right now.
+  // The session-triggered effect below fires the instant
+  // signInAnonymously() succeeds — before the relink (inside verify-otp)
+  // has even run — and its own fetchCitizenProfile call was racing
+  // against verifyOtp()'s own explicit re-fetch afterward. Whichever
+  // one happened to resolve LAST silently won, with no guarantee that
+  // was the correct, post-relink one — this is what made the fix work
+  // sometimes and not others. While this ref is true, the automatic
+  // effect skips its own fetch entirely, leaving verifyOtp() as the
+  // sole authority over citizen state during login.
+  const verifyingRef = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -23,6 +34,7 @@ export function useCitizenAuth(appId) {
       setLoading(false);
       return;
     }
+    if (verifyingRef.current) return;
     setLoading(true);
     fetchCitizenProfile(session.user.id)
       .then(setCitizen)
@@ -84,18 +96,33 @@ export function useCitizenAuth(appId) {
   // Step 2: verify OTP via custom edge function, then create anonymous session
   const verifyOtp = useCallback(async (phone, token) => {
     setError(null);
+    verifyingRef.current = true;
 
-    if (OTP_BYPASS_ACTIVE) {
-      const { error: anonErr } = await supabase.auth.signInAnonymously();
+    try {
+      if (OTP_BYPASS_ACTIVE) {
+        const { error: anonErr } = await supabase.auth.signInAnonymously();
+        if (anonErr) {
+          setError('Login failed. Please try again.');
+          return false;
+        }
+        await supabase.auth.updateUser({ data: { phone, verified_phone: phone } });
+        return true;
+      }
+
+      // The anonymous session is created FIRST, before OTP verification —
+      // not after — so verify-otp can be given a real, current auth.uid()
+      // to work with. Previously this happened the other way round, which
+      // meant every fresh login created a brand-new, disconnected identity
+      // with zero link to the citizen's existing profile or past
+      // complaints — they'd genuinely disappear from that citizen's own
+      // view (though never from admin's, since admin isn't scoped this
+      // way) even though nothing was actually deleted.
+      const { data: authData, error: anonErr } = await supabase.auth.signInAnonymously();
       if (anonErr) {
         setError('Login failed. Please try again.');
         return false;
       }
-      await supabase.auth.updateUser({ data: { phone, verified_phone: phone } });
-      return true;
-    }
 
-    try {
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-otp`,
         {
@@ -104,7 +131,10 @@ export function useCitizenAuth(appId) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ phone, otp: token, purpose: 'citizen_login' }),
+          body: JSON.stringify({
+            phone, otp: token, purpose: 'citizen_login',
+            newAuthId: authData.user.id, appId,
+          }),
         }
       );
       const data = await res.json();
@@ -113,22 +143,34 @@ export function useCitizenAuth(appId) {
         return false;
       }
 
-      const { error: anonErr } = await supabase.auth.signInAnonymously();
-      if (anonErr) {
-        setError('Login failed. Please try again.');
-        return false;
-      }
-
       await supabase.auth.updateUser({
         data: { phone, verified_phone: phone },
       });
+
+      // The onAuthStateChange listener elsewhere in this hook fires the
+      // MOMENT signInAnonymously() succeeds — before this verify-otp
+      // call (and the relink inside it) has even finished. That earlier
+      // fetch correctly finds nothing yet and sets citizen to null, and
+      // nothing re-checks afterward once the relink actually completes
+      // a moment later. Re-fetching explicitly here, now that the
+      // relink is genuinely done, is what actually picks up a returning
+      // citizen's real profile instead of asking them to register again
+      // every single time.
+      const relinkedCitizen = await fetchCitizenProfile(authData.user.id);
+      if (relinkedCitizen) setCitizen(relinkedCitizen);
 
       return true;
     } catch (err) {
       setError('Verification failed. Please try again.');
       return false;
+    } finally {
+      // Guaranteed to run on every exit path — success, early return,
+      // or a thrown error — so the automatic session-fetch effect
+      // reliably resumes normal behavior for any future session change,
+      // not just the ones that happen to reach the end of the try block.
+      verifyingRef.current = false;
     }
-  }, []);
+  }, [appId]);
   // Step 3: create citizen profile on first login
   const registerProfile = useCallback(
     async (profile) => {

@@ -1,4 +1,4 @@
-// src/grievance/useGrievanceTranslations.js
+// src/hooks/useGrievanceTranslations.js
 //
 // Composes bilingual labels — "English | Telugu" — matching the source
 // paper form's convention (every field shows both, always, not a
@@ -7,7 +7,7 @@
 // migration 3's notes).
 
 import { useState, useEffect } from 'react';
-import { fetchUiLabels, fetchUiLabelTranslations } from '../lib/grievanceApi';
+import { fetchUiLabels, fetchUiLabelTranslations } from './grievanceApi';
 
 export function useGrievanceTranslations(appId, language) {
   const [labels, setLabels] = useState({});

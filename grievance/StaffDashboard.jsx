@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTenant } from '../context/TenantContext';
 import EvidenceGallery from './EvidenceGallery';
 import { CATEGORY_EMOJI, StageBadge, FeedbackWidget } from './CitizenPortal';
-import { fetchStaffQueue, fetchComplaintHistory, advanceComplaint, uploadStaffPhoto, updateStaffProfile } from '../lib/grievanceApi';
+import { fetchStaffQueue, fetchComplaintHistory, advanceComplaint, uploadStaffPhoto, updateStaffProfile } from './grievanceApi';
 import GrievanceNav from './GrievanceNav';
 
 const TERMINAL_STAGES = ['Resolved', 'Sanctioned', 'Declined'];
@@ -30,6 +30,7 @@ export default function StaffDashboard() {
 
   if (tenantLoading || !tenant) return <CenteredNote>Loading…</CenteredNote>;
 
+  // FIX 1: Single role check — duplicate removed
   if (!['representative', 'authority', 'grievance_admin', 'grievance_staff'].includes(tenant.role)) {
     return <CenteredNote>This dashboard is for representatives, authorities, or grievance admins.</CenteredNote>;
   }
@@ -39,6 +40,7 @@ export default function StaffDashboard() {
   const handled = complaints.filter((c) => TERMINAL_STAGES.includes(c.stage));
 
   return (
+    // FIX 2: paddingBottom 80px so content clears fixed GrievanceNav
     <div style={{ background: '#f0f4f8', minHeight: '100vh', color: '#1a1a2e', fontFamily: "'Inter', sans-serif" }}>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 24px 80px' }}>
 
@@ -143,6 +145,7 @@ export default function StaffDashboard() {
         )}
       </div>
 
+      {/* FIX 2: GrievanceNav at correct level — outside content div, inside outer div */}
       <GrievanceNav />
     </div>
   );
@@ -338,6 +341,7 @@ function ComplaintDetailDrawer({ complaint, role, staffUserId, onClose }) {
           </p>
         )}
 
+        {/* FIX 3: Print button */}
         <button
           onClick={() => { window.location.href = `/grievance/print?case=${encodeURIComponent(complaint.case_no)}`; }}
           style={{
@@ -366,6 +370,7 @@ function ComplaintDetailDrawer({ complaint, role, staffUserId, onClose }) {
           </div>
         ))}
         <EvidenceGallery complaintId={complaint.id} uploaderUserId={staffUserId} canUpload />
+        {/* FIX 3: GrievanceNav removed from here — it is in main return */}
       </div>
     </div>
   );
