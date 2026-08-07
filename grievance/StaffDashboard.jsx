@@ -1,5 +1,6 @@
 // src/pages/grievance/StaffDashboard.jsx
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTenant } from '../context/TenantContext';
 import EvidenceGallery from './EvidenceGallery';
 import { CATEGORY_EMOJI, StageBadge, FeedbackWidget } from './CitizenPortal';
@@ -322,6 +323,7 @@ function ActionBtn({ onClick, disabled, color = '#15213A', children }) {
 }
 
 function ComplaintDetailDrawer({ complaint, role, staffUserId, onClose }) {
+  const navigate = useNavigate();
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
@@ -343,7 +345,7 @@ function ComplaintDetailDrawer({ complaint, role, staffUserId, onClose }) {
 
         {/* FIX 3: Print button */}
         <button
-          onClick={() => { window.location.href = `/grievance/print?case=${encodeURIComponent(complaint.case_no)}`; }}
+          onClick={() => navigate(`/grievance/print?case=${encodeURIComponent(complaint.case_no)}`)}
           style={{
             width: '100%', padding: '10px 14px', margin: '12px 0',
             background: '#fff', border: '1px solid #D9D5C8', borderRadius: 8,

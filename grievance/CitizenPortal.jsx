@@ -737,6 +737,7 @@ function MicButton({ onClick }) {
 }
 
 function ComplaintDetail({ complaint, citizenId, onClose }) {
+  const navigate = useNavigate();
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
@@ -754,7 +755,7 @@ function ComplaintDetail({ complaint, citizenId, onClose }) {
         <div style={{ margin: '8px 0' }}><StageBadge stage={complaint.stage} /></div>
 
         <button
-          onClick={() => { window.location.href = `/grievance/print?case=${encodeURIComponent(complaint.case_no)}`; }}
+          onClick={() => navigate(`/grievance/print?case=${encodeURIComponent(complaint.case_no)}`)}
           style={{
             width: '100%', padding: '10px 14px', marginBottom: 12,
             background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,

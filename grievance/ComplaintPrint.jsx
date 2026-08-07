@@ -3,7 +3,7 @@
 // 1. Citizen representation letter to MLA/MP
 // 2. Staff — single complaint print for official reference
 // 3. Staff — batch complaint list for minister/collector submission
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import GrievanceNav from './GrievanceNav';
@@ -473,6 +473,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const urlCaseNo = caseNo || searchParams.get('case') || searchParams.get('id') || '';
   const [manualCaseNo, setManualCaseNo] = useState('');
 
@@ -647,7 +648,7 @@ useEffect(() => {
             style={{ flex: 1, padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }}
               />
               <button
-                onClick={() => { window.location.href = `/grievance/print?case=${encodeURIComponent(manualCaseNo)}`; }}
+                onClick={() => navigate(`/grievance/print?case=${encodeURIComponent(manualCaseNo)}`)}
                 style={{ padding: '8px 16px', background: '#185FA5', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
               >
                   Load
