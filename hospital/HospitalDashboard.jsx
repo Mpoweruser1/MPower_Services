@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import HospitalNav from '../shared/HospitalNav';
+import { FeedbackWidget } from '../shared/FeedbackWidget';
 import BugReporter from '../shared/BugReporter';
 
 const S = {
@@ -37,6 +38,7 @@ const QUICK_ACTIONS = [
 
 export default function HospitalDashboard() {
   const { tenant } = useTenant();
+  const [showFeedback, setShowFeedback] = useState(false);
   const [stats, setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
@@ -151,15 +153,20 @@ export default function HospitalDashboard() {
       <div style={S.inner}>
 
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: '0 0 4px' }}>{greeting}</p>
-          <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: '0 0 2px', letterSpacing: -0.5 }}>
-            {tenant?.orgName || 'Hospital Dashboard'}
-          </h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-            {tenant?.role === 'doctor' ? 'Doctor' : tenant?.role} ·{' '}
-            {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </p>
+        <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', margin: '0 0 4px' }}>{greeting}</p>
+            <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: '0 0 2px', letterSpacing: -0.5 }}>
+              {tenant?.orgName || 'Hospital Dashboard'}
+            </h1>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+              {tenant?.role === 'doctor' ? 'Doctor' : tenant?.role} ·{' '}
+              {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+          </div>
+          <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
+            💬 Feedback
+          </button>
         </div>
 
         {/* Today's stats */}
@@ -276,6 +283,15 @@ export default function HospitalDashboard() {
         )}
 
       </div>
+
+      {showFeedback && (
+        <FeedbackWidget
+          appId={tenant?.appId}
+          userId={tenant?.userRowId}
+          context="hospital_dashboard"
+          onClose={() => setShowFeedback(false)}
+        />
+      )}
 
       <HospitalNav />
       <BugReporter screenName="hospital_dashboard" />

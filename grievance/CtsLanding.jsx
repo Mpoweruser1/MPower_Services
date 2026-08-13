@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStateConfig } from './useStateConfig';
+import { fetchAppIdBySlug } from './grievanceApi';
 
 // One localStorage key per state, so a remembered choice for Andhra Pradesh
 // never bleeds into a different state's CTS deployment.
@@ -20,6 +21,11 @@ export default function CtsLanding() {
   const slug = stateSlug || 'andhra-pradesh';
   const { stateConfig, loading } = useStateConfig();
   const [checkingRemembered, setCheckingRemembered] = useState(true);
+  const [appId, setAppId] = useState(undefined); // undefined = still resolving, null = not found
+
+  useEffect(() => {
+    fetchAppIdBySlug(slug).then(setAppId);
+  }, [slug]);
 
   // A remembered choice auto-redirects on every future visit — unless the
   // visit explicitly asks to see the picker again via ?switch=1, which is
@@ -47,9 +53,18 @@ export default function CtsLanding() {
   const stateNameLocal = stateConfig?.name_local || 'ఆంధ్రప్రదేశ్';
   const totalConstituencies = stateConfig?.total_constituencies || 175;
 
-  if (loading || checkingRemembered) return (
+  if (loading || checkingRemembered || appId === undefined) return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ fontSize: 13, color: '#94a3b8' }}>Loading...</div>
+    </div>
+  );
+
+  if (appId === null) return (
+    <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
+      <div>
+        <p style={{ fontSize: 14, color: '#64748b', marginBottom: 16 }}>This state isn't set up on this platform yet. Check the link you were given, or contact your local office.</p>
+        <a href="/" style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>← Back to home</a>
+      </div>
     </div>
   );
 
@@ -73,17 +88,30 @@ export default function CtsLanding() {
       </div>
 
       {/* Hero */}
-      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', padding: '40px 24px 56px', textAlign: 'center', color: '#fff' }}>
-        <div style={{ display: 'inline-block', background: 'rgba(232,160,32,0.15)', border: '1px solid rgba(232,160,32,0.4)', color: '#e8a020', padding: '5px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, marginBottom: 16 }}>
-          🏛️ Government of {stateName}
+      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', padding: '20px 0 32px', textAlign: 'center', color: '#fff' }}>
+
+        {/* Continuously-scrolling single-line banner — replaces the
+            earlier static, wrapped two-line tagline, which took up
+            real vertical space before anyone reached the actual
+            citizen/office choice below. Two identical copies placed
+            back to back, animated left by exactly one copy's width,
+            is what makes the loop seamless (no visible jump/reset). */}
+        <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', width: '100%' }}>
+          <div style={{ display: 'inline-block', animation: 'ctsTickerScroll 22s linear infinite' }}>
+            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', padding: '0 40px' }}>
+              Your concern won't stop until it reaches your leader — <span style={{ color: '#e8a020', fontWeight: 600 }}>మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు</span>
+            </span>
+            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', padding: '0 40px' }}>
+              Your concern won't stop until it reaches your leader — <span style={{ color: '#e8a020', fontWeight: 600 }}>మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు</span>
+            </span>
+          </div>
         </div>
-        <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 6 }}>Complaint Tracking System</h1>
-        <div style={{ fontSize: 17, color: 'rgba(255,255,255,0.7)', marginBottom: 10 }}>
-          ఫిర్యాదు ట్రాకింగ్ వ్యవస్థ
-        </div>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', maxWidth: 380, margin: '0 auto', lineHeight: 1.6 }}>
-          File your grievance directly to your MLA or MP — free, transparent, and tracked.
-        </p>
+        <style>{`
+          @keyframes ctsTickerScroll {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+          }
+        `}</style>
       </div>
 
       {/* Stats */}

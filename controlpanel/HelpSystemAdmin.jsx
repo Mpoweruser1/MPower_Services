@@ -1,4 +1,4 @@
-// controlpanel/HelpSystemAdmin.jsx
+// controlpanel/HelpSystemAdmin.jsx — restyled to match the current dark-theme standard
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import ControlPanelNav from '../shared/ControlPanelNav';
@@ -6,6 +6,13 @@ import { ScreenVideoButton } from '../shared/HelpWidget';
 import BugReporter from '../shared/BugReporter';
 
 const MODULE_FILTERS = ['All modules', 'School', 'Hospital', 'CTS', 'HRMS'];
+
+const S = {
+  page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
+  inner: { maxWidth: 720, margin: '0 auto', padding: '24px 20px' },
+  card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, marginBottom: 10 },
+  stat: { background: '#111113', borderRadius: 10, padding: 14 },
+};
 
 export default function HelpSystemAdmin() {
   const [videos, setVideos] = useState([]);
@@ -54,104 +61,122 @@ export default function HelpSystemAdmin() {
     return [...new Set(fieldHelps.map((f) => f.screen_code))].filter((s) => !withVideo.has(s));
   }, [videos, fieldHelps]);
 
-  if (loading) return <div style={{ padding: 16, fontSize: 13, color: '#888' }}>Loading help system...</div>;
-
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto', fontFamily: 'sans-serif', padding: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Help System Admin</h2>
+    <div style={S.page}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
+
+      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>Help System Admin</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Internal tool — manage videos, tooltips, and analytics</p>
+        </div>
         <ScreenVideoButton screenCode="help_admin" />
-      </div>
-      <p style={{ fontSize: 12, color: '#888', marginBottom: 16 }}>Internal tool — manage videos, tooltips, and analytics.</p>
+      </nav>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-        {['videos', 'fields', 'analytics'].map((t) => (
-          <button key={t} onClick={() => setTab(t)} style={{ padding: '6px 14px', fontSize: 12, borderRadius: 20, cursor: 'pointer', border: tab === t ? 'none' : '1px solid #ccc', background: tab === t ? '#185FA5' : '#fff', color: tab === t ? '#fff' : '#666' }}>
-            {{ videos: 'Screen videos', fields: 'Field tooltips', analytics: 'Analytics' }[t]}
-          </button>
-        ))}
-      </div>
+      <div style={S.inner}>
 
-      {tab === 'videos' && (
-        <>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-            {MODULE_FILTERS.map((m) => (
-              <button key={m} onClick={() => setModuleFilter(m)} style={{ padding: '4px 10px', fontSize: 12, borderRadius: 16, cursor: 'pointer', border: moduleFilter === m ? 'none' : '1px solid #ccc', background: moduleFilter === m ? '#534AB7' : '#fff', color: moduleFilter === m ? '#fff' : '#666' }}>
-                {m}
-              </button>
-            ))}
-          </div>
-          {videos.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#aaa' }}>No help videos configured yet.</p>
-          ) : (
-            videos.map((v) => (
-              <div key={v.id} style={{ border: '1px solid #eee', borderRadius: 8, padding: 12, marginBottom: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontWeight: 500, fontSize: 13 }}>{v.title || v.screen_code}</p>
-                    <p style={{ margin: '2px 0', fontSize: 12, color: '#888' }}>{v.screen_code} · {v.language} {v.video_duration_secs ? `· ${v.video_duration_secs}s` : ''}</p>
-                    <p style={{ margin: 0, fontSize: 12, color: '#666' }}>👁 {v.views || 0} views</p>
-                  </div>
-                  <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: v.is_active ? '#E1F5EE' : '#f0f0f0', color: v.is_active ? '#085041' : '#999' }}>
-                    {v.is_active ? 'Active' : v.video_id ? 'Draft' : 'No video'}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => { const vid = prompt('Paste YouTube/Cloudflare video ID:', v.video_id || ''); if (vid !== null) updateVideoId(v.id, vid); }} style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #185FA5', color: '#185FA5', background: '#fff', borderRadius: 6, cursor: 'pointer' }}>
-                    {v.video_id ? 'Replace video' : 'Upload video'}
-                  </button>
-                  {v.video_id && (
-                    <button onClick={() => toggleActive(v.id, v.is_active)} style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #ccc', color: '#666', background: '#fff', borderRadius: 6, cursor: 'pointer' }}>
-                      {v.is_active ? 'Deactivate' : 'Activate'}
+        {loading ? (
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading help system...</p>
+        ) : (
+          <>
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              {['videos', 'fields', 'analytics'].map((t) => (
+                <button key={t} onClick={() => setTab(t)}
+                  style={{ padding: '8px 16px', fontSize: 13, borderRadius: 20, cursor: 'pointer', border: tab === t ? 'none' : '1px solid rgba(255,255,255,0.1)', background: tab === t ? '#E8A020' : 'transparent', color: tab === t ? '#111113' : 'rgba(255,255,255,0.5)', fontFamily: 'inherit', fontWeight: tab === t ? 600 : 400 }}>
+                  {{ videos: 'Screen videos', fields: 'Field tooltips', analytics: 'Analytics' }[t]}
+                </button>
+              ))}
+            </div>
+
+            {tab === 'videos' && (
+              <>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+                  {MODULE_FILTERS.map((m) => (
+                    <button key={m} onClick={() => setModuleFilter(m)}
+                      style={{ padding: '6px 14px', fontSize: 12, borderRadius: 16, cursor: 'pointer', border: moduleFilter === m ? 'none' : '1px solid rgba(255,255,255,0.1)', background: moduleFilter === m ? 'rgba(154,138,224,0.2)' : 'transparent', color: moduleFilter === m ? '#9A8AE0' : 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
+                      {m}
                     </button>
-                  )}
+                  ))}
                 </div>
-              </div>
-            ))
-          )}
-        </>
-      )}
+                {videos.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>No help videos configured yet.</p>
+                ) : (
+                  videos.map((v) => (
+                    <div key={v.id} style={S.card}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontWeight: 500, fontSize: 14, color: '#fff' }}>{v.title || v.screen_code}</p>
+                          <p style={{ margin: '3px 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{v.screen_code} · {v.language} {v.video_duration_secs ? `· ${v.video_duration_secs}s` : ''}</p>
+                          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>👁 {v.views || 0} views</p>
+                        </div>
+                        <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: v.is_active ? 'rgba(106,170,144,0.12)' : 'rgba(255,255,255,0.06)', color: v.is_active ? '#6AAA90' : 'rgba(255,255,255,0.4)' }}>
+                          {v.is_active ? 'Active' : v.video_id ? 'Draft' : 'No video'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => { const vid = prompt('Paste YouTube/Cloudflare video ID:', v.video_id || ''); if (vid !== null) updateVideoId(v.id, vid); }}
+                          style={{ fontSize: 12, padding: '6px 12px', border: '1px solid rgba(232,160,32,0.4)', color: '#E8A020', background: 'rgba(232,160,32,0.06)', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          {v.video_id ? 'Replace video' : 'Upload video'}
+                        </button>
+                        {v.video_id && (
+                          <button onClick={() => toggleActive(v.id, v.is_active)}
+                            style={{ fontSize: 12, padding: '6px 12px', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', background: 'transparent', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            {v.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </>
+            )}
 
-      {tab === 'fields' && (
-        fieldHelps.length === 0 ? <p style={{ fontSize: 13, color: '#aaa' }}>No field tooltips configured.</p> :
-        fieldHelps.map((f) => (
-          <div key={f.id} style={{ border: '1px solid #eee', borderRadius: 8, padding: 12, marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <p style={{ margin: 0, fontWeight: 500, fontSize: 13 }}>{f.field_name} <span style={{ color: '#888', fontWeight: 400 }}>· {f.screen_code}</span></p>
-              <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: '#E6F1FB', color: '#0C447C' }}>{f.help_type}</span>
-            </div>
-            <p style={{ fontSize: 12, color: '#666', margin: '4px 0' }}>{f.help_text}</p>
-            <p style={{ fontSize: 12, color: '#aaa', margin: 0 }}>{f.language} · {f.trigger_condition} · 👁 {f.views || 0}</p>
-          </div>
-        ))
-      )}
+            {tab === 'fields' && (
+              fieldHelps.length === 0 ? <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>No field tooltips configured.</p> :
+              fieldHelps.map((f) => (
+                <div key={f.id} style={S.card}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <p style={{ margin: 0, fontWeight: 500, fontSize: 14, color: '#fff' }}>{f.field_name} <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>· {f.screen_code}</span></p>
+                    <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: 'rgba(90,154,223,0.12)', color: '#5A9ADF' }}>{f.help_type}</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '4px 0' }}>{f.help_text}</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>{f.language} · {f.trigger_condition} · 👁 {f.views || 0}</p>
+                </div>
+              ))
+            )}
 
-      {tab === 'analytics' && (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
-            <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12 }}>
-              <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Total help views</p>
-              <p style={{ fontSize: 20, fontWeight: 700, margin: '4px 0 0' }}>{analytics.length}</p>
-            </div>
-            <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 12 }}>
-              <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Screens missing video</p>
-              <p style={{ fontSize: 20, fontWeight: 700, margin: '4px 0 0', color: screensWithoutVideo.length > 0 ? '#A32D2D' : '#1D9E75' }}>{screensWithoutVideo.length}</p>
-            </div>
-          </div>
-          {screensWithoutVideo.length > 0 && (
-            <div style={{ background: '#FCEBEB', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 12, color: '#791F1F' }}>
-              <strong>Action needed:</strong> {screensWithoutVideo.join(', ')} — no active help video.
-            </div>
-          )}
-          <p style={{ fontSize: 12, fontWeight: 600, color: '#666', marginBottom: 8 }}>Most viewed screens</p>
-          {Object.entries(analyticsMap).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([screen, count]) => (
-            <div key={screen} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed #eee', fontSize: 12 }}>
-              <span>{screen}</span>
-              <span style={{ fontWeight: 600 }}>{count} views</span>
-            </div>
-          ))}
-        </>
-      )}
+            {tab === 'analytics' && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+                  <div style={S.stat}>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Total help views</p>
+                    <p style={{ fontSize: 22, fontWeight: 700, margin: '4px 0 0', color: '#fff' }}>{analytics.length}</p>
+                  </div>
+                  <div style={{ ...S.stat, border: screensWithoutVideo.length > 0 ? '1px solid rgba(224,90,90,0.2)' : '1px solid rgba(255,255,255,0.05)' }}>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Screens missing video</p>
+                    <p style={{ fontSize: 22, fontWeight: 700, margin: '4px 0 0', color: screensWithoutVideo.length > 0 ? '#E05A5A' : '#6AAA90' }}>{screensWithoutVideo.length}</p>
+                  </div>
+                </div>
+                {screensWithoutVideo.length > 0 && (
+                  <div style={{ background: 'rgba(224,90,90,0.06)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: '#E05A5A' }}>
+                      <strong>Action needed:</strong> {screensWithoutVideo.join(', ')} — no active help video.
+                    </p>
+                  </div>
+                )}
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, marginBottom: 10 }}>MOST VIEWED SCREENS</p>
+                {Object.entries(analyticsMap).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([screen, count]) => (
+                  <div key={screen} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 13 }}>
+                    <span style={{ color: 'rgba(255,255,255,0.7)' }}>{screen}</span>
+                    <span style={{ fontWeight: 600, color: '#fff' }}>{count} views</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        )}
+      </div>
 
       <ControlPanelNav />
       <BugReporter screenName="help_admin" />

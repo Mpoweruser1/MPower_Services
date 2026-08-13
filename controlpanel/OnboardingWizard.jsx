@@ -1,4 +1,4 @@
-// controlpanel/OnboardingWizard.jsx
+// controlpanel/OnboardingWizard.jsx — restyled to match the current dark-theme standard
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import ControlPanelNav from '../shared/ControlPanelNav';
@@ -7,6 +7,12 @@ import { ScreenVideoButton } from '../shared/HelpWidget';
 import BugReporter from '../shared/BugReporter';
 
 const STEPS = ['Account', 'Org info', 'Classes/Depts', 'Fee/Billing setup', 'Users', 'Hardware'];
+
+const S = {
+  page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
+  inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
+  input: { padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' },
+};
 
 export default function OnboardingWizard({ clientId }) {
   const [step, setStep] = useState(1);
@@ -83,108 +89,124 @@ export default function OnboardingWizard({ clientId }) {
   }
 
   if (!clientId) return (
-    <div style={{ maxWidth: 480, margin: '60px auto', textAlign: 'center', padding: 20, fontFamily: 'sans-serif' }}>
-      <p style={{ fontSize: 14, color: '#888' }}>No client selected. Open this wizard from a client's record.</p>
+    <div style={S.page}>
+      <div style={{ ...S.inner, textAlign: 'center', marginTop: 60 }}>
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>No client selected. Open this wizard from a client's record.</p>
+      </div>
     </div>
   );
 
-  if (loading) return <div style={{ padding: 16, fontSize: 13, color: '#888' }}>Loading onboarding status...</div>;
-
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', fontFamily: 'sans-serif', padding: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Client Onboarding</h2>
+    <div style={S.page}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
+
+      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>Client Onboarding</p>
         <ScreenVideoButton screenCode="onboarding_wizard" />
-      </div>
+      </nav>
 
-      {/* Step progress */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, overflowX: 'auto' }}>
-        {STEPS.map((s, i) => (
-          <React.Fragment key={s}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              <div style={{ width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, background: i + 1 < step ? '#E1F5EE' : i + 1 === step ? '#185FA5' : '#f0f0f0', color: i + 1 < step ? '#085041' : i + 1 === step ? '#fff' : '#999' }}>
-                {i + 1 < step ? '✓' : i + 1}
-              </div>
-              <span style={{ fontSize: 12, color: i + 1 === step ? '#222' : '#999' }}>{s}</span>
+      <div style={S.inner}>
+
+        {loading ? (
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading onboarding status...</p>
+        ) : (
+          <>
+            {/* Step progress */}
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24, overflowX: 'auto' }}>
+              {STEPS.map((s, i) => (
+                <React.Fragment key={s}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, background: i + 1 < step ? 'rgba(106,170,144,0.2)' : i + 1 === step ? '#E8A020' : 'rgba(255,255,255,0.08)', color: i + 1 < step ? '#6AAA90' : i + 1 === step ? '#111113' : 'rgba(255,255,255,0.3)' }}>
+                      {i + 1 < step ? '✓' : i + 1}
+                    </div>
+                    <span style={{ fontSize: 12, color: i + 1 === step ? '#E8A020' : 'rgba(255,255,255,0.4)' }}>{s}</span>
+                  </div>
+                  {i < STEPS.length - 1 && <div style={{ flex: 1, minWidth: 12, height: 1, background: i + 1 < step ? '#6AAA90' : 'rgba(255,255,255,0.08)', margin: '0 6px' }} />}
+                </React.Fragment>
+              ))}
             </div>
-            {i < STEPS.length - 1 && <div style={{ flex: 1, minWidth: 10, height: 2, background: i + 1 < step ? '#1D9E75' : '#eee', margin: '0 4px' }} />}
-          </React.Fragment>
-        ))}
-      </div>
 
-      {step === 2 && (
-        <div>
-          <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Step 2 — Organisation information</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-            <input placeholder="Organisation name" value={orgInfo.name} onChange={(e) => setOrgInfo((o) => ({ ...o, name: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #ccc', borderRadius: 6 }} />
-            <input placeholder="District" value={orgInfo.district} onChange={(e) => setOrgInfo((o) => ({ ...o, district: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #ccc', borderRadius: 6 }} />
-            <input placeholder="Contact person" value={orgInfo.contactPerson} onChange={(e) => setOrgInfo((o) => ({ ...o, contactPerson: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #ccc', borderRadius: 6 }} />
-            <input placeholder="Phone" value={orgInfo.phone} onChange={(e) => setOrgInfo((o) => ({ ...o, phone: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #ccc', borderRadius: 6 }} />
-          </div>
-        </div>
-      )}
-
-      {step !== 2 && step < STEPS.length && (
-        <div style={{ background: '#f7f7f7', borderRadius: 8, padding: 20, textAlign: 'center', marginBottom: 16, fontSize: 13, color: '#888' }}>
-          Step {step} — {STEPS[step - 1]} configuration
-        </div>
-      )}
-
-      {step < STEPS.length && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          <button onClick={() => setStep(step - 1)} disabled={step === 1} style={{ padding: '8px 16px', fontSize: 12, border: '1px solid #ccc', borderRadius: 6, background: '#fff', cursor: step === 1 ? 'not-allowed' : 'pointer', opacity: step === 1 ? 0.5 : 1 }}>← Back</button>
-          <button onClick={next} disabled={saving} style={{ flex: 1, padding: '8px 16px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: saving ? '#ccc' : '#185FA5', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer' }}>
-            {saving ? 'Saving...' : 'Save & continue →'}
-          </button>
-        </div>
-      )}
-
-      {step === STEPS.length && (
-        <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Go-Live Acknowledgement</h3>
-          {!ackComplete ? (
-            <>
-              <p style={{ fontSize: 12, color: '#666', marginBottom: 10 }}>Confirm setup is complete. Client signs digitally to start support SLA.</p>
-              
-              <input placeholder="Principal/Owner mobile number" value={ackPhone}
-                            onChange={(e) => setAckPhone(e.target.value.replace(/[^0-9+\s-]/g, '').slice(0, 15))}
-                             inputMode="numeric"
-                             style={{ ...existing_style, border: ackPhone && ackPhone.replace(/\D/g,'').length !== 10 && ackPhone.length > 5 ? '1px solid #E05A5A' : '1px solid #ccc' }} />
-
-                                    {ackPhone && ackPhone.replace(/\D/g,'').length !== 10 && ackPhone.length > 5 && (
-                            <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4 }}>⚠ Enter a valid 10-digit phone number</p>
-)}
-              {!otpSent ? (
-                <button onClick={sendOtp} style={{ width: '100%', padding: 10, background: '#185FA5', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Send OTP & sign</button>
-              ) : (
-                <>
-                  <input placeholder="Enter OTP" value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6} style={{ width: '100%', padding: '8px 10px', border: '1px solid #ccc', borderRadius: 6, marginBottom: 8, textAlign: 'center', fontSize: 16, letterSpacing: 4 }} />
-                  <button onClick={verifyAndSign} style={{ width: '100%', padding: 10, background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Verify & sign</button>
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              <div style={{ background: '#E1F5EE', borderRadius: 8, padding: 14, textAlign: 'center', marginBottom: 4 }}>
-                <p style={{ fontSize: 22, margin: 0 }}>🎉</p>
-                <p style={{ fontWeight: 600, color: '#085041', margin: '4px 0' }}>Client is live!</p>
-                <p style={{ fontSize: 12, color: '#666', margin: 0 }}>{ackNumber || 'Acknowledgement recorded'} · Support SLA active.</p>
+            {step === 2 && (
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: '#fff' }}>Step 2 — Organisation information</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+                  <input placeholder="Organisation name" value={orgInfo.name} onChange={(e) => setOrgInfo((o) => ({ ...o, name: e.target.value }))} style={S.input} />
+                  <input placeholder="District" value={orgInfo.district} onChange={(e) => setOrgInfo((o) => ({ ...o, district: e.target.value }))} style={S.input} />
+                  <input placeholder="Contact person" value={orgInfo.contactPerson} onChange={(e) => setOrgInfo((o) => ({ ...o, contactPerson: e.target.value }))} style={S.input} />
+                  <input placeholder="Phone" value={orgInfo.phone} onChange={(e) => setOrgInfo((o) => ({ ...o, phone: e.target.value }))} style={S.input} />
+                </div>
               </div>
-              <NextActions
-                title="Client is live — what next?"
-                actions={[
-                  { icon: '🎫', label: 'View support tickets', description: 'Monitor any early issues', href: '/control/tickets', color: '#185FA5' },
-                  { icon: '💳', label: 'Set up billing', description: 'Create first invoice for this client', href: '/control/billing', color: '#1D9E75' },
-                ]}
-                secondaryActions={[
-                  { icon: '🏢', label: 'Back to clients', href: '/control/clients' },
-                  { icon: '🏠', label: 'Dashboard', href: '/portal/dashboard' },
-                ]}
-              />
-            </>
-          )}
-        </div>
-      )}
+            )}
+
+            {step !== 2 && step < STEPS.length && (
+              <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 24, textAlign: 'center', marginBottom: 20, fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
+                Step {step} — {STEPS[step - 1]} configuration
+              </div>
+            )}
+
+            {step < STEPS.length && (
+              <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+                <button onClick={() => setStep(step - 1)} disabled={step === 1}
+                  style={{ padding: '10px 18px', fontSize: 13, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', color: 'rgba(255,255,255,0.6)', cursor: step === 1 ? 'not-allowed' : 'pointer', opacity: step === 1 ? 0.4 : 1, fontFamily: 'inherit' }}>
+                  ← Back
+                </button>
+                <button onClick={next} disabled={saving}
+                  style={{ flex: 1, padding: '10px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: saving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving ? 'rgba(255,255,255,0.3)' : '#111113', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                  {saving ? 'Saving...' : 'Save & continue →'}
+                </button>
+              </div>
+            )}
+
+            {step === STEPS.length && (
+              <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 10, color: '#fff' }}>Go-Live Acknowledgement</h3>
+                {!ackComplete ? (
+                  <>
+                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 12 }}>Confirm setup is complete. Client signs digitally to start support SLA.</p>
+
+                    <input placeholder="Principal/Owner mobile number" value={ackPhone}
+                      onChange={(e) => setAckPhone(e.target.value.replace(/[^0-9+\s-]/g, '').slice(0, 15))}
+                      inputMode="numeric"
+                      style={{ ...S.input, width: '100%', marginBottom: 6, border: ackPhone && ackPhone.replace(/\D/g, '').length !== 10 && ackPhone.length > 5 ? '1px solid #E05A5A' : '1px solid rgba(255,255,255,0.1)' }} />
+
+                    {ackPhone && ackPhone.replace(/\D/g, '').length !== 10 && ackPhone.length > 5 && (
+                      <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4, marginBottom: 10 }}>⚠ Enter a valid 10-digit phone number</p>
+                    )}
+                    {!otpSent ? (
+                      <button onClick={sendOtp} style={{ width: '100%', padding: 12, background: '#E8A020', color: '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: 10 }}>Send OTP & sign</button>
+                    ) : (
+                      <>
+                        <input placeholder="Enter OTP" value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6}
+                          style={{ ...S.input, width: '100%', marginBottom: 10, textAlign: 'center', fontSize: 16, letterSpacing: 4 }} />
+                        <button onClick={verifyAndSign} style={{ width: '100%', padding: 12, background: '#6AAA90', color: '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Verify & sign</button>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 10, padding: 18, textAlign: 'center', marginBottom: 4 }}>
+                      <p style={{ fontSize: 26, margin: 0 }}>🎉</p>
+                      <p style={{ fontWeight: 600, color: '#6AAA90', margin: '6px 0' }}>Client is live!</p>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>{ackNumber || 'Acknowledgement recorded'} · Support SLA active.</p>
+                    </div>
+                    <NextActions
+                      title="Client is live — what next?"
+                      actions={[
+                        { icon: '🎫', label: 'View support tickets', description: 'Monitor any early issues', href: '/control/tickets', color: '#5A9ADF' },
+                        { icon: '💳', label: 'Set up billing', description: 'Create first invoice for this client', href: '/control/billing', color: '#6AAA90' },
+                      ]}
+                      secondaryActions={[
+                        { icon: '🏢', label: 'Back to clients', href: '/control/clients' },
+                        { icon: '🏠', label: 'Dashboard', href: '/portal/dashboard' },
+                      ]}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       <ControlPanelNav />
       <BugReporter screenName="onboarding_wizard" />

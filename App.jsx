@@ -53,9 +53,11 @@ import ReportsDashboard from './grievance/ReportsDashboard';
 import AdminVerificationQueue from './grievance/AdminVerificationQueue';
 import RequestStaffAccess from './grievance/RequestStaffAccess';
 import ComplaintPrint from './grievance/ComplaintPrint';
+import FeedbackViewer from './grievance/FeedbackViewer';
 
 // Control Panel
 import CrmClientView from './controlpanel/CrmClientView';
+import FeedbackOverview from './controlpanel/FeedbackOverview';
 import SupportTickets from './controlpanel/SupportTickets';
 import BillingTracker from './controlpanel/BillingTracker';
 import OnboardingWizard from './controlpanel/OnboardingWizard';
@@ -110,6 +112,14 @@ function PatientDetailWrapper() {
   const { id } = useParams();
   return <PatientDetail patientId={id} />;
 }
+
+// OnboardingWizard expects a clientId prop, not a URL param directly —
+// this was previously unreachable with any client selected at all,
+// since the route accepted no parameter to pass through.
+function OnboardingWizardWrapper() {
+  const { clientId } = useParams();
+  return <OnboardingWizard clientId={clientId} />;
+}
 const SCREEN_NAMES = {
   '/school/dashboard': 'Dashboard', '/school/admission': 'Student admission',
   '/school/attendance': 'Attendance', '/school/fee-collection': 'Fee collection',
@@ -123,7 +133,7 @@ const SCREEN_NAMES = {
   '/hospital/opd': 'OPD visit', '/hospital/lab': 'Lab reports',
   '/hospital/billing': 'Billing', '/hospital/ipd': 'IPD management',
   '/hospital/patients/find': 'Find patient',
-  '/control/clients': 'Clients', '/control/tickets': 'Support tickets',
+  '/control/clients': 'Clients', '/control/feedback': 'App feedback', '/control/tickets': 'Support tickets',
   '/control/billing': 'Billing tracker', '/control/onboarding': 'Onboarding',
   '/control/modifications': 'Modifications', '/control/help-admin': 'Help admin',
   '/control/access': 'Manage access', '/control/security': 'Security monitor',
@@ -198,16 +208,25 @@ function AppRoutes() {
       <Route path="/grievance/:stateSlug" element={<CtsLanding />} />
 <Route path="/grievance/:stateSlug/citizen"
   element={<CitizenPortalWrapper />} />
+{/* staff/admin/reports below were previously listed as "public, no
+    login needed" alongside the genuinely-public citizen routes above
+    -- an older duplicate route set further down (/grievance/staff,
+    /grievance/reports, /grievance/verify-queue) correctly wraps the
+    same screens in RequireAuth, but these newer :stateSlug versions
+    never got the same guard. That's the direct cause of staff/admin
+    landing on these pages with no session and hitting a dead end. */}
 <Route path="/grievance/:stateSlug/staff"
-  element={<StaffDashboard />} />
+  element={<RequireAuth><StaffDashboard /></RequireAuth>} />
 <Route path="/grievance/:stateSlug/admin"
-  element={<AdminVerificationQueue />} />
+  element={<RequireAuth><AdminVerificationQueue /></RequireAuth>} />
 <Route path="/grievance/:stateSlug/reports"
-  element={<ReportsDashboard />} />
+  element={<RequireAuth><ReportsDashboard /></RequireAuth>} />
 <Route path="/grievance/:stateSlug/request-access"
   element={<RequestStaffAccess />} />
 <Route path="/grievance/print"
   element={<ComplaintPrint />} />
+<Route path="/grievance/:stateSlug/feedback"
+  element={<FeedbackViewer />} />
   
   
         {/* ── Portal — auth required ── */}
@@ -283,12 +302,16 @@ function AppRoutes() {
       {/* ── Control Panel — developer/support only ── */}
       <Route path="/control/clients"
         element={<RequireAuth><RequireRole roles={['developer','support']}><CrmClientView /></RequireRole></RequireAuth>} />
+      <Route path="/control/feedback"
+        element={<RequireAuth><RequireRole roles={['developer','support']}><FeedbackOverview /></RequireRole></RequireAuth>} />
       <Route path="/control/tickets"
         element={<RequireAuth><RequireRole roles={['developer','support']}><SupportTickets /></RequireRole></RequireAuth>} />
       <Route path="/control/billing"
         element={<RequireAuth><RequireRole roles={['developer','support']}><BillingTracker /></RequireRole></RequireAuth>} />
       <Route path="/control/onboarding"
         element={<RequireAuth><RequireRole roles={['developer','support']}><OnboardingWizard /></RequireRole></RequireAuth>} />
+      <Route path="/control/onboarding/:clientId"
+        element={<RequireAuth><RequireRole roles={['developer','support']}><OnboardingWizardWrapper /></RequireRole></RequireAuth>} />
       <Route path="/control/modifications"
         element={<RequireAuth><RequireRole roles={['developer','support','principal','doctor']}><ModificationRequestPortal /></RequireRole></RequireAuth>} />
       <Route path="/control/help-admin"

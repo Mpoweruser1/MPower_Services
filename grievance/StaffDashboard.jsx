@@ -1,33 +1,92 @@
 // src/pages/grievance/StaffDashboard.jsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTenant } from '../context/TenantContext';
 import EvidenceGallery from './EvidenceGallery';
-import { CATEGORY_EMOJI, StageBadge, FeedbackWidget } from './CitizenPortal';
-import { fetchStaffQueue, fetchComplaintHistory, advanceComplaint, uploadStaffPhoto, updateStaffProfile } from './grievanceApi';
+import { CATEGORY_EMOJI, StageBadge } from './CitizenPortal';
+import { FeedbackWidget } from '../shared/FeedbackWidget';
+import { fetchStaffQueue, fetchComplaintHistory, advanceComplaint, updateAssignedDepartment, fetchCategories, uploadStaffPhoto, updateStaffProfile } from './grievanceApi';
 import GrievanceNav from './GrievanceNav';
 
 const TERMINAL_STAGES = ['Resolved', 'Sanctioned', 'Declined'];
 
 export default function StaffDashboard() {
   const { tenant, loading: tenantLoading } = useTenant();
-  const [complaints, setComplaints] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('pending');
+  const [listData, setListData] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [listLoading, setListLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [categories, setCategories] = useState([]);
   const [activeComplaint, setActiveComplaint] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const PAGE_SIZE = 25;
+
+  // Desktop grid — deliberately separate from the mobile card state
+  // above. Mobile keeps its proven Prev/Next pagination exactly as
+  // it was; the grid instead accumulates rows via infinite scroll,
+  // loading more automatically as the user nears the bottom, so it
+  // never shows a "Page X of Y" at all.
+  const [gridData, setGridData] = useState([]);
+  const [gridPage, setGridPage] = useState(0);
+  const [gridLoading, setGridLoading] = useState(false);
+  const [gridHasMore, setGridHasMore] = useState(true);
+  const gridScrollRef = useRef(null);
+
+  const loadGridPage = useCallback((pageNum, replace) => {
+    setGridLoading(true);
+    fetchStaffQueue({ page: pageNum, pageSize: PAGE_SIZE, search, category: categoryFilter, priority: priorityFilter, handled: activeTab === 'handled' })
+      .then(({ data, count }) => {
+        setGridData((prev) => (replace ? data : [...prev, ...data]));
+        setGridHasMore((pageNum + 1) * PAGE_SIZE < count);
+      })
+      .finally(() => setGridLoading(false));
+  }, [search, categoryFilter, priorityFilter, activeTab]);
+
+  // Same filter/tab changes that reset the mobile page also restart
+  // the grid from scratch — a stale grid full of the wrong filter's
+  // rows would be far more confusing than an empty one refilling.
+  useEffect(() => {
+    setGridPage(0);
+    setGridHasMore(true);
+    loadGridPage(0, true);
+    if (gridScrollRef.current) gridScrollRef.current.scrollTop = 0;
+  }, [search, categoryFilter, priorityFilter, activeTab, tenant?.appId]);
+
+  function handleGridScroll(e) {
+    const el = e.target;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 200;
+    if (nearBottom && !gridLoading && gridHasMore) {
+      const next = gridPage + 1;
+      setGridPage(next);
+      loadGridPage(next, false);
+    }
+  }
 
   const reload = useCallback(() => {
-    setLoading(true);
-    fetchStaffQueue()
-      .then(setComplaints)
-      .finally(() => setLoading(false));
-  }, []);
+    setListLoading(true);
+    fetchStaffQueue({ page, pageSize: PAGE_SIZE, search, category: categoryFilter, priority: priorityFilter, handled: activeTab === 'handled' })
+      .then(({ data, count }) => { setListData(data); setTotalCount(count); })
+      .finally(() => setListLoading(false));
+  }, [page, search, categoryFilter, priorityFilter, activeTab]);
 
   useEffect(() => {
     if (tenant) reload();
   }, [tenant, reload]);
+
+  useEffect(() => {
+    if (tenant?.appId) fetchCategories(tenant.appId).then(setCategories).catch(() => {});
+  }, [tenant?.appId]);
+
+  // Any filter or tab change starts back at page 1 — staying on, say,
+  // page 4 after narrowing the search would very likely land on an
+  // empty page that no longer has anything on it.
+  useEffect(() => { setPage(0); }, [search, categoryFilter, priorityFilter, activeTab]);
 
   if (tenantLoading || !tenant) return <CenteredNote>Loading…</CenteredNote>;
 
@@ -37,8 +96,7 @@ export default function StaffDashboard() {
   }
 
   const profileIncomplete = !tenant.phone || !tenant.alternatePhone;
-  const pending = complaints.filter((c) => !TERMINAL_STAGES.includes(c.stage));
-  const handled = complaints.filter((c) => TERMINAL_STAGES.includes(c.stage));
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
     // FIX 2: paddingBottom 80px so content clears fixed GrievanceNav
@@ -64,70 +122,172 @@ export default function StaffDashboard() {
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ position: 'sticky', top: 0, zIndex: 30, background: '#f0f4f8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', marginBottom: 4 }}>
           <div>
             <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
               {roleLabel(tenant.role)} — {tenant.fullName}
             </h1>
-            <p style={{ fontSize: 12.5, color: '#5B6473', marginBottom: 20 }}>
-              {pending.length} pending · {handled.length} handled
+            <p style={{ fontSize: 12.5, color: '#5B6473', margin: 0 }}>
+              {totalCount} {activeTab === 'pending' ? 'pending' : 'handled'}
             </p>
           </div>
-          <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: '#15213A', background: 'none', border: 'none', fontWeight: 600 }}>
-            💬 Feedback
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+            <a href="/portal/dashboard" style={{ fontSize: 12, color: '#15213A', textDecoration: 'none', fontWeight: 600 }}>🏠 Home</a>
+            <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: '#15213A', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
+              💬 Feedback
+            </button>
+          </div>
         </div>
 
-        {loading ? (
-          <CenteredNote>Loading complaints…</CenteredNote>
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          {[{ key: 'pending', label: 'Pending action' }, { key: 'handled', label: 'Handled' }].map((t) => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)}
+              style={{ padding: '7px 16px', borderRadius: 20, cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+                background: activeTab === t.key ? '#15213A' : '#fff', color: activeTab === t.key ? '#fff' : '#5B6473',
+                border: activeTab === t.key ? 'none' : '1px solid #D9D5C8' }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search + filter bar — sticky, stays visible while scrolling
+            through a long list, so it's never necessary to scroll back
+            up just to search or change a filter */}
+        <div style={{ position: 'sticky', top: 56, background: '#f0f4f8', zIndex: 20, paddingBottom: 10, marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by title…"
+              style={{ flex: '1 1 160px', padding: '9px 12px', border: '1px solid #D9D5C8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit' }}
+            />
+            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+              style={{ padding: '9px 10px', border: '1px solid #D9D5C8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff' }}>
+              <option value="">All categories</option>
+              {categories.map((c) => <option key={c.id} value={c.label_en}>{c.label_en}</option>)}
+            </select>
+            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}
+              style={{ padding: '9px 10px', border: '1px solid #D9D5C8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff' }}>
+              <option value="">All priorities</option>
+              <option value="Normal">Normal</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+          </div>
+        </div>
+
+        <style>{`
+          .mobile-queue-view { display: block; }
+          .desktop-queue-grid { display: none; }
+          @media (min-width: 900px) {
+            .mobile-queue-view { display: none; }
+            .desktop-queue-grid { display: block; }
+          }
+        `}</style>
+
+        <div className="mobile-queue-view">
+        {listLoading ? (
+          <CenteredNote>Loading…</CenteredNote>
+        ) : listData.length === 0 ? (
+          <CenteredNote>{activeTab === 'pending' ? 'Queue clear.' : 'Nothing here yet.'}</CenteredNote>
         ) : (
           <>
-            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Pending action</h3>
-            {pending.length === 0 ? (
-              <CenteredNote>Queue clear.</CenteredNote>
-            ) : (
-              <div style={{ display: 'grid', gap: 10, marginBottom: 24 }}>
-                {pending.map((c) => (
-                  <ComplaintCard
-                    key={c.id}
-                    complaint={c}
-                    role={tenant.role}
-                    actorName={tenant.fullName}
-                    onOpen={() => setActiveComplaint(c)}
-                    onAction={reload}
-                  />
-                ))}
-              </div>
-            )}
+            <p style={{ fontSize: 11.5, color: '#8B9099', margin: '0 0 10px' }}>
+              {totalCount} total · showing {page * PAGE_SIZE + 1}–{Math.min(totalCount, (page + 1) * PAGE_SIZE)}
+            </p>
+            <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
+              {activeTab === 'pending' ? listData.map((c) => (
+                <ComplaintCard
+                  key={c.id}
+                  complaint={c}
+                  role={tenant.role}
+                  actorName={tenant.fullName}
+                  onOpen={() => setActiveComplaint(c)}
+                  onAction={reload}
+                />
+              )) : listData.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setActiveComplaint(c)}
+                  style={{ textAlign: 'left', padding: 12, border: '1px solid #D9D5C8', borderRadius: 8, background: '#fff', display: 'flex', gap: 10, alignItems: 'center' }}
+                >
+                  <span style={{ fontSize: 20 }}>{CATEGORY_EMOJI[c.category] || '📄'}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{c.title}</div>
+                    <div style={{ marginTop: 4 }}><StageBadge stage={c.stage} /></div>
+                  </div>
+                </button>
+              ))}
+            </div>
 
-            {handled.length > 0 && (
-              <>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Handled</h3>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {handled.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setActiveComplaint(c)}
-                      style={{ textAlign: 'left', padding: 12, border: '1px solid #D9D5C8', borderRadius: 8, background: '#fff', display: 'flex', gap: 10, alignItems: 'center' }}
-                    >
-                      <span style={{ fontSize: 20 }}>{CATEGORY_EMOJI[c.category] || '📄'}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{c.title}</div>
-                        <div style={{ marginTop: 4 }}><StageBadge stage={c.stage} /></div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
+            {/* Pagination — a fixed, always-reachable spot to move
+                between pages, instead of needing to scroll through the
+                whole list to get anywhere */}
+            {totalPages > 1 && (
+              <div style={{ position: 'sticky', bottom: 76, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, background: '#fff', border: '1px solid #D9D5C8', borderRadius: 20, padding: '8px 18px', width: 'fit-content', margin: '0 auto', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}
+                  style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 700, color: page === 0 ? '#D9D5C8' : '#15213A', cursor: page === 0 ? 'default' : 'pointer' }}>
+                  ← Prev
+                </button>
+                <span style={{ fontSize: 12.5, color: '#5B6473', fontWeight: 600 }}>Page {page + 1} of {totalPages}</span>
+                <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+                  style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 700, color: page >= totalPages - 1 ? '#D9D5C8' : '#15213A', cursor: page >= totalPages - 1 ? 'default' : 'pointer' }}>
+                  Next →
+                </button>
+              </div>
             )}
           </>
         )}
+        </div>
+
+        {/* Desktop grid — sticky header, infinite scroll, no page
+            numbers at all. Wider screens only; mobile keeps the card
+            view above completely untouched. */}
+        <div className="desktop-queue-grid">
+          <p style={{ fontSize: 11.5, color: '#8B9099', margin: '0 0 10px' }}>
+            {gridData.length} of {totalCount} loaded — scroll for more
+          </p>
+          <div
+            ref={gridScrollRef}
+            onScroll={handleGridScroll}
+            style={{ maxHeight: '65vh', overflowY: 'auto', border: '1px solid #D9D5C8', borderRadius: 10, background: '#fff' }}
+          >
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ position: 'sticky', top: 0, background: '#F7F6F2', zIndex: 1 }}>
+                  {['Case No.', 'Title', 'Category', 'Priority', 'Stage', 'Filed'].map((h) => (
+                    <th key={h} style={{ textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid #D9D5C8', fontSize: 11.5, color: '#5B6473', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {gridData.length === 0 && !gridLoading ? (
+                  <tr><td colSpan={6} style={{ padding: 20, textAlign: 'center', color: '#8B9099' }}>{activeTab === 'pending' ? 'Queue clear.' : 'Nothing here yet.'}</td></tr>
+                ) : gridData.map((c) => (
+                  <tr key={c.id} onClick={() => setActiveComplaint(c)} style={{ cursor: 'pointer', borderBottom: '1px solid #EFEDE6' }}>
+                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 11.5, color: '#8B9099' }}>{c.case_no}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{CATEGORY_EMOJI[c.category] || '📄'} {c.title}</td>
+                    <td style={{ padding: '10px 14px', color: '#5B6473' }}>{c.category}</td>
+                    <td style={{ padding: '10px 14px' }}>{c.priority === 'Urgent' ? <span style={{ color: '#9B3C2E', fontWeight: 700 }}>🚨 Urgent</span> : 'Normal'}</td>
+                    <td style={{ padding: '10px 14px' }}><StageBadge stage={c.stage} /></td>
+                    <td style={{ padding: '10px 14px', color: '#8B9099', whiteSpace: 'nowrap' }}>{new Date(c.created_at).toLocaleDateString('en-IN')}</td>
+                  </tr>
+                ))}
+                {gridLoading && (
+                  <tr><td colSpan={6} style={{ padding: 14, textAlign: 'center', color: '#8B9099', fontSize: 12 }}>Loading more…</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
 
         {activeComplaint && (
           <ComplaintDetailDrawer
             complaint={activeComplaint}
             role={tenant.role}
             staffUserId={tenant.userRowId}
+            actorName={tenant.fullName}
             onClose={() => setActiveComplaint(null)}
           />
         )}
@@ -322,13 +482,36 @@ function ActionBtn({ onClick, disabled, color = '#15213A', children }) {
   );
 }
 
-function ComplaintDetailDrawer({ complaint, role, staffUserId, onClose }) {
+export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName, onClose }) {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
+  const [department, setDepartment] = useState(complaint.assigned_department || '');
+  const [remark, setRemark] = useState('');
+  const [savingDept, setSavingDept] = useState(false);
+  const [deptSaved, setDeptSaved] = useState(false);
 
   useEffect(() => {
     fetchComplaintHistory(complaint.id).then(setHistory);
   }, [complaint.id]);
+
+  async function handleSaveDepartment() {
+    setSavingDept(true);
+    setDeptSaved(false);
+    try {
+      await updateAssignedDepartment(complaint.id, department.trim() || null);
+      // A remark, if given, is logged as a normal history entry — same
+      // stage as right now, so this never forces an unwanted status
+      // change just to leave a note.
+      if (remark.trim()) {
+        await advanceComplaint({ complaintId: complaint.id, stage: complaint.stage, byName: actorName, note: remark.trim(), visibility: 'internal' });
+        setRemark('');
+        fetchComplaintHistory(complaint.id).then(setHistory);
+      }
+      setDeptSaved(true);
+    } finally {
+      setSavingDept(false);
+    }
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end' }} onClick={onClose}>
@@ -342,6 +525,31 @@ function ComplaintDetailDrawer({ complaint, role, staffUserId, onClose }) {
             <strong>Citizen's suggested solution:</strong> {complaint.suggested_solution}
           </p>
         )}
+
+        <div style={{ background: '#F7F6F2', border: '1px solid #D9D5C8', borderRadius: 8, padding: 12, margin: '12px 0' }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: '#5B6473', display: 'block', marginBottom: 4 }}>
+            Assigned Department (from Collector's response)
+          </label>
+          <input
+            value={department}
+            onChange={(e) => { setDepartment(e.target.value); setDeptSaved(false); }}
+            placeholder="e.g. Public Health Department"
+            style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid #D9D5C8', borderRadius: 6, marginBottom: 8, boxSizing: 'border-box' }}
+          />
+          <label style={{ fontSize: 11, fontWeight: 600, color: '#5B6473', display: 'block', marginBottom: 4 }}>
+            Remark (optional — internal note, won't change complaint status)
+          </label>
+          <input
+            value={remark}
+            onChange={(e) => setRemark(e.target.value)}
+            placeholder="e.g. Collector's office confirmed inspection scheduled"
+            style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid #D9D5C8', borderRadius: 6, marginBottom: 8, boxSizing: 'border-box' }}
+          />
+          <button onClick={handleSaveDepartment} disabled={savingDept}
+            style={{ padding: '7px 14px', fontSize: 12.5, fontWeight: 700, background: '#15213A', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+            {savingDept ? 'Saving…' : deptSaved ? '✓ Saved' : 'Save'}
+          </button>
+        </div>
 
         {/* FIX 3: Print button */}
         <button

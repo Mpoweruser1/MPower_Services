@@ -17,7 +17,7 @@ export default function RequestStaffAccess() {
   });
   const [constituencies, setConstituencies] = useState([]);
   const [loadingConstituencies, setLoadingConstituencies] = useState(true);
-  const [appId, setAppId] = useState(null);
+  const [appId, setAppId] = useState(undefined); // undefined = still resolving, null = not found
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -77,6 +77,22 @@ export default function RequestStaffAccess() {
       });
 
       if (err) throw err;
+
+      // Fire-and-forget — a notification failure should never block or
+      // fail the applicant's own successful submission. Errors are
+      // only logged server-side, in the function itself.
+      supabase.functions.invoke('notify-registration', {
+        body: {
+          officeName: form.officeName,
+          constituencyName: form.constituencyName,
+          roleRequested: form.role,
+          contactPerson: form.contactPerson,
+          phone: form.phone,
+          email: form.email || null,
+          stateSlug: stateSlug || 'andhra-pradesh',
+        },
+      }).catch(() => {});
+
       setDone(true);
     } catch (e) {
       setError('Submission failed. Please try again or contact MPower support.');
@@ -97,9 +113,28 @@ export default function RequestStaffAccess() {
           <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#15803d', marginBottom: 20 }}>
             Reference: {form.constituencyName} · {new Date().toLocaleDateString('en-IN')}
           </div>
-          <Link to={`/grievance/${stateSlug || 'andhra-pradesh'}`} style={{ display: 'inline-block', fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>
-            ← Back to home
+          <Link to="/portal/login" style={{ display: 'inline-block', fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>
+            ← Back to office login
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (appId === undefined) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: 13, color: '#94a3b8' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (appId === null) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
+        <div>
+          <p style={{ fontSize: 14, color: '#64748b', marginBottom: 16 }}>This state isn't set up on this platform yet. Check the link you were given, or contact your local office.</p>
+          <a href="/" style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>← Back to home</a>
         </div>
       </div>
     );
@@ -109,15 +144,34 @@ export default function RequestStaffAccess() {
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
 
       {/* Header */}
-      <div style={{ background: '#1a1a2e', padding: '14px 20px' }}>
+      <div style={{ background: '#1a1a2e', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link to={`/grievance/${stateSlug || 'andhra-pradesh'}`} style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#e8a020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1a1a2e', fontSize: 15 }}>M</div>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: '#e8a020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1a1a2e', fontSize: 16 }}>M</div>
           <div>
-            <div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>MPower CTS</div>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>MLA / MP Office Registration</div>
+            <div style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>MPower CTS</div>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>MLA / MP Office Registration</div>
           </div>
         </Link>
       </div>
+
+      {/* Same continuously-scrolling banner as CtsLanding.jsx, for
+          visual consistency between the two entry points */}
+      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', padding: '10px 0', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'inline-block', animation: 'ctsTickerScroll 22s linear infinite' }}>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', padding: '0 40px' }}>
+            Your concern won't stop until it reaches your leader — <span style={{ color: '#e8a020', fontWeight: 600 }}>మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు</span>
+          </span>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', padding: '0 40px' }}>
+            Your concern won't stop until it reaches your leader — <span style={{ color: '#e8a020', fontWeight: 600 }}>మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు</span>
+          </span>
+        </div>
+      </div>
+      <style>{`
+        @keyframes ctsTickerScroll {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+      `}</style>
 
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px 40px' }}>
 
@@ -238,6 +292,10 @@ export default function RequestStaffAccess() {
           >
             {busy ? 'Submitting...' : '🏛️ Submit Registration Request'}
           </button>
+
+          <div style={{ textAlign: 'center' }}>
+            <Link to={`/grievance/${stateSlug || 'andhra-pradesh'}`} style={{ fontSize: 12, color: '#94a3b8', textDecoration: 'none' }}>🏠 Home</Link>
+          </div>
 
           <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', lineHeight: 1.6 }}>
             Setup is completely free · mpowerind.in · support@mpowerind.in

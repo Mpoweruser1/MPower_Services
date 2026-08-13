@@ -1,6 +1,6 @@
 // website/pages/Home.jsx — FINAL
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff' },
@@ -16,12 +16,12 @@ function Nav() {
 
   return (
     <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: scrolled ? 'rgba(28,28,30,0.95)' : 'transparent', backdropFilter: scrolled ? 'blur(12px)' : 'none', borderBottom: scrolled ? '1px solid rgba(255,255,255,0.08)' : 'none', transition: 'all 0.3s', padding: '14px 24px' }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: '#E8A020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#111113', fontSize: 16 }}>M</div>
           <span style={{ fontSize: 18, fontWeight: 700, color: '#fff', letterSpacing: -0.5 }}>MPower</span>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <Link to="/products" style={{ padding: '8px 16px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: 14 }}>Products</Link>
           <Link to="/pricing" style={{ padding: '8px 16px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: 14 }}>Pricing</Link>
           <Link to="/contact" style={{ padding: '8px 16px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: 14 }}>Contact</Link>
@@ -34,9 +34,9 @@ function Nav() {
 }
 
 const PRODUCTS = [
-  { icon: '🏫', name: 'MPower School', desc: 'Attendance, fees, TC, certificates, hostel, transport — all in one. Telugu + English.', href: '/products/school', color: '#6AAA90' },
-  { icon: '🏥', name: 'MPower Hospital', desc: 'OPD, IPD, lab, billing, ABHA linking, Aarogyasri and PMJAY — for small to mid hospitals.', href: '/products/hospital', color: '#5A9ADF' },
-  { icon: '🏛️', name: 'MPower CTS', desc: 'Citizen complaint tracking system for MLA offices. Village dropdowns, WhatsApp updates, welfare reporting.', href: '/products/grievance', color: '#E8A020' },
+  { icon: '🏫', name: 'MPower School', desc: 'Attendance, fees, TC, certificates, hostel, transport — all in one. Telugu + English.', href: '/products/school', directHref: '/registration?type=school', color: '#6AAA90' },
+  { icon: '🏥', name: 'MPower Hospital', desc: 'OPD, IPD, lab, billing, ABHA linking, Aarogyasri and PMJAY — for small to mid hospitals.', href: '/products/hospital', directHref: '/registration?type=hospital', color: '#5A9ADF' },
+  { icon: '🙏', name: 'MPower CTS', desc: "Your concern won't stop until it reaches your leader — no delay, no silence, no forgetting.", href: '/products/grievance', directHref: '/grievance', color: '#E8A020' },
 ];
 
 const STATS = [
@@ -62,6 +62,7 @@ const TESTIMONIALS = [
 ];
 
 export default function Home() {
+  const navigate = useNavigate();
   return (
     <div style={S.page}>
       <style>{`
@@ -86,14 +87,14 @@ export default function Home() {
           <h1 style={{ fontSize: 'clamp(36px, 6vw, 68px)', fontWeight: 800, color: '#fff', margin: '0 0 12px', lineHeight: 1.1, letterSpacing: -2 }}>
             One platform for<br />
             <span style={{ color: '#E8A020' }}>Schools, Hospitals</span><br />
-            and <span style={{ color: '#E8A020' }}>Government offices</span>
+            and <span style={{ color: '#E8A020' }}>Every Citizen's Voice</span>
           </h1>
 
           <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: 'rgba(255,255,255,0.5)', margin: '0 0 8px', lineHeight: 1.6 }}>
             Built for Andhra Pradesh and Telangana. Telugu + English. WhatsApp first.
           </p>
           <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)', margin: '0 0 40px', fontFamily: "'Noto Sans Telugu', sans-serif" }}>
-            పాఠశాలలు · ఆసుపత్రులు · ప్రభుత్వ కార్యాలయాలు
+            పాఠశాలలు · ఆసుపత్రులు · ప్రతి పౌరుని సమస్య
           </p>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 60 }}>
@@ -129,12 +130,12 @@ export default function Home() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
             {PRODUCTS.map((p) => (
-              <Link key={p.name} to={p.href} style={{ display: 'block', padding: '28px 24px', background: '#1C1C1E', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, textDecoration: 'none', transition: 'border-color 0.2s' }}>
+              <div key={p.name} onClick={() => navigate(p.directHref)} style={{ display: 'block', padding: '28px 24px', background: '#1C1C1E', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, cursor: 'pointer', transition: 'border-color 0.2s' }}>
                 <span style={{ fontSize: 36, display: 'block', marginBottom: 14 }}>{p.icon}</span>
                 <h3 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: '0 0 10px' }}>{p.name}</h3>
                 <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', margin: '0 0 20px', lineHeight: 1.7 }}>{p.desc}</p>
-                <span style={{ fontSize: 13, color: p.color, fontWeight: 500 }}>Learn more →</span>
-              </Link>
+                <Link to={p.href} onClick={(e) => e.stopPropagation()} style={{ fontSize: 13, color: p.color, fontWeight: 500, textDecoration: 'none' }}>Learn more →</Link>
+              </div>
             ))}
           </div>
         </div>

@@ -1,18 +1,22 @@
 // grievance/GrievanceNav.jsx
 import { Link, useLocation, useParams } from 'react-router-dom';
+import { useTenant } from '../context/TenantContext';
 
 export default function GrievanceNav() {
   const { stateSlug } = useParams();
   const slug = stateSlug || 'andhra-pradesh';
   const location = useLocation();
   const path = location.pathname;
+  const { tenant } = useTenant();
+  const isStaff = !!tenant;
 
-  const links = [
-    { to: `/grievance/${slug}/staff`,   icon: '📋', label: 'Queue',   te: 'క్యూ' },
-    { to: `/grievance/${slug}/reports`, icon: '📈', label: 'Reports', te: 'నివేదికలు' },
-    { to: `/grievance/${slug}/admin`,   icon: '✅', label: 'Verify',  te: 'ధృవీకరణ' },
-    { to: `/grievance/print`,           icon: '🖨️', label: 'Print',   te: 'ముద్రణ' },
+  const allLinks = [
+    { to: `/grievance/${slug}/staff`,   icon: '📋', label: 'Queue',   te: 'క్యూ',       staffOnly: true },
+    { to: `/grievance/${slug}/reports`, icon: '📈', label: 'Reports', te: 'నివేదికలు',  staffOnly: true },
+    { to: `/grievance/${slug}/admin`,   icon: '✅', label: 'Verify',  te: 'ధృవీకరణ',    staffOnly: true },
+    { to: `/grievance/print`,           icon: '🖨️', label: 'Print',   te: 'ముద్రణ',      staffOnly: false },
   ];
+  const links = allLinks.filter((l) => !l.staffOnly || isStaff);
 
   return (
     <>

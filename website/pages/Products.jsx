@@ -1,6 +1,6 @@
 // website/pages/Products.jsx — FINAL
 import React, { useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff' },
@@ -41,9 +41,9 @@ const PRODUCTS = {
     ],
   },
   grievance: {
-    icon: '🏛️', name: 'MPower CTS', color: '#E8A020',
-    tagline: 'Citizen complaint tracking for MLA offices',
-    taglineTe: 'MLA కార్యాలయాల కోసం పౌర ఫిర్యాదు వ్యవస్థ',
+    icon: '🙏', name: 'MPower CTS', color: '#E8A020',
+    tagline: "Your concern won't stop until it reaches your leader",
+    taglineTe: 'మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు',
     features: [
       { icon: '📋', title: 'Citizen Portal', desc: 'No login needed. Cascading district → mandal → village dropdown. Rate limiting 3/day.' },
       { icon: '🔍', title: 'Complaint Tracker', desc: 'Citizens track their complaint by case number. Full timeline history.' },
@@ -56,68 +56,10 @@ const PRODUCTS = {
   },
 };
 
-// All 28 states + 8 UTs — a citizen picking their state goes straight to
-// that state's citizen portal. States not yet provisioned in the DB get
-// CitizenPortal.jsx's existing "not set up yet" message rather than an
-// error, so the list isn't restricted to only the live states.
-const STATES = [
-  { name: 'Andhra Pradesh', slug: 'andhra-pradesh' },
-  { name: 'Arunachal Pradesh', slug: 'arunachal-pradesh' },
-  { name: 'Assam', slug: 'assam' },
-  { name: 'Bihar', slug: 'bihar' },
-  { name: 'Chhattisgarh', slug: 'chhattisgarh' },
-  { name: 'Goa', slug: 'goa' },
-  { name: 'Gujarat', slug: 'gujarat' },
-  { name: 'Haryana', slug: 'haryana' },
-  { name: 'Himachal Pradesh', slug: 'himachal-pradesh' },
-  { name: 'Jharkhand', slug: 'jharkhand' },
-  { name: 'Karnataka', slug: 'karnataka' },
-  { name: 'Kerala', slug: 'kerala' },
-  { name: 'Madhya Pradesh', slug: 'madhya-pradesh' },
-  { name: 'Maharashtra', slug: 'maharashtra' },
-  { name: 'Manipur', slug: 'manipur' },
-  { name: 'Meghalaya', slug: 'meghalaya' },
-  { name: 'Mizoram', slug: 'mizoram' },
-  { name: 'Nagaland', slug: 'nagaland' },
-  { name: 'Odisha', slug: 'odisha' },
-  { name: 'Punjab', slug: 'punjab' },
-  { name: 'Rajasthan', slug: 'rajasthan' },
-  { name: 'Sikkim', slug: 'sikkim' },
-  { name: 'Tamil Nadu', slug: 'tamil-nadu' },
-  { name: 'Telangana', slug: 'telangana' },
-  { name: 'Tripura', slug: 'tripura' },
-  { name: 'Uttar Pradesh', slug: 'uttar-pradesh' },
-  { name: 'Uttarakhand', slug: 'uttarakhand' },
-  { name: 'West Bengal', slug: 'west-bengal' },
-  { name: 'Andaman and Nicobar Islands', slug: 'andaman-and-nicobar-islands' },
-  { name: 'Chandigarh', slug: 'chandigarh' },
-  { name: 'Dadra and Nagar Haveli and Daman and Diu', slug: 'dadra-and-nagar-haveli-and-daman-and-diu' },
-  { name: 'Delhi (NCT)', slug: 'delhi' },
-  { name: 'Jammu and Kashmir', slug: 'jammu-and-kashmir' },
-  { name: 'Ladakh', slug: 'ladakh' },
-  { name: 'Lakshadweep', slug: 'lakshadweep' },
-  { name: 'Puducherry', slug: 'puducherry' },
-];
-
-// Inline state picker — no separate page. destinationFor maps the
-// chosen state's slug to where selecting it should navigate.
-function StateSelectDropdown({ color, placeholder, destinationFor, variant = 'solid' }) {
-  const navigate = useNavigate();
-  const solidStyle = { background: color, color: '#111113', border: 'none', fontWeight: 700 };
-  const outlineStyle = { background: 'transparent', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.15)', fontWeight: 600 };
-  return (
-    <select
-      defaultValue=""
-      onChange={(e) => { if (e.target.value) navigate(destinationFor(e.target.value)); }}
-      style={{ width: '100%', padding: '13px 16px', borderRadius: 10, fontSize: 15, fontFamily: 'inherit', cursor: 'pointer', ...(variant === 'solid' ? solidStyle : outlineStyle) }}
-    >
-      <option value="" disabled>{placeholder}</option>
-      {STATES.map((s) => (
-        <option key={s.slug} value={s.slug}>{s.name}</option>
-      ))}
-    </select>
-  );
-}
+// State selection now happens consistently at /grievance
+// (GrievanceStateSelect.jsx → CtsLanding.jsx) — previously duplicated
+// here across 4 separate dropdown instances (2 in the hero, 2 in the
+// CTA), which is what made this page feel cluttered.
 
 export default function Products() {
   const { appType } = useParams();
@@ -158,18 +100,10 @@ export default function Products() {
           <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.55)', margin: '0 0 6px' }}>{product.tagline}</p>
           <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.6)', margin: '0 0 32px', fontFamily: "'Noto Sans Telugu', sans-serif" }}>{product.taglineTe}</p>
           {activeTab === 'grievance' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 380, margin: '0 auto' }}>
-              <StateSelectDropdown
-                color={product.color}
-                placeholder="File / track a complaint — select your state"
-                destinationFor={(slug) => `/grievance/${slug}/citizen`}
-              />
-              <StateSelectDropdown
-                variant="outline"
-                placeholder="Register your office (free trial) — select your state"
-                destinationFor={(slug) => `/grievance/${slug}/request-access`}
-              />
-            </div>
+            <Link to="/grievance"
+              style={{ display: 'inline-block', padding: '13px 32px', background: product.color, color: '#111113', borderRadius: 10, textDecoration: 'none', fontSize: 15, fontWeight: 700 }}>
+              Get started with CTS →
+            </Link>
           ) : (
             <Link to={`/registration?type=${activeTab}`}
               style={{ display: 'inline-block', padding: '13px 32px', background: product.color, color: '#111113', borderRadius: 10, textDecoration: 'none', fontSize: 15, fontWeight: 700 }}>
@@ -195,30 +129,18 @@ export default function Products() {
             Try {product.name} free for 6 months
           </h2>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', margin: '0 0 28px' }}>No credit card · Setup in 10 minutes · Cancel anytime</p>
-          {activeTab === 'grievance' && (
-            <div style={{ maxWidth: 380, margin: '0 auto 12px' }}>
-              <StateSelectDropdown
-                color="#E8A020"
-                placeholder="File / track a complaint — select your state"
-                destinationFor={(slug) => `/grievance/${slug}/citizen`}
-              />
-            </div>
-          )}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             {activeTab === 'grievance' ? (
-              <div style={{ maxWidth: 220, flex: '1 1 220px' }}>
-                <StateSelectDropdown
-                  variant="outline"
-                  placeholder="Register your office"
-                  destinationFor={(slug) => `/grievance/${slug}/request-access`}
-                />
-              </div>
+              <Link to="/grievance" style={{ padding: '13px 28px', background: '#E8A020', color: '#111113', borderRadius: 10, textDecoration: 'none', fontSize: 15, fontWeight: 700 }}>Get started with CTS →</Link>
             ) : (
               <Link to={`/registration?type=${activeTab}`} style={{ padding: '13px 28px', background: '#E8A020', color: '#111113', borderRadius: 10, textDecoration: 'none', fontSize: 15, fontWeight: 700 }}>Start free trial →</Link>
             )}
             <Link to="/pricing" style={{ padding: '13px 28px', background: 'transparent', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, textDecoration: 'none', fontSize: 15 }}>See pricing</Link>
           </div>
         </div>
+      </div>
+      <div style={{ textAlign: 'center', padding: '0 24px 40px' }}>
+        <Link to="/" style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>🏠 Home</Link>
       </div>
     </div>
   );

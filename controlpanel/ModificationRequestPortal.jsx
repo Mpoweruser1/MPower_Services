@@ -368,22 +368,50 @@ function RequestCard({ req, tenant, onPaySuccess }) {
 // ─────────────────────────────────────────────────────────────
 export default function ModificationRequestPortal() {
   const { tenant } = useTenant();
+  const isDevOrSupport = ['developer', 'support'].includes(tenant?.role);
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [loadingClients, setLoadingClients] = useState(false);
   const [requests, setRequests]   = useState([]);
   const [loading, setLoading]     = useState(true);
   const [tab, setTab]             = useState('status');
   const [submitting, setSubmitting] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
 
+  // Same reasoning as ManageAccess — developer/support has no "own"
+  // client to raise a request for, they need to pick one first.
+  // Principal/doctor skip this and use their own tenant values, same
+  // as before.
   useEffect(() => {
-    if (tenant?.clientId) loadRequests();
-  }, [tenant?.clientId]);
+    async function loadClients() {
+      if (!isDevOrSupport) return;
+      setLoadingClients(true);
+      const { data } = await supabase
+        .from('crm_clients')
+        .select('id, org_name, district, phone, contact_person, apps(id)')
+        .order('org_name');
+      setClients(data || []);
+      setLoadingClients(false);
+    }
+    loadClients();
+  }, [isDevOrSupport]);
+
+  const effectiveClientId = isDevOrSupport ? selectedClient?.id : tenant?.clientId;
+  const effectiveAppId = isDevOrSupport ? selectedClient?.apps?.id : tenant?.appId;
+  const effectiveOrgName = isDevOrSupport ? selectedClient?.org_name : tenant?.orgName;
+  const effectiveFullName = isDevOrSupport ? selectedClient?.contact_person : tenant?.fullName;
+  const effectivePhone = isDevOrSupport ? selectedClient?.phone : tenant?.phone;
+
+  useEffect(() => {
+    if (effectiveClientId) loadRequests();
+  }, [effectiveClientId]);
 
   async function loadRequests() {
     setLoading(true);
     const { data, error } = await supabase
       .from('modification_requests')
       .select('*')
-      .eq('client_id', tenant.clientId)
+      .eq('client_id', effectiveClientId)
       .order('created_at', { ascending: false });
     if (!error) setRequests(data || []);
     setLoading(false);
@@ -395,8 +423,8 @@ export default function ModificationRequestPortal() {
     const { data: newReq, error } = await supabase
       .from('modification_requests')
       .insert({
-        client_id:    tenant.clientId,
-        app_id:       tenant.appId,
+        client_id:    effectiveClientId,
+        app_id:       effectiveAppId,
         request_type: type,
         description,
         urgency,
@@ -416,7 +444,7 @@ export default function ModificationRequestPortal() {
     await supabase.functions.invoke('send-whatsapp', {
       body: {
         type:        'mod_request_received',
-        clientId:    tenant.clientId,
+        clientId:    effectiveClientId,
         requestType: type,
         description: description.slice(0, 100),
         urgency,
@@ -444,7 +472,7 @@ export default function ModificationRequestPortal() {
     await supabase.functions.invoke('send-whatsapp', {
       body: {
         type:      'mod_payment_received',
-        clientId:  tenant.clientId,
+        clientId:  effectiveClientId,
         paymentId,
       },
     });
@@ -455,6 +483,33 @@ export default function ModificationRequestPortal() {
 
   // Count pending-action items — quotes needing payment
   const actionNeeded = requests.filter((r) => r.status === 'quote_sent' && r.quote_amount && !r.paid_at).length;
+
+  if (isDevOrSupport && loadingClients) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading clients...</p></div></div>;
+
+  if (isDevOrSupport && !selectedClient) {
+    return (
+      <div style={S.page}>
+        <div style={S.inner}>
+          <h1 style={{ fontSize: 18, fontWeight: 600, margin: '20px 0 4px' }}>Modification Requests</h1>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 16 }}>Select which client you're raising a request for.</p>
+          {clients.length === 0 ? (
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>No clients found.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {clients.filter((c) => c.apps?.id).map((c) => (
+                <button key={c.id} onClick={() => setSelectedClient(c)} style={{ textAlign: 'left', ...S.card, cursor: 'pointer', border: 'none', width: '100%', fontFamily: 'inherit' }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{c.org_name}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{c.district || '—'}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <ControlPanelNav />
+        <BugReporter screenName="modification_requests" />
+      </div>
+    );
+  }
 
   return (
     <div style={S.page}>
@@ -467,12 +522,20 @@ export default function ModificationRequestPortal() {
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>Modification Requests</p>
-          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Custom changes · {tenant?.orgName}</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Custom changes · {effectiveOrgName}</p>
         </div>
-        <button onClick={() => setTab('raise')}
-          style={{ padding: '7px 16px', border: 'none', borderRadius: 20, background: '#E8A020', color: '#111113', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
-          + New request
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {isDevOrSupport && (
+            <button onClick={() => setSelectedClient(null)}
+              style={{ padding: '7px 12px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
+              Switch client
+            </button>
+          )}
+          <button onClick={() => setTab('raise')}
+            style={{ padding: '7px 16px', border: 'none', borderRadius: 20, background: '#E8A020', color: '#111113', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
+            + New request
+          </button>
+        </div>
       </nav>
 
       <div style={S.inner}>
@@ -549,7 +612,7 @@ export default function ModificationRequestPortal() {
               <RequestCard
                 key={req.id}
                 req={req}
-                tenant={tenant}
+                tenant={{ clientId: effectiveClientId, fullName: effectiveFullName, phone: effectivePhone }}
                 onPaySuccess={handlePaySuccess}
               />
             ))

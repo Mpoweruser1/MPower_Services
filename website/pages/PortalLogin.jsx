@@ -76,7 +76,7 @@ export default function PortalLogin() {
 
   if (loading) return (
     <div style={S.page}>
-      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading...</p>
+      <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading...</p>
     </div>
   );
 
@@ -87,11 +87,13 @@ export default function PortalLogin() {
       <div style={S.card}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: '#E8A020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#111113', fontSize: 22, margin: '0 auto 14px' }}>M</div>
+          <Link to="/" style={{ display: 'inline-block' }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#E8A020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#111113', fontSize: 22, margin: '0 auto 14px' }}>M</div>
+          </Link>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#fff', margin: '0 0 4px', letterSpacing: -0.5 }}>
             {showForgot ? 'Reset password' : 'Welcome back'}
           </h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
             {showForgot ? 'Enter your email to get a reset link' : 'MPower Client Portal'}
           </p>
         </div>
@@ -117,7 +119,7 @@ export default function PortalLogin() {
           <>
             {/* Login form */}
             <div>
-              <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email</label>
+              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email</label>
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -132,7 +134,7 @@ export default function PortalLogin() {
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Password</label>
+                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Password</label>
                 <button onClick={() => { setShowForgot(true); setError(''); setResetEmail(email); }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#E8A020', fontFamily: 'inherit', padding: 0 }}>
                   Forgot password?
@@ -154,7 +156,7 @@ export default function PortalLogin() {
               {loggingIn ? 'Signing in...' : 'Sign in →'}
             </button>
 
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center', margin: 0 }}>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: 0 }}>
               New to MPower?{' '}
               <Link to="/registration" style={{ color: '#E8A020', textDecoration: 'none', fontWeight: 500 }}>
                 Start your free trial →
@@ -167,7 +169,7 @@ export default function PortalLogin() {
             {!resetSent && (
               <>
                 <div>
-                  <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email address</label>
+                  <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email address</label>
                   <input
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
@@ -190,6 +192,10 @@ export default function PortalLogin() {
             </button>
           </>
         )}
+      </div>
+
+      <div style={{ textAlign: 'center', marginTop: 20 }}>
+        <Link to="/" style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>🏠 Home</Link>
       </div>
     </div>
   );

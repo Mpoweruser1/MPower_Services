@@ -301,6 +301,23 @@ export async function updateCitizenProfile(citizenId, patch) {
  * Complaints
  * ------------------------------------------------------------------- */
 
+// Real, hard limit — 3 complaints per citizen per calendar day.
+// Previously there was no check anywhere in the submission path at
+// all, meaning nothing actually stopped repeated same-day submission.
+export async function checkDailyComplaintLimit(citizenId) {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const { count, error } = await supabase
+    .from('complaints')
+    .select('id', { count: 'exact', head: true })
+    .eq('citizen_id', citizenId)
+    .gte('created_at', startOfToday.toISOString());
+  if (error) throw error;
+
+  return { count: count || 0, limitReached: (count || 0) >= 3 };
+}
+
 // Creates a complaint, its ticked sub-issues, and the initial history row,
 // in that order. case_no is generated server-side by the table default —
 // the returned `complaint` object already has the real one.
@@ -412,13 +429,64 @@ export async function fetchComplaintIssues(complaintId) {
 // on `complaints` already scopes the rows to whatever that signed-in
 // user is allowed to see (their constituency for a rep, escalated cases
 // in-state for an authority, everything in-state for an admin).
-export async function fetchStaffQueue() {
+const TERMINAL_STAGES = ['Resolved', 'Sanctioned', 'Declined'];
+
+// Real server-side pagination — previously fetched every single
+// complaint in one call with no limit at all, which doesn't scale
+// once a queue has hundreds or thousands of entries. handled=false
+// (the default) returns the active/pending queue; handled=true
+// returns the resolved/sanctioned/declined ones separately, so the
+// two lists can be paginated and searched independently.
+export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', category = '', priority = '', handled = false } = {}) {
+  let query = supabase.from('complaints').select('*', { count: 'exact' });
+  query = handled ? query.in('stage', TERMINAL_STAGES) : query.not('stage', 'in', `(${TERMINAL_STAGES.join(',')})`);
+  if (search.trim()) query = query.ilike('title', `%${search.trim()}%`);
+  if (category) query = query.eq('category', category);
+  if (priority) query = query.eq('priority', priority);
+  query = query.order('created_at', { ascending: false });
+
+  const from = page * pageSize;
+  const { data, error, count } = await query.range(from, from + pageSize - 1);
+  if (error) throw error;
+  return { data: data || [], count: count || 0 };
+}
+
+// Same enrichment pattern as ComplaintPrint.jsx's batch report — the
+// base complaints table has no joins at all, so village/mandal/citizen
+// names are resolved here in a few batched queries (not one per row).
+// Shared here so any screen needing this doesn't have to duplicate it.
+export async function fetchEnrichedComplaints(appId) {
   const { data, error } = await supabase
     .from('complaints')
     .select('*')
+    .eq('app_id', appId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return data;
+
+  const rows = data || [];
+  const mandalIds = [...new Set(rows.map((r) => r.mandal_id).filter(Boolean))];
+  const villageIds = [...new Set(rows.map((r) => r.village_id).filter(Boolean))];
+  const citizenIds = [...new Set(rows.map((r) => r.citizen_id).filter(Boolean))];
+  const constituencyIds = [...new Set(rows.map((r) => r.constituency_id).filter(Boolean))];
+
+  const [mandalRes, villageRes, citizenRes, constRes] = await Promise.all([
+    mandalIds.length ? supabase.from('mandals').select('id, name').in('id', mandalIds) : { data: [] },
+    villageIds.length ? supabase.from('villages').select('id, name').in('id', villageIds) : { data: [] },
+    citizenIds.length ? supabase.from('citizens').select('id, full_name, phone, ward_no, father_husband_name, membership_id').in('id', citizenIds) : { data: [] },
+    constituencyIds.length ? supabase.from('constituencies').select('id, name').in('id', constituencyIds) : { data: [] },
+  ]);
+  const mandalMap = Object.fromEntries((mandalRes.data || []).map((m) => [m.id, m.name]));
+  const villageMap = Object.fromEntries((villageRes.data || []).map((v) => [v.id, v.name]));
+  const citizenMap = Object.fromEntries((citizenRes.data || []).map((c) => [c.id, c]));
+  const constMap = Object.fromEntries((constRes.data || []).map((c) => [c.id, c.name]));
+
+  return rows.map((r) => ({
+    ...r,
+    mandals: r.mandal_id ? { name: mandalMap[r.mandal_id] } : null,
+    villages: r.village_id ? { name: villageMap[r.village_id] } : null,
+    citizens: r.citizen_id ? citizenMap[r.citizen_id] : null,
+    constituencies: r.constituency_id ? { name: constMap[r.constituency_id] } : null,
+  }));
 }
 
 // The one function every staff action (acknowledge, resolve, escalate,
@@ -434,6 +502,19 @@ export async function advanceComplaint({ complaintId, stage, byName, note, visib
     note: note || '',
     visibility: visibility || 'public',
   });
+  if (error) throw error;
+}
+
+// Records which department is now handling a complaint — typically
+// entered by staff after a Collector's office responds to the printed
+// batch report. A plain field update, separate from the stage/history
+// mechanism above since assigning a department isn't itself a stage
+// change.
+export async function updateAssignedDepartment(complaintId, department) {
+  const { error } = await supabase
+    .from('complaints')
+    .update({ assigned_department: department })
+    .eq('id', complaintId);
   if (error) throw error;
 }
 
@@ -537,17 +618,10 @@ export async function logReportView({ appId, reportTemplateId, generatedByUserId
  * Platform feedback (about the app itself, not a specific complaint)
  * ------------------------------------------------------------------- */
 
-export async function submitFeedback({ appId, citizenId, userId, rating, comments, context }) {
-  const { error } = await supabase.from('app_feedback').insert({
-    app_id: appId,
-    citizen_id: citizenId || null,
-    user_id: userId || null,
-    rating: rating || null,
-    comments: comments || null,
-    context: context || null,
-  });
-  if (error) throw error;
-}
+/* submitFeedback/fetchFeedback moved to shared/feedbackApi.js —
+   genuinely cross-module (School/Hospital need this too, not just
+   CTS), was awkward to have living only inside this grievance-specific
+   file. */
 
 /* ---------------------------------------------------------------------
  * Staff profile — first-time photo, phone, emergency contact
@@ -590,3 +664,60 @@ export async function fetchExpectedAuthorities(appId) {
   if (error) throw error;
   return data;
 }
+
+// Three distinct insights from one pass over the same enriched
+// complaint data ReportsDashboard.jsx already has — no extra query.
+//
+// 1. Hotspots: 3+ complaints, same village + same category. A real
+//    signal that many households are reporting the same underlying
+//    problem, not isolated incidents — genuinely strengthens a case
+//    when escalated as a group rather than as separate low-priority
+//    tickets.
+// 2. Family patterns: 2+ complaints from citizens sharing the same
+//    father/husband name + village — likely the same household filing
+//    across different names/categories, useful context for staff
+//    before treating each as unrelated.
+// 3. Exact duplicates: the SAME citizen filing the same category twice
+//    within 24 hours — almost always an accidental double-submit, not
+//    a new insight, just noise worth catching.
+export function detectPatterns(complaints) {
+  const hotspotGroups = {};
+  complaints.forEach((c) => {
+    if (!c.village_id || !c.category) return;
+    const key = `${c.village_id}|${c.category}`;
+    (hotspotGroups[key] = hotspotGroups[key] || []).push(c);
+  });
+  const hotspots = Object.values(hotspotGroups)
+    .filter((g) => g.length >= 3)
+    .sort((a, b) => b.length - a.length);
+
+  const familyGroups = {};
+  complaints.forEach((c) => {
+    const name = c.citizens?.father_husband_name?.trim().toLowerCase();
+    if (!name || !c.village_id) return;
+    const key = `${name}|${c.village_id}`;
+    (familyGroups[key] = familyGroups[key] || []).push(c);
+  });
+  const familyPatterns = Object.values(familyGroups)
+    .filter((g) => g.length >= 2)
+    .sort((a, b) => b.length - a.length);
+
+  const byCitizenCategory = {};
+  complaints.forEach((c) => {
+    if (!c.citizen_id || !c.category) return;
+    const key = `${c.citizen_id}|${c.category}`;
+    (byCitizenCategory[key] = byCitizenCategory[key] || []).push(c);
+  });
+  const exactDuplicates = Object.values(byCitizenCategory).filter((group) => {
+    if (group.length < 2) return false;
+    const sorted = [...group].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const hours = (new Date(sorted[i + 1].created_at) - new Date(sorted[i].created_at)) / 3600000;
+      if (hours < 24) return true;
+    }
+    return false;
+  });
+
+  return { hotspots, familyPatterns, exactDuplicates };
+}
+

@@ -75,14 +75,25 @@ export default function GrievanceStateSelect() {
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '32px 16px 48px' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1a1a2e', margin: '0 0 6px' }}>Select your state</h1>
-          <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>File or track a complaint with your MLA or MP — free, transparent, and tracked.</p>
+          <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>For citizens filing a complaint, and for MLA/MP offices getting started — free, transparent, and tracked.</p>
         </div>
 
         <div style={{ display: 'grid', gap: 10 }}>
+          {/* ?switch=1 forces CtsLanding to always show the Citizen/
+              Office picker, even if this browser already has a
+              remembered role for that state. Anyone reaching a state
+              link through this page has explicitly asked to pick a
+              state -- that should always mean "let me choose," not
+              silently skip to whatever was picked last time (which
+              was the bug: after picking Citizen once, the Office/MLA
+              option became unreachable through this flow). Direct
+              bookmarked links straight to /grievance/:slug still get
+              the fast-path convenience -- this only changes this one
+              explicit "select a state" entry point. */}
           {STATES.map((s) => (
             <Link
               key={s.slug}
-              to={`/grievance/${s.slug}/citizen`}
+              to={`/grievance/${s.slug}?switch=1`}
               style={{
                 display: 'block', padding: '16px 18px', background: '#fff',
                 borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.05)',

@@ -14,11 +14,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useCitizenAuth } from './useCitizenAuth';
 import { useGrievanceTranslations } from './useGrievanceTranslations';
 import EvidenceGallery from './EvidenceGallery';
+import { FeedbackWidget } from '../shared/FeedbackWidget';
 import {
   fetchAppIdBySlug, fetchAppSettings, fetchConstituencies, fetchMandals, fetchVillages, fetchSachivalayams,
   createMandal, createVillage,
   fetchCategories, fetchCategoryTranslations, fetchSubissueTranslations, fetchCategoryDocuments,
-  submitComplaint, fetchMyComplaints, fetchComplaintHistory, uploadEvidence, submitFeedback,
+  submitComplaint, checkDailyComplaintLimit, fetchMyComplaints, fetchComplaintHistory, uploadEvidence,
 } from './grievanceApi';
 
 // Plain emoji, not an icon library — works everywhere with zero new
@@ -104,13 +105,17 @@ export default function CitizenPortal({ stateSlug }) {
 
   return (
     <>
-      <CitizenTopBar stateSlug={stateSlug} />
+      <CitizenTopBar
+        stateSlug={stateSlug}
+        citizenName={auth.isAuthenticated && !auth.needsProfile ? auth.citizen?.full_name : null}
+        onSignOut={auth.isAuthenticated && !auth.needsProfile ? auth.signOut : null}
+      />
       {!auth.isAuthenticated ? (
         <PhoneLogin auth={auth} />
       ) : auth.needsProfile ? (
         <ProfileRegistration appId={appId} appSettings={appSettings} auth={auth} t={t} />
       ) : (
-        <ComplaintWorkspace appId={appId} appSettings={appSettings} citizen={auth.citizen} language={language} t={t} onSignOut={auth.signOut} />
+        <ComplaintWorkspace appId={appId} appSettings={appSettings} citizen={auth.citizen} language={language} t={t} />
       )}
     </>
   );
@@ -121,7 +126,13 @@ export default function CitizenPortal({ stateSlug }) {
 // page and somewhere to get help. Uses CtsLanding's own navy/gold
 // branding so the transition from the landing page doesn't feel like a
 // different app.
-function CitizenTopBar({ stateSlug }) {
+// citizenName/onSignOut are only passed once a citizen is actually
+// logged in (from ComplaintWorkspace) -- login and profile-setup
+// screens render this same bar without them, so it degrades cleanly
+// to just the logo+Home. This is now the ONE place sign-out and the
+// citizen's name are shown, instead of being duplicated a further two
+// times further down the page in different, inconsistent styles.
+function CitizenTopBar({ stateSlug, citizenName, onSignOut }) {
   const navigate = useNavigate();
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', background: '#1a1a2e' }}>
@@ -132,9 +143,19 @@ function CitizenTopBar({ stateSlug }) {
         <div style={{ width: 26, height: 26, borderRadius: 6, background: '#e8a020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1a1a2e', fontSize: 13 }}>M</div>
         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>MPower CTS · Home</span>
       </div>
-      <a href="tel:1800-XXX-XXXX" style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, textDecoration: 'none' }}>
-        Need help? Call 1800-XXX-XXXX
-      </a>
+      {onSignOut && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {citizenName && (
+            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>{citizenName}</span>
+          )}
+          <button
+            onClick={onSignOut}
+            style={{ fontSize: 11.5, padding: '5px 12px', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 16, background: 'transparent', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -264,30 +285,79 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
   const [membershipId, setMembershipId] = useState('');
   const geo = useGeographyPicker(appId, appSettings);
   const [busy, setBusy] = useState(false);
+  // A citizen's details go straight onto an official document later
+  // (the print letter) — a mistake here previously had no chance to be
+  // caught before it was saved. This review step shows exactly what
+  // was entered and requires a second, explicit confirmation before
+  // anything is actually submitted.
+  const [showReview, setShowReview] = useState(false);
 
-  async function handleSubmit(e) {
+  function handleContinue(e) {
     e.preventDefault();
+    setShowReview(true);
+  }
+
+  async function handleConfirm() {
     setBusy(true);
-   
     await auth.registerProfile({
-  full_name: fullName,
-  father_husband_name: fatherHusbandName || null,
-  address: address || null,
-  village_id: geo.villageId || null,
-  mandal_id: geo.mandalId || null,
-  constituency_id: geo.constituencyId || null,
-    ward_no: wardNo || null,
+      full_name: fullName,
+      father_husband_name: fatherHusbandName || null,
+      address: address || null,
+      village_id: geo.villageId || null,
+      mandal_id: geo.mandalId || null,
+      constituency_id: geo.constituencyId || null,
+      ward_no: wardNo || null,
       membership_id: membershipId || null,
       sachivalayam_id: geo.sachivalayamId || null,
     });
     setBusy(false);
   }
 
+  if (showReview) {
+    const constituencyName = geo.constituencies.find((c) => c.id === geo.constituencyId)?.name;
+    const mandalName = geo.mandals.find((m) => m.id === geo.mandalId)?.name;
+    const villageName = geo.villages.find((v) => v.id === geo.villageId)?.name;
+    const sachivalayamName = geo.sachivalayams.find((s) => s.id === geo.sachivalayamId)?.name;
+
+    return (
+      <div style={{ maxWidth: 480, margin: '40px auto', padding: 24 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Review your details</h2>
+        <p style={{ fontSize: 12.5, color: '#64748b', marginBottom: 18 }}>Please check everything carefully — this is used on every complaint you file.</p>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16, display: 'grid', gap: 10, marginBottom: 18 }}>
+          {[
+            [t('field_name', 'Name'), fullName],
+            [t('field_father_husband_name', "Father's/Husband's Name"), fatherHusbandName],
+            [t('field_full_address', 'Full Address'), address],
+            [t('field_ward_no', 'Ward No.'), wardNo],
+            [t('field_membership_id', 'Membership Number'), membershipId],
+            ['Constituency', constituencyName],
+            ['Mandal', mandalName],
+            ['Village', villageName],
+            ...(sachivalayamName ? [['Sachivalayam', sachivalayamName]] : []),
+          ].filter(([, v]) => v).map(([label, value]) => (
+            <div key={label}>
+              <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{label}</div>
+              <div style={{ fontSize: 14, color: '#1a1a2e' }}>{value}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button type="button" onClick={() => setShowReview(false)} style={{ flex: 1, background: 'none', border: '1px solid #e2e8f0', borderRadius: 7, padding: '11px 16px', fontSize: 14, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}>
+            ← Edit
+          </button>
+          <button type="button" onClick={handleConfirm} disabled={busy} style={{ ...buttonStyle, flex: 1 }}>
+            {busy ? 'Saving…' : 'Confirm & Continue'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 480, margin: '40px auto', padding: 24 }}>
       <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>{t('section1_title', 'Complainant Details')}</h2>
       <p style={{ fontSize: 12.5, color: '#64748b', marginBottom: 18 }}>One-time — used for every complaint you file.</p>
-      <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 13 }}>
+      <form onSubmit={handleContinue} style={{ display: 'grid', gap: 13 }}>
         <Field label={t('field_name', 'Name')}>
           <input value={fullName} onChange={(e) => setFullName(e.target.value)} required style={inputStyle} />
         </Field>
@@ -304,8 +374,8 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
           <input value={membershipId} onChange={(e) => setMembershipId(e.target.value)} style={inputStyle} />
         </Field>
         <GeographyFields geo={geo} appSettings={appSettings} suggestedBy={auth?.citizen?.id} />
-        <button type="submit" disabled={busy || !geo.ready} style={buttonStyle}>
-          {busy ? 'Saving…' : 'Continue'}
+        <button type="submit" disabled={!geo.ready} style={buttonStyle}>
+          Continue
         </button>
       </form>
     </div>
@@ -316,7 +386,7 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
  * Step 3: submit + track complaints
  * ------------------------------------------------------------------- */
 
-function ComplaintWorkspace({ appId, appSettings, citizen, language, t, onSignOut }) {
+function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
   const [showForm, setShowForm] = useState(false);
   const [complaints, setComplaints] = useState([]);
   const [activeComplaint, setActiveComplaint] = useState(null);
@@ -334,14 +404,13 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t, onSignOu
     <div style={{ maxWidth: 640, margin: '0 auto', padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1 style={{ fontSize: 18, fontWeight: 600 }}>{citizen?.full_name || 'Welcome'}</h1>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: '#1a1a2e', background: 'none', border: 'none', fontWeight: 600 }}>
-            💬 Feedback
-          </button>
-          <button onClick={onSignOut} style={{ fontSize: 12, color: '#64748b', background: 'none', border: 'none' }}>
-            Sign out
-          </button>
-        </div>
+        {/* Sign out moved into the shared CitizenTopBar above -- this
+            was a second, differently-styled sign-out button repeating
+            the same action, right below the first. Feedback stays
+            here since it's a real page action, not navigation. */}
+        <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: '#1a1a2e', background: 'none', border: 'none', fontWeight: 600 }}>
+          💬 Feedback
+        </button>
       </div>
 
       {showForm ? (
@@ -383,6 +452,10 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t, onSignOu
         ))}
       </div>
 
+      {/* Third nav row (Home + Sign out) removed -- both already live
+          in the shared CitizenTopBar at the top of this same page,
+          styled consistently with every other screen in this flow. */}
+
       {activeComplaint && (
         <ComplaintDetail complaint={activeComplaint} citizenId={citizen.id} onClose={() => setActiveComplaint(null)} />
       )}
@@ -399,73 +472,8 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t, onSignOu
   );
 }
 
-export function FeedbackWidget({ appId, citizenId, userId, context, onClose }) {
-  const [rating, setRating] = useState(0);
-  const [comments, setComments] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  const [error, setError] = useState(null);
-
-  async function handleSubmit() {
-    setBusy(true);
-    setError(null);
-    try {
-      await submitFeedback({ appId, citizenId, userId, rating: rating || null, comments: comments.trim() || null, context });
-      setDone(true);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
-      <div style={{ background: '#fff', borderRadius: 12, padding: 22, maxWidth: 380, width: '100%' }} onClick={(e) => e.stopPropagation()}>
-        {done ? (
-          <>
-            <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>🙏 Thank you</p>
-            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>Your feedback helps improve this system for everyone.</p>
-            <button onClick={onClose} style={buttonStyle}>Close</button>
-          </>
-        ) : (
-          <>
-            <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>💬 How is this app working for you?</p>
-            <p style={{ fontSize: 12.5, color: '#64748b', marginBottom: 14 }}>This is feedback about the app itself — not a complaint.</p>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 14, justifyContent: 'center' }}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setRating(n)}
-                  style={{ fontSize: 28, background: 'none', border: 'none', opacity: n <= rating ? 1 : 0.3, cursor: 'pointer' }}
-                >
-                  ⭐
-                </button>
-              ))}
-            </div>
-            <textarea
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              placeholder="What could be better? (optional)"
-              rows={3}
-              style={{ ...inputStyle, marginBottom: 12 }}
-            />
-            {error && <p style={{ fontSize: 12, color: '#9B3C2E', marginBottom: 8 }}>{error}</p>}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleSubmit} disabled={busy} style={{ ...buttonStyle, flex: 1 }}>
-                {busy ? 'Sending…' : 'Send feedback'}
-              </button>
-              <button onClick={onClose} style={{ flex: 1, background: 'none', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 14, fontWeight: 600, color: '#64748b' }}>
-                Cancel
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+/* FeedbackWidget moved to shared/FeedbackWidget.jsx — genuinely
+   generic, needed by School/Hospital too, not just CTS. */
 
 function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onSubmitted }) {
   const [title, setTitle] = useState('');
@@ -484,6 +492,10 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
   const [usedVoice, setUsedVoice] = useState(false);
   const [stagedFiles, setStagedFiles] = useState([]); // evidence attached before the complaint exists yet
   const [uploadStatus, setUploadStatus] = useState('');
+  // Same reasoning as the profile registration review step — this
+  // becomes the actual printed letter to an MLA/MP later, so it's
+  // worth one real chance to check everything before it's saved.
+  const [showReview, setShowReview] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -542,12 +554,23 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
     setStagedFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function handleSubmit(e) {
+  function handleContinue(e) {
     e.preventDefault();
     if (!title.trim() || !description.trim() || !activeCategory) return;
+    setShowReview(true);
+  }
+
+  async function handleConfirm() {
     setBusy(true);
     setError(null);
     try {
+      const { limitReached, count } = await checkDailyComplaintLimit(citizen.id);
+      if (limitReached) {
+        setError(`You've reached the limit of 3 complaints per day (${count} filed today). Please try again tomorrow.`);
+        setBusy(false);
+        return;
+      }
+
       const complaint = await submitComplaint({
         citizenId: citizen.id,
         appId,
@@ -589,6 +612,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
       setOtherDetail('');
       setStagedFiles([]);
       setUsedVoice(false);
+      setShowReview(false);
       onSubmitted();
     } catch (err) {
       setError(err.message);
@@ -597,8 +621,69 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
     }
   }
 
+  if (showReview) {
+    const issueLabels = activeCategory?.complaint_subissues
+      ?.filter((i) => selectedIssues.includes(i.subissue_key))
+      .map((i) => i.label_en) || [];
+
+    return (
+      <div style={{ display: 'grid', gap: 16, border: '1px solid #e2e8f0', borderRadius: 10, padding: 20, marginBottom: 24 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Review your complaint</h3>
+        <p style={{ fontSize: 12.5, color: '#64748b', margin: '-10px 0 0' }}>Please check everything before submitting.</p>
+        <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16, display: 'grid', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Subject</div>
+            <div style={{ fontSize: 14, color: '#1a1a2e' }}>{title}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Category</div>
+            <div style={{ fontSize: 14, color: '#1a1a2e' }}>{CATEGORY_EMOJI[activeCategory?.label_en] || '📄'} {activeCategory?.label_en}</div>
+          </div>
+          {issueLabels.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Specific issues</div>
+              <div style={{ fontSize: 14, color: '#1a1a2e' }}>{issueLabels.join(', ')}{otherDetail ? ` — ${otherDetail}` : ''}</div>
+            </div>
+          )}
+          <div>
+            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Priority</div>
+            <div style={{ fontSize: 14, color: '#1a1a2e' }}>{priority === 'Urgent' ? '🚨 Urgent' : '📅 Normal'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Description</div>
+            <div style={{ fontSize: 14, color: '#1a1a2e' }}>{description}</div>
+          </div>
+          {suggestedSolution && (
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Suggested Solution</div>
+              <div style={{ fontSize: 14, color: '#1a1a2e' }}>{suggestedSolution}</div>
+            </div>
+          )}
+          {stagedFiles.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Evidence attached</div>
+              <div style={{ fontSize: 14, color: '#1a1a2e' }}>{stagedFiles.length} file(s)</div>
+            </div>
+          )}
+        </div>
+
+        {uploadStatus && <p style={{ fontSize: 12, color: '#64748b' }}>{uploadStatus}</p>}
+        {error && <p style={{ color: '#9B3C2E', fontSize: 12.5 }}>{error}</p>}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button type="button" onClick={() => setShowReview(false)} disabled={busy} style={{ flex: 1, background: 'none', border: '1px solid #e2e8f0', borderRadius: 7, padding: '11px 16px', fontSize: 14, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}>
+            ← Edit
+          </button>
+          <button type="button" onClick={handleConfirm} disabled={busy} style={{ ...buttonStyle, flex: 1 }}>
+            {busy ? 'Submitting…' : `📮 Confirm & ${t('submit_button', 'Submit Complaint')}`}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 16, border: '1px solid #e2e8f0', borderRadius: 10, padding: 20, marginBottom: 24 }}>
+    <form onSubmit={handleContinue} style={{ display: 'grid', gap: 16, border: '1px solid #e2e8f0', borderRadius: 10, padding: 20, marginBottom: 24 }}>
       <Field label="Subject">
         <div style={{ display: 'flex', gap: 6 }}>
           <input value={title} onChange={(e) => setTitle(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
@@ -708,14 +793,18 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
       {uploadStatus && <p style={{ fontSize: 12, color: '#64748b' }}>{uploadStatus}</p>}
       {error && <p style={{ color: '#9B3C2E', fontSize: 12.5 }}>{error}</p>}
 
-      <button type="submit" disabled={busy} style={buttonStyle}>
-        {busy ? 'Submitting…' : `📮 ${t('submit_button', 'Submit Complaint')}`}
+      <button type="submit" style={buttonStyle}>
+        Review & {t('submit_button', 'Submit Complaint')} →
       </button>
       {onCancel && (
         <button type="button" onClick={onCancel} disabled={busy} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: '8px 0' }}>
           Cancel
         </button>
       )}
+      {/* Home + Sign out row removed here too -- same reasoning as
+          ComplaintWorkspace: the shared CitizenTopBar above already
+          persists across this screen (it wraps the whole citizen
+          flow, form included), so this was a third repeated copy. */}
     </form>
   );
 }
@@ -773,7 +862,7 @@ function ComplaintDetail({ complaint, citizenId, onClose }) {
         {history.map((h) => (
           <div key={h.id} style={{ padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{h.stage}</div>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>{h.by_name} · {new Date(h.created_at).toLocaleString()}</div>
+            <div style={{ fontSize: 11, color: '#94a3b8' }}>{toTitleCase(h.by_name)} · {new Date(h.created_at).toLocaleString()}</div>
             {h.note && <div style={{ fontSize: 12.5, marginTop: 3 }}>{h.note}</div>}
           </div>
         ))}
@@ -953,7 +1042,18 @@ function EditableCombobox({ value, options, onSelect, onCreate, placeholder, cre
         value={open ? query : (selected?.name || '')}
         onFocus={() => { setOpen(true); setQuery(''); }}
         onChange={(e) => setQuery(e.target.value)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onBlur={() => setTimeout(() => {
+          // Previously, typing a name and leaving without explicitly
+          // clicking the matching option silently discarded it and
+          // reverted to whatever was already selected — with zero
+          // warning this happened. If what was typed exactly matches a
+          // real option, honor that as a real selection now instead.
+          if (trimmedQuery) {
+            const exact = options.find((o) => o.name.toLowerCase() === trimmedQuery.toLowerCase());
+            if (exact && exact.id !== value) onSelect(exact.id);
+          }
+          setOpen(false);
+        }, 150)}
         placeholder={placeholder}
         style={inputStyle}
       />
@@ -983,6 +1083,13 @@ function EditableCombobox({ value, options, onSelect, onCreate, placeholder, cre
       )}
     </div>
   );
+}
+
+// A citizen typing their own name doesn't always capitalize it —
+// display-only, never changes the stored value.
+function toTitleCase(str) {
+  if (!str) return str;
+  return str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 }
 
 function Field({ label, children }) {

@@ -39,10 +39,29 @@ export default function TopNav({ screen }) {
 
   // Derive module from current path
   const path   = location.pathname;
+  // Path-based detection is precise for module-specific routes
+  // (/school/*, /hospital/*, /grievance/*, /control/*). But shared
+  // routes used by every tenant type — /portal/dashboard,
+  // /portal/account, /portal/setup, /corrections — don't start with
+  // any of those, and this used to silently fall back to a hardcoded
+  // 'school' regardless of who was actually logged in. A Hospital
+  // doctor, a CTS grievance_admin, or Control-panel staff landing on
+  // their own shared Portal Dashboard would all incorrectly see
+  // "SCHOOL" in the badge. Falling back to the tenant's real role
+  // instead of guessing fixes this for every tenant type at once.
+  const ROLE_TO_MODULE = {
+    principal: 'school', teacher: 'school', fee_clerk: 'school',
+    parent: 'school', student: 'school',
+    doctor: 'hospital', nurse: 'hospital', receptionist: 'hospital', pharmacist: 'hospital',
+    grievance_staff: 'grievance', grievance_admin: 'grievance',
+    representative: 'grievance', authority: 'grievance',
+    developer: 'control', support: 'control',
+  };
   const modKey = path.startsWith('/hospital') ? 'hospital'
                : path.startsWith('/control')  ? 'control'
                : path.startsWith('/grievance')? 'grievance'
-               : 'school';
+               : path.startsWith('/school')   ? 'school'
+               : ROLE_TO_MODULE[tenant?.role] || 'school';
   const mod    = MODULE_COLORS[modKey];
 
   // Initials for avatar

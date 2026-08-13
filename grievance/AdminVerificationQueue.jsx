@@ -1,6 +1,7 @@
 // grievance/AdminVerificationQueue.jsx
 // Admin screen — verify staff access requests and manage constituency assignments
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import GrievanceNav from './GrievanceNav';
@@ -15,6 +16,7 @@ const VERIFICATION_METHODS = [
 ];
 
 export default function AdminVerificationQueue() {
+  const { stateSlug } = useParams();
   const { tenant } = useTenant();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -274,6 +276,21 @@ export default function AdminVerificationQueue() {
             ))}
           </div>
         )}
+
+        <a href={`/grievance/${stateSlug || 'andhra-pradesh'}/feedback`}
+          style={{ display: 'block', textAlign: 'center', marginTop: 20, padding: '12px 16px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#1a1a2e', textDecoration: 'none' }}>
+          💬 View App Feedback
+        </a>
+
+        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', padding: '20px 0 40px' }}>
+          <button onClick={() => window.history.back()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
+            ← Back
+          </button>
+          <a href="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</a>
+          <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
+            Sign out
+          </button>
+        </div>
       </div>
 
       <GrievanceNav />

@@ -82,11 +82,6 @@ export default function PortalDashboard() {
     if (!tenantLoading) loadAppInfo();
   }, [tenant, tenantLoading]);
 
-  async function logout() {
-    await supabase.auth.signOut();
-    window.location.href = '/portal/login';
-  }
-
   if (tenantLoading || loading) {
     return (
       <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
@@ -133,17 +128,13 @@ export default function PortalDashboard() {
     <div style={S.page}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
 
-      {/* Top bar */}
-      <div style={{ background: '#111113', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{ width: 28, height: 28, borderRadius: 6, background: '#E8A020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#111113', fontSize: 13 }}>M</div>
-          <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>MPower Portal</span>
-        </Link>
-        <button onClick={logout}
-          style={{ fontSize: 12, padding: '6px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
-          Log out
-        </button>
-      </div>
+      {/* Own top bar removed -- App.jsx's shared TopNav.jsx already
+          renders above this page for every /portal/dashboard visit
+          (it was never excluded from showNav), so this page had two
+          different-looking headers stacked on top of each other.
+          TopNav already provides logo/Home, module badge, user name +
+          role, and sign-out with a confirm step -- strictly more than
+          this local bar had. */}
 
       <div style={S.inner}>
         {/* Header */}

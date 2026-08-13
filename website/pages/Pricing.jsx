@@ -577,6 +577,9 @@ export default function Pricing() {
           </div>
         </div>
 
+        <div style={{ textAlign: 'center', padding: '20px 0 40px' }}>
+          <Link to="/" style={{ fontSize: 12, color: '#94a3b8', textDecoration: 'none' }}>🏠 Home</Link>
+        </div>
       </div>
     </div>
   );
