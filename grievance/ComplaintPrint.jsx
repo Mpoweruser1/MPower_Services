@@ -7,7 +7,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
-import { fetchCategories, getStaffPhotoUrl } from './grievanceApi';
+import { fetchCategories, getStaffPhotoUrl, fetchConstituencies, fetchMandals, fetchVillages } from './grievanceApi';
 import GrievanceNav from './GrievanceNav';
 
 // ─── Shared print styles ───────────────────────────────────
@@ -20,7 +20,7 @@ const PRINT_STYLES = `
     .no-print { display: none !important; }
     .letterhead-photo { filter: grayscale(100%); }
     @page { size: A4 portrait; margin: 12mm 15mm; }
-    @page batch { size: A4 landscape; margin: 10mm 12mm; }
+    @page batch { size: A4 landscape; margin: 7mm 9mm; }
     .print-page.batch-report { page: batch; }
     .print-page { 
       page-break-after: always; 
@@ -128,7 +128,7 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
       {/* Official letterhead top -- now shows state/place alongside the
           app name, matching BatchComplaintList's branding instead of
           just "MPower Grievance Tracking System" with no place info. */}
-      <div style={{ textAlign: 'center', marginBottom: 20, borderBottom: '2px double #000', paddingBottom: 14 }}>
+      <div style={{ textAlign: 'center', marginBottom: 14, borderBottom: '2px double #000', paddingBottom: 10 }}>
         <p style={{ margin: 0, fontSize: '11pt', fontWeight: 'bold', letterSpacing: 1 }}>
           GRIEVANCE REPRESENTATION / ఫిర్యాదు విజ్ఞాపన పత్రం
         </p>
@@ -138,7 +138,7 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
       </div>
 
       {/* Addressee */}
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 14 }}>
         <p style={{ margin: 0, fontWeight: 'bold' }}>To,</p>
         <p style={{ margin: '4px 0 0' }}>
           The Honourable {complaint.addressee_type === 'mp' ? 'Member of Parliament' : 'Member of Legislative Assembly'},
@@ -152,7 +152,7 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
       </div>
 
       {/* Subject line */}
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 14 }}>
         <p style={{ margin: 0 }}>
           <strong>Sub:</strong> Representation regarding <strong>{categoryLabel(complaint.category)}</strong> — {complaint.title}
         </p>
@@ -173,11 +173,11 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
       </p>
 
       {/* Problem statement box */}
-      <div style={{ border: '1px solid #000', padding: '12px 16px', margin: '16px 0', background: '#fafafa' }}>
+      <div style={{ border: '1px solid #000', padding: '10px 14px', margin: '12px 0', background: '#fafafa' }}>
         <p style={{ margin: '0 0 8px', fontWeight: 'bold', fontSize: '11pt' }}>
           Nature of Grievance / ఫిర్యాదు వివరాలు:
         </p>
-        <p style={{ margin: '0 0 10px', lineHeight: 2 }}>{complaint.description}</p>
+        <p style={{ margin: '0 0 10px', lineHeight: 1.6 }}>{complaint.description}</p>
         <p style={{ margin: 0, fontSize: '10pt', color: '#444' }}>
           Category: {categoryLabel(complaint.category)} &nbsp;·&nbsp;
           Priority: {complaint.priority || 'Normal'} &nbsp;·&nbsp;
@@ -201,21 +201,12 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
         Your kind intervention in this regard will be highly appreciated.
       </p>
 
-      {/* Telugu version of the request */}
-      <div className="telugu" style={{ background: '#f9f9f9', border: '1px solid #ddd', padding: '10px 14px', margin: '16px 0', fontSize: '11pt', lineHeight: 2 }}>
-        <p style={{ margin: 0, fontWeight: 'bold' }}>తెలుగులో విన్నపం:</p>
-        <p style={{ margin: '6px 0 0' }}>
-          మీకు వినమ్రంగా విజ్ఞప్తి చేసుకుంటున్నాను — పై ఫిర్యాదు విషయంలో సంబంధిత అధికారులకు తగిన ఆదేశాలిచ్చి, 
-          సత్వర పరిష్కారానికి మీ విలువైన సహకారం అందించగలరని ప్రార్థిస్తున్నాను.
-        </p>
-      </div>
-
       {/* Closing */}
       <p>Thanking you,</p>
       <p>Yours faithfully,</p>
 
       {/* Signature section */}
-      <div className="signature-line">
+      <div className="signature-line" style={{ marginTop: 26 }}>
         <div>
           <p style={{ margin: 0 }}><strong>{toTitleCase(complaint.citizens?.full_name) || '________________________'}</strong></p>
           <p style={{ margin: '2px 0 0', fontSize: '10pt' }}>
@@ -234,7 +225,7 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
       </div>
 
       {/* System stamp */}
-      <div className="stamp-box">
+      <div className="stamp-box" style={{ marginTop: 14 }}>
         <p style={{ margin: 0, fontSize: '9pt' }}>
           System Reference: Case No. {complaint.case_no} · 
           Filed: {new Date(complaint.created_at).toLocaleString('en-IN')} · 
@@ -385,8 +376,8 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
           pulled from their own staff profile (already collected at
           registration); CM photo is a placeholder slot until the real
           image is provided per state. */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 12, borderBottom: '2px solid #000' }}>
-        <div style={{ width: 90, height: 115, border: '1px solid #999', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingBottom: 8, borderBottom: '2px solid #000' }}>
+        <div style={{ width: 78, height: 98, border: '1px solid #999', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
           {mlaPhotoUrl ? (
             <img src={mlaPhotoUrl} alt="MLA" className="letterhead-photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
@@ -401,7 +392,7 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
             MPower Grievance Tracking System · Official Constituency Report
           </p>
         </div>
-        <div style={{ width: 90, height: 115, border: '1px solid #999', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+        <div style={{ width: 78, height: 98, border: '1px solid #999', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
           {cmPhotoUrl ? (
             <img src={cmPhotoUrl} alt="Chief Minister" className="letterhead-photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
@@ -411,7 +402,7 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
       </div>
 
       {/* Covering letter header */}
-      <div style={{ textAlign: 'center', marginBottom: 20, borderBottom: '3px double #000', paddingBottom: 14 }}>
+      <div style={{ textAlign: 'center', marginBottom: 16, borderBottom: '3px double #000', paddingBottom: 10 }}>
         <p style={{ margin: 0, fontSize: '14pt', fontWeight: 'bold', letterSpacing: 1 }}>
           CONSTITUENCY GRIEVANCE STATUS REPORT
         </p>
@@ -576,12 +567,12 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
   // batch printing regardless — they should only ever batch-print
   // their own state's complaints.
   const appId = appIdProp || tenant?.appId;
-  const [printType, setPrintType] = useState(mode);
+  const [searchParams] = useSearchParams();
+  const [printType, setPrintType] = useState(searchParams.get('mode') || mode);
   const [complaint, setComplaint] = useState(null);
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const urlCaseNo = caseNo || searchParams.get('case') || searchParams.get('id') || '';
   const [manualCaseNo, setManualCaseNo] = useState('');
@@ -593,17 +584,30 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
   const [addresseeRole, setAddresseeRole] = useState('District Collector');
   const [addresseeType, setAddresseeType] = useState('mla');
 
-  // Batch filters
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterPriority, setFilterPriority] = useState('');
+  // Batch filters — every one of these now initializes from the URL,
+  // not just case/id. This is what actually lets StaffDashboard's
+  // "Print this view" button carry its filters over; previously the
+  // URL params it sent were silently ignored entirely.
+  const [filterCategory, setFilterCategory] = useState(searchParams.get('category') || '');
+  const [filterSearch, setFilterSearch] = useState(searchParams.get('search') || '');
+  const [filterPriority, setFilterPriority] = useState(searchParams.get('priority') || '');
   const [realCategories, setRealCategories] = useState([]);
   const [mlaPhotoUrl, setMlaPhotoUrl] = useState(null);
   const [stateName, setStateName] = useState(null);
   const [mlaConfigEditing, setMlaConfigEditing] = useState(false);
-  const [filterStage, setFilterStage] = useState('');
-  const [filterMandal, setFilterMandal] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [filterStage, setFilterStage] = useState(searchParams.get('status') || '');
+  // Renamed from the old filterMandal (a client-side name-text match
+  // that was never connected to any UI) to filterMandalId, matching
+  // the real, server-side, ID-based pattern every other filter here
+  // already uses.
+  const [filterConstituencyId, setFilterConstituencyId] = useState(searchParams.get('constituencyId') || '');
+  const [filterMandalId, setFilterMandalId] = useState(searchParams.get('mandalId') || '');
+  const [filterVillageId, setFilterVillageId] = useState(searchParams.get('villageId') || '');
+  const [constituencyOptions, setConstituencyOptions] = useState([]);
+  const [mandalOptions, setMandalOptions] = useState([]);
+  const [villageOptions, setVillageOptions] = useState([]);
+  const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
+  const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
 
 
   useEffect(() => {
@@ -616,6 +620,20 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     if (appId) fetchCategories(appId).then(setRealCategories).catch(() => {});
   }, [appId]);
 
+  useEffect(() => {
+    if (appId) fetchConstituencies(appId).then(setConstituencyOptions).catch(() => {});
+  }, [appId]);
+
+  useEffect(() => {
+    if (!filterConstituencyId) { setMandalOptions([]); return; }
+    fetchMandals(filterConstituencyId).then(setMandalOptions).catch(() => {});
+  }, [filterConstituencyId]);
+
+  useEffect(() => {
+    if (!filterMandalId) { setVillageOptions([]); return; }
+    fetchVillages(filterMandalId).then(setVillageOptions).catch(() => {});
+  }, [filterMandalId]);
+
   // MLA photo for the batch report letterhead — pulled from the
   // logged-in staff member's own profile photo (already collected
   // during staff registration, just never displayed anywhere before).
@@ -624,6 +642,20 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
       getStaffPhotoUrl(tenant.photoUrl).then(setMlaPhotoUrl).catch(() => {});
     }
   }, [tenant?.photoUrl, printType]);
+
+  // Previously mlaName/constituency were only ever set for single-
+  // complaint mode — batch mode's header stayed blank unless someone
+  // manually typed it in every time. Now, filtering the batch report
+  // to one specific constituency (e.g. via StaffDashboard's "Print
+  // this view") correctly fills in that constituency's real MLA name
+  // and constituency name in the header automatically.
+  useEffect(() => {
+    if (printType !== 'staff_batch' || !filterConstituencyId) return;
+    supabase.from('constituencies').select('name, rep_name').eq('id', filterConstituencyId).single()
+      .then(({ data }) => {
+        if (data) { setConstituency(data.name || ''); setMlaName(data.rep_name || ''); }
+      });
+  }, [printType, filterConstituencyId]);
 
   // Fetch stateName for every print type, not just staff_batch -- the
   // citizen letter and single-complaint print both showed no state/
@@ -688,12 +720,18 @@ useEffect(() => {
     setLoading(true);
     let query = supabase.from('complaints').select('*').eq('app_id', appId).order('created_at', { ascending: false });
     if (filterCategory) query = query.eq('category', filterCategory);
+    if (filterSearch.trim()) query = query.ilike('title', `%${filterSearch.trim()}%`);
     if (filterStage === 'PENDING_ONLY') {
       query = query.not('stage', 'in', '(Resolved,Sanctioned,Declined)');
+    } else if (filterStage === 'HANDLED_ONLY') {
+      query = query.in('stage', ['Resolved', 'Sanctioned', 'Declined']);
     } else if (filterStage) {
       query = query.eq('stage', filterStage);
     }
     if (filterPriority) query = query.eq('priority', filterPriority);
+    if (filterConstituencyId) query = query.eq('constituency_id', filterConstituencyId);
+    if (filterMandalId) query = query.eq('mandal_id', filterMandalId);
+    if (filterVillageId) query = query.eq('village_id', filterVillageId);
     if (dateFrom) query = query.gte('created_at', dateFrom);
     if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59');
     const { data, error: err } = await query;
@@ -723,14 +761,6 @@ useEffect(() => {
       villages: r.village_id ? { name: villageMap[r.village_id] } : null,
       citizens: r.citizen_id ? citizenMap[r.citizen_id] : null,
     }));
-
-    // filterMandal used to filter on a column ('submitter_mandal')
-    // that doesn't exist on complaints at all — silently matched
-    // nothing, ever. Filtering client-side on the resolved name instead.
-    if (filterMandal) {
-      const needle = filterMandal.toLowerCase();
-      enriched = enriched.filter((r) => (r.mandals?.name || '').toLowerCase().includes(needle));
-    }
 
     setComplaints(enriched);
     setLoading(false);
@@ -892,7 +922,31 @@ useEffect(() => {
                   </button>
                 ))}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 10, marginBottom: 8 }}>
+              <input value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} placeholder="Search by title…" style={{ ...S.input, marginBottom: 10 }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 10 }}>
+                <div>
+                  <label style={S.label}>Constituency</label>
+                  <select value={filterConstituencyId} onChange={(e) => { setFilterConstituencyId(e.target.value); setFilterMandalId(''); setFilterVillageId(''); }} style={S.select}>
+                    <option value="">All constituencies</option>
+                    {constituencyOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={S.label}>Mandal</label>
+                  <select value={filterMandalId} onChange={(e) => { setFilterMandalId(e.target.value); setFilterVillageId(''); }} disabled={!filterConstituencyId} style={{ ...S.select, opacity: filterConstituencyId ? 1 : 0.5 }}>
+                    <option value="">All mandals</option>
+                    {mandalOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={S.label}>Village</label>
+                  <select value={filterVillageId} onChange={(e) => setFilterVillageId(e.target.value)} disabled={!filterMandalId} style={{ ...S.select, opacity: filterMandalId ? 1 : 0.5 }}>
+                    <option value="">All villages</option>
+                    {villageOptions.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 8 }}>
                 <div>
                   <label style={S.label}>Category</label>
                   <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={S.select}>
@@ -907,6 +961,7 @@ useEffect(() => {
                   <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} style={S.select}>
                     <option value="">All statuses</option>
                     <option value="PENDING_ONLY">Pending only (not resolved/sanctioned/declined)</option>
+                    <option value="HANDLED_ONLY">Handled only (resolved/sanctioned/declined)</option>
                     <option value="Submitted">Submitted</option>
                     <option value="Acknowledged">Acknowledged</option>
                     <option value="In Progress">In Progress</option>

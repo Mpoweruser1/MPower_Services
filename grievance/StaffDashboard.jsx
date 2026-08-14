@@ -1,16 +1,18 @@
 // src/pages/grievance/StaffDashboard.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import EvidenceGallery from './EvidenceGallery';
 import { CATEGORY_EMOJI, StageBadge } from './CitizenPortal';
 import { FeedbackWidget } from '../shared/FeedbackWidget';
-import { fetchStaffQueue, fetchComplaintHistory, advanceComplaint, updateAssignedDepartment, fetchCategories, uploadStaffPhoto, updateStaffProfile } from './grievanceApi';
+import { fetchStaffQueue, fetchComplaintHistory, advanceComplaint, updateAssignedDepartment, fetchCategories, fetchConstituencies, fetchMandals, fetchVillages, uploadStaffPhoto, updateStaffProfile } from './grievanceApi';
 import GrievanceNav from './GrievanceNav';
 
 const TERMINAL_STAGES = ['Resolved', 'Sanctioned', 'Declined'];
 
 export default function StaffDashboard() {
+  const navigate = useNavigate();
   const { tenant, loading: tenantLoading } = useTenant();
   const [activeTab, setActiveTab] = useState('pending');
   const [listData, setListData] = useState([]);
@@ -21,6 +23,18 @@ export default function StaffDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [categories, setCategories] = useState([]);
+  // More filters — date range + geography. Kept behind a toggle so the
+  // primary search bar stays clean for the common case (just search or
+  // category/priority), with these available when actually needed.
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [constituencyFilter, setConstituencyFilter] = useState('');
+  const [mandalFilter, setMandalFilter] = useState('');
+  const [villageFilter, setVillageFilter] = useState('');
+  const [constituencyOptions, setConstituencyOptions] = useState([]);
+  const [mandalOptions, setMandalOptions] = useState([]);
+  const [villageOptions, setVillageOptions] = useState([]);
   const [activeComplaint, setActiveComplaint] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
@@ -40,13 +54,13 @@ export default function StaffDashboard() {
 
   const loadGridPage = useCallback((pageNum, replace) => {
     setGridLoading(true);
-    fetchStaffQueue({ page: pageNum, pageSize: PAGE_SIZE, search, category: categoryFilter, priority: priorityFilter, handled: activeTab === 'handled' })
+    fetchStaffQueue({ page: pageNum, pageSize: PAGE_SIZE, search, category: categoryFilter, priority: priorityFilter, handled: activeTab === 'handled', constituencyId: constituencyFilter, mandalId: mandalFilter, villageId: villageFilter, dateFrom, dateTo })
       .then(({ data, count }) => {
         setGridData((prev) => (replace ? data : [...prev, ...data]));
         setGridHasMore((pageNum + 1) * PAGE_SIZE < count);
       })
       .finally(() => setGridLoading(false));
-  }, [search, categoryFilter, priorityFilter, activeTab]);
+  }, [search, categoryFilter, priorityFilter, activeTab, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo]);
 
   // Same filter/tab changes that reset the mobile page also restart
   // the grid from scratch — a stale grid full of the wrong filter's
@@ -56,7 +70,7 @@ export default function StaffDashboard() {
     setGridHasMore(true);
     loadGridPage(0, true);
     if (gridScrollRef.current) gridScrollRef.current.scrollTop = 0;
-  }, [search, categoryFilter, priorityFilter, activeTab, tenant?.appId]);
+  }, [search, categoryFilter, priorityFilter, activeTab, tenant?.appId, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo]);
 
   function handleGridScroll(e) {
     const el = e.target;
@@ -70,10 +84,10 @@ export default function StaffDashboard() {
 
   const reload = useCallback(() => {
     setListLoading(true);
-    fetchStaffQueue({ page, pageSize: PAGE_SIZE, search, category: categoryFilter, priority: priorityFilter, handled: activeTab === 'handled' })
+    fetchStaffQueue({ page, pageSize: PAGE_SIZE, search, category: categoryFilter, priority: priorityFilter, handled: activeTab === 'handled', constituencyId: constituencyFilter, mandalId: mandalFilter, villageId: villageFilter, dateFrom, dateTo })
       .then(({ data, count }) => { setListData(data); setTotalCount(count); })
       .finally(() => setListLoading(false));
-  }, [page, search, categoryFilter, priorityFilter, activeTab]);
+  }, [page, search, categoryFilter, priorityFilter, activeTab, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (tenant) reload();
@@ -83,10 +97,27 @@ export default function StaffDashboard() {
     if (tenant?.appId) fetchCategories(tenant.appId).then(setCategories).catch(() => {});
   }, [tenant?.appId]);
 
+  useEffect(() => {
+    if (tenant?.appId) fetchConstituencies(tenant.appId).then(setConstituencyOptions).catch(() => {});
+  }, [tenant?.appId]);
+
+  useEffect(() => {
+    setMandalFilter('');
+    setVillageFilter('');
+    if (!constituencyFilter) { setMandalOptions([]); return; }
+    fetchMandals(constituencyFilter).then(setMandalOptions).catch(() => {});
+  }, [constituencyFilter]);
+
+  useEffect(() => {
+    setVillageFilter('');
+    if (!mandalFilter) { setVillageOptions([]); return; }
+    fetchVillages(mandalFilter).then(setVillageOptions).catch(() => {});
+  }, [mandalFilter]);
+
   // Any filter or tab change starts back at page 1 — staying on, say,
   // page 4 after narrowing the search would very likely land on an
   // empty page that no longer has anything on it.
-  useEffect(() => { setPage(0); }, [search, categoryFilter, priorityFilter, activeTab]);
+  useEffect(() => { setPage(0); }, [search, categoryFilter, priorityFilter, activeTab, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo]);
 
   if (tenantLoading || !tenant) return <CenteredNote>Loading…</CenteredNote>;
 
@@ -101,7 +132,17 @@ export default function StaffDashboard() {
   return (
     // FIX 2: paddingBottom 80px so content clears fixed GrievanceNav
     <div style={{ background: '#f0f4f8', minHeight: '100vh', color: '#1a1a2e', fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 24px 80px' }}>
+
+      {/* Header — matches the staff-dashboard banner benchmark already
+          used by Reports/Verify/Feedback (dark #1a1a2e sticky bar,
+          white 16px bold title + 11px 40%-white subtitle). This page
+          previously had no such header at all, just an inline title. */}
+      <div style={{ background: '#1a1a2e', padding: '14px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{roleLabel(tenant.role)} — {tenant.fullName}</div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{totalCount} {activeTab === 'pending' ? 'pending' : 'handled'}</div>
+      </div>
+
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '16px 24px 80px' }}>
 
         {profileIncomplete && !bannerDismissed && (
           <div style={{
@@ -122,23 +163,6 @@ export default function StaffDashboard() {
           </div>
         )}
 
-        <div style={{ position: 'sticky', top: 0, zIndex: 30, background: '#f0f4f8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', marginBottom: 4 }}>
-          <div>
-            <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
-              {roleLabel(tenant.role)} — {tenant.fullName}
-            </h1>
-            <p style={{ fontSize: 12.5, color: '#5B6473', margin: 0 }}>
-              {totalCount} {activeTab === 'pending' ? 'pending' : 'handled'}
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-            <a href="/portal/dashboard" style={{ fontSize: 12, color: '#15213A', textDecoration: 'none', fontWeight: 600 }}>🏠 Home</a>
-            <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: '#15213A', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
-              💬 Feedback
-            </button>
-          </div>
-        </div>
-
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           {[{ key: 'pending', label: 'Pending action' }, { key: 'handled', label: 'Handled' }].map((t) => (
@@ -154,7 +178,7 @@ export default function StaffDashboard() {
         {/* Search + filter bar — sticky, stays visible while scrolling
             through a long list, so it's never necessary to scroll back
             up just to search or change a filter */}
-        <div style={{ position: 'sticky', top: 56, background: '#f0f4f8', zIndex: 20, paddingBottom: 10, marginBottom: 10 }}>
+        <div style={{ position: 'sticky', top: 60, background: '#f0f4f8', zIndex: 20, paddingBottom: 10, marginBottom: 10 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <input
               value={search}
@@ -173,7 +197,72 @@ export default function StaffDashboard() {
               <option value="Normal">Normal</option>
               <option value="Urgent">Urgent</option>
             </select>
+            <button onClick={() => setShowMoreFilters((s) => !s)}
+              style={{ padding: '9px 14px', border: `1px solid ${showMoreFilters ? '#15213A' : '#D9D5C8'}`, borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: showMoreFilters ? '#15213A' : '#fff', color: showMoreFilters ? '#fff' : '#5B6473', cursor: 'pointer', fontWeight: 600 }}>
+              {showMoreFilters ? '▲' : '▼'} More filters
+            </button>
+            <button onClick={() => {
+              const params = new URLSearchParams();
+              params.set('mode', 'staff_batch');
+              params.set('status', activeTab === 'pending' ? 'PENDING_ONLY' : 'HANDLED_ONLY');
+              if (search.trim()) params.set('search', search.trim());
+              if (categoryFilter) params.set('category', categoryFilter);
+              if (priorityFilter) params.set('priority', priorityFilter);
+              if (constituencyFilter) params.set('constituencyId', constituencyFilter);
+              if (mandalFilter) params.set('mandalId', mandalFilter);
+              if (villageFilter) params.set('villageId', villageFilter);
+              if (dateFrom) params.set('dateFrom', dateFrom);
+              if (dateTo) params.set('dateTo', dateTo);
+              navigate(`/grievance/print?${params.toString()}`);
+            }}
+              style={{ padding: '9px 14px', border: '1px solid #D9D5C8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#5B6473', cursor: 'pointer', fontWeight: 600 }}>
+              🖨️ Print this view
+            </button>
           </div>
+
+          {showMoreFilters && (
+            <div style={{ background: '#fff', border: '1px solid #D9D5C8', borderRadius: 8, padding: 12, marginTop: 8 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#8B9099', letterSpacing: 0.5, margin: '0 0 6px' }}>PERIOD</p>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                {[
+                  { label: 'Today', apply: () => { const d = new Date().toISOString().slice(0, 10); setDateFrom(d); setDateTo(d); } },
+                  { label: 'This week', apply: () => { const now = new Date(); const first = new Date(now); first.setDate(now.getDate() - now.getDay()); setDateFrom(first.toISOString().slice(0, 10)); setDateTo(now.toISOString().slice(0, 10)); } },
+                  { label: 'This month', apply: () => { const now = new Date(); const first = new Date(now.getFullYear(), now.getMonth(), 1); setDateFrom(first.toISOString().slice(0, 10)); setDateTo(now.toISOString().slice(0, 10)); } },
+                  { label: 'All time', apply: () => { setDateFrom(''); setDateTo(''); } },
+                ].map((preset) => (
+                  <button key={preset.label} onClick={preset.apply}
+                    style={{ padding: '5px 12px', borderRadius: 14, border: '1px solid #D9D5C8', background: '#F7F6F2', color: '#5B6473', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                  style={{ flex: 1, padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit' }} />
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                  style={{ flex: 1, padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit' }} />
+              </div>
+
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#8B9099', letterSpacing: 0.5, margin: '0 0 6px' }}>LOCATION</p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <select value={constituencyFilter} onChange={(e) => setConstituencyFilter(e.target.value)}
+                  style={{ flex: '1 1 140px', padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit', background: '#fff' }}>
+                  <option value="">All constituencies</option>
+                  {constituencyOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <select value={mandalFilter} onChange={(e) => setMandalFilter(e.target.value)} disabled={!constituencyFilter}
+                  style={{ flex: '1 1 140px', padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit', background: '#fff', opacity: constituencyFilter ? 1 : 0.5 }}>
+                  <option value="">All mandals</option>
+                  {mandalOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+                <select value={villageFilter} onChange={(e) => setVillageFilter(e.target.value)} disabled={!mandalFilter}
+                  style={{ flex: '1 1 140px', padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit', background: '#fff', opacity: mandalFilter ? 1 : 0.5 }}>
+                  <option value="">All villages</option>
+                  {villageOptions.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         <style>{`
@@ -304,6 +393,29 @@ export default function StaffDashboard() {
         {showProfileSetup && (
           <StaffProfileSetup tenant={tenant} onClose={() => setShowProfileSetup(false)} />
         )}
+
+        {/* Feedback — relocated from the old inline header into its own
+            block, matching AdminVerificationQueue's "View App Feedback"
+            convention. Same modal trigger as before, just moved. */}
+        <button
+          onClick={() => setShowFeedback(true)}
+          style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 20, padding: '12px 16px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#1a1a2e', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          💬 Feedback
+        </button>
+
+        {/* Bottom Back / Home / Sign out — permanent, cross-module
+            Definition of Done requirement; this page was previously
+            missing it entirely (no Sign out anywhere on the page). */}
+        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', padding: '20px 0 40px' }}>
+          <button onClick={() => window.history.back()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
+            ← Back
+          </button>
+          <a href="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</a>
+          <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
+            Sign out
+          </button>
+        </div>
       </div>
 
       {/* FIX 2: GrievanceNav at correct level — outside content div, inside outer div */}

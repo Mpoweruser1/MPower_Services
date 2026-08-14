@@ -29,12 +29,21 @@ export default function GrievanceNav() {
     }}>
       {links.map(l => {
         const active = path === l.to;
-        return (
-          <Link key={l.to} to={l.to} style={{
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', gap: 3,
-            textDecoration: 'none', minWidth: 56,
-          }}>
+        // The Print item is context-aware: if we're already sitting on
+        // the print page, pressing it should actually trigger the
+        // browser print dialog (like the page's own "Print now" button)
+        // instead of navigating to itself with the query params
+        // stripped, which looked like the button did nothing. From
+        // every other screen (Queue/Reports/Verify) it still just
+        // navigates to the print centre as before.
+        const isPrintAction = l.to === '/grievance/print' && active;
+        const itemStyle = {
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', gap: 3,
+          textDecoration: 'none', minWidth: 56,
+        };
+        const inner = (
+          <>
             <span style={{ fontSize: 20 }}>{l.icon}</span>
             <span style={{
               fontSize: 10,
@@ -49,6 +58,20 @@ export default function GrievanceNav() {
                 borderRadius: '50%', background: '#e8a020',
               }} />
             )}
+          </>
+        );
+        return isPrintAction ? (
+          <button
+            key={l.to}
+            type="button"
+            onClick={() => window.print()}
+            style={{ ...itemStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            {inner}
+          </button>
+        ) : (
+          <Link key={l.to} to={l.to} style={itemStyle}>
+            {inner}
           </Link>
         );
       })}

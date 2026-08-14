@@ -437,12 +437,17 @@ const TERMINAL_STAGES = ['Resolved', 'Sanctioned', 'Declined'];
 // (the default) returns the active/pending queue; handled=true
 // returns the resolved/sanctioned/declined ones separately, so the
 // two lists can be paginated and searched independently.
-export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', category = '', priority = '', handled = false } = {}) {
+export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', category = '', priority = '', handled = false, constituencyId = '', mandalId = '', villageId = '', dateFrom = '', dateTo = '' } = {}) {
   let query = supabase.from('complaints').select('*', { count: 'exact' });
   query = handled ? query.in('stage', TERMINAL_STAGES) : query.not('stage', 'in', `(${TERMINAL_STAGES.join(',')})`);
   if (search.trim()) query = query.ilike('title', `%${search.trim()}%`);
   if (category) query = query.eq('category', category);
   if (priority) query = query.eq('priority', priority);
+  if (constituencyId) query = query.eq('constituency_id', constituencyId);
+  if (mandalId) query = query.eq('mandal_id', mandalId);
+  if (villageId) query = query.eq('village_id', villageId);
+  if (dateFrom) query = query.gte('created_at', `${dateFrom}T00:00:00`);
+  if (dateTo) query = query.lte('created_at', `${dateTo}T23:59:59`);
   query = query.order('created_at', { ascending: false });
 
   const from = page * pageSize;
