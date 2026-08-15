@@ -295,7 +295,7 @@ function AppRoutes() {
       <Route path="/grievance/staff"
         element={<RequireAuth><StaffDashboard /></RequireAuth>} />
       <Route path="/grievance/reports"
-        element={<RequireAuth><ReportsDashboard /></RequireAuth>} />
+        element={<RequireAuth><exd /></RequireAuth>} />
       <Route path="/grievance/verify-queue"
         element={<RequireAuth><AdminVerificationQueue /></RequireAuth>} />
 

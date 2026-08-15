@@ -286,8 +286,8 @@ export default function ReportsDashboard() {
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✅ {row.resolved_count || 0} resolved</span>
                   <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 600 }}>⏳ {row.open_count || 0} pending</span>
-                  {row.urgent_count > 0 && (
-                    <span style={{ fontSize: 11, color: '#ea580c', fontWeight: 600 }}>🚨 {row.urgent_count} urgent</span>
+                  {row.urgent_open_count > 0 && (
+                    <span style={{ fontSize: 11, color: '#ea580c', fontWeight: 600 }}>🚨 {row.urgent_open_count} urgent (still open)</span>
                   )}
                   {row.currently_escalated_count > 0 && (
                     <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>⬆️ {row.currently_escalated_count} escalated</span>
@@ -331,13 +331,13 @@ export default function ReportsDashboard() {
         <button
           onClick={() => {
             const csv = [
-              ['Name', 'Total', 'Resolved', 'Pending', 'Urgent', 'Escalated'],
+              ['Name', 'Total', 'Resolved', 'Pending', 'Urgent (still open)', 'Escalated'],
               ...data.map(r => [
                 r.village_name || r.mandal_name || r.category || r.constituency_name || '',
                 r.total || 0,
                 r.resolved_count || 0,
                 r.open_count || 0,
-                r.urgent_count || 0,
+                r.urgent_open_count || 0,
                 r.currently_escalated_count || 0,
               ])
             ].map(row => row.join(',')).join('\n');

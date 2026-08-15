@@ -100,12 +100,43 @@ export function useCitizenAuth(appId) {
 
     try {
       if (OTP_BYPASS_ACTIVE) {
-        const { error: anonErr } = await supabase.auth.signInAnonymously();
+        const { data: authData, error: anonErr } = await supabase.auth.signInAnonymously();
         if (anonErr) {
           setError('Login failed. Please try again.');
           return false;
         }
         await supabase.auth.updateUser({ data: { phone, verified_phone: phone } });
+
+        // Previously this branch stopped here — meaning the bypass
+        // path never called verify-otp at all, and therefore never ran
+        // its relink logic either. Every bypass login created a fresh,
+        // disconnected identity, even for a real returning citizen —
+        // the exact same class of bug the 5-8/6-8 fix already solved
+        // for the real OTP path. Sending bypassOtp:true here reaches
+        // the same server-side relink code real logins use, so testing
+        // now behaves the same way production does.
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-otp`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              phone, purpose: 'citizen_login', bypassOtp: true,
+              newAuthId: authData.user.id, appId,
+            }),
+          }
+        );
+        const data = await res.json();
+        if (!data?.verified) {
+          setError(data?.error || 'Login failed. Please try again.');
+          return false;
+        }
+
+        const relinkedCitizen = await fetchCitizenProfile(authData.user.id);
+        if (relinkedCitizen) setCitizen(relinkedCitizen);
         return true;
       }
 

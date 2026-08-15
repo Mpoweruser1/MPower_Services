@@ -499,13 +499,21 @@ export async function fetchEnrichedComplaints(appId) {
 // complaint_history insert. The apply_history_entry trigger updates
 // complaints.stage/updated_at server-side; the app never writes those
 // columns directly.
+// Writes a new stage to complaint_history AND updates the complaint's
+// own current stage — atomically, via a single database transaction
+// (see advance_complaint_stage() in the accompanying migration).
+// Previously this only ever wrote the history log; complaints.stage
+// was never touched, which is why Reports counts, Queue's
+// Pending/Handled tabs, and every printed document kept showing each
+// complaint's ORIGINAL stage forever, no matter how many times staff
+// pressed Acknowledge/Resolved/etc. Fixed 15-8-2026.
 export async function advanceComplaint({ complaintId, stage, byName, note, visibility }) {
-  const { error } = await supabase.from('complaint_history').insert({
-    complaint_id: complaintId,
-    stage,
-    by_name: byName,
-    note: note || '',
-    visibility: visibility || 'public',
+  const { error } = await supabase.rpc('advance_complaint_stage', {
+    p_complaint_id: complaintId,
+    p_stage: stage,
+    p_by_name: byName,
+    p_note: note || '',
+    p_visibility: visibility || 'public',
   });
   if (error) throw error;
 }
@@ -725,4 +733,3 @@ export function detectPatterns(complaints) {
 
   return { hotspots, familyPatterns, exactDuplicates };
 }
-
