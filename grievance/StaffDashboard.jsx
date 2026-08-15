@@ -1,7 +1,6 @@
 // src/pages/grievance/StaffDashboard.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import EvidenceGallery from './EvidenceGallery';
 import { CATEGORY_EMOJI, StageBadge } from './CitizenPortal';
@@ -132,17 +131,7 @@ export default function StaffDashboard() {
   return (
     // FIX 2: paddingBottom 80px so content clears fixed GrievanceNav
     <div style={{ background: '#f0f4f8', minHeight: '100vh', color: '#1a1a2e', fontFamily: "'Inter', sans-serif" }}>
-
-      {/* Header — matches the staff-dashboard banner benchmark already
-          used by Reports/Verify/Feedback (dark #1a1a2e sticky bar,
-          white 16px bold title + 11px 40%-white subtitle). This page
-          previously had no such header at all, just an inline title. */}
-      <div style={{ background: '#1a1a2e', padding: '14px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{roleLabel(tenant.role)} — {tenant.fullName}</div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{totalCount} {activeTab === 'pending' ? 'pending' : 'handled'}</div>
-      </div>
-
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '16px 24px 80px' }}>
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 24px 80px' }}>
 
         {profileIncomplete && !bannerDismissed && (
           <div style={{
@@ -163,6 +152,23 @@ export default function StaffDashboard() {
           </div>
         )}
 
+        <div style={{ position: 'sticky', top: 0, zIndex: 30, background: '#f0f4f8', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', marginBottom: 4 }}>
+          <div>
+            <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
+              {roleLabel(tenant.role)} — {tenant.fullName}
+            </h1>
+            <p style={{ fontSize: 12.5, color: '#5B6473', margin: 0 }}>
+              {totalCount} {activeTab === 'pending' ? 'pending' : 'handled'}
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+            <a href="/portal/dashboard" style={{ fontSize: 12, color: '#15213A', textDecoration: 'none', fontWeight: 600 }}>🏠 Home</a>
+            <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: '#15213A', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
+              💬 Feedback
+            </button>
+          </div>
+        </div>
+
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           {[{ key: 'pending', label: 'Pending action' }, { key: 'handled', label: 'Handled' }].map((t) => (
@@ -178,7 +184,7 @@ export default function StaffDashboard() {
         {/* Search + filter bar — sticky, stays visible while scrolling
             through a long list, so it's never necessary to scroll back
             up just to search or change a filter */}
-        <div style={{ position: 'sticky', top: 60, background: '#f0f4f8', zIndex: 20, paddingBottom: 10, marginBottom: 10 }}>
+        <div style={{ position: 'sticky', top: 56, background: '#f0f4f8', zIndex: 20, paddingBottom: 10, marginBottom: 10 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <input
               value={search}
@@ -378,6 +384,13 @@ export default function StaffDashboard() {
             staffUserId={tenant.userRowId}
             actorName={tenant.fullName}
             onClose={() => setActiveComplaint(null)}
+            onAction={() => {
+              reload();
+              setGridPage(0);
+              setGridHasMore(true);
+              loadGridPage(0, true);
+              if (gridScrollRef.current) gridScrollRef.current.scrollTop = 0;
+            }}
           />
         )}
 
@@ -393,29 +406,6 @@ export default function StaffDashboard() {
         {showProfileSetup && (
           <StaffProfileSetup tenant={tenant} onClose={() => setShowProfileSetup(false)} />
         )}
-
-        {/* Feedback — relocated from the old inline header into its own
-            block, matching AdminVerificationQueue's "View App Feedback"
-            convention. Same modal trigger as before, just moved. */}
-        <button
-          onClick={() => setShowFeedback(true)}
-          style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 20, padding: '12px 16px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#1a1a2e', cursor: 'pointer', fontFamily: 'inherit' }}
-        >
-          💬 Feedback
-        </button>
-
-        {/* Bottom Back / Home / Sign out — permanent, cross-module
-            Definition of Done requirement; this page was previously
-            missing it entirely (no Sign out anywhere on the page). */}
-        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', padding: '20px 0 40px' }}>
-          <button onClick={() => window.history.back()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
-            ← Back
-          </button>
-          <a href="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</a>
-          <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
-            Sign out
-          </button>
-        </div>
       </div>
 
       {/* FIX 2: GrievanceNav at correct level — outside content div, inside outer div */}
@@ -594,17 +584,40 @@ function ActionBtn({ onClick, disabled, color = '#15213A', children }) {
   );
 }
 
-export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName, onClose }) {
+export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName, onClose, onAction }) {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
   const [department, setDepartment] = useState(complaint.assigned_department || '');
   const [remark, setRemark] = useState('');
   const [savingDept, setSavingDept] = useState(false);
   const [deptSaved, setDeptSaved] = useState(false);
+  // Status-change action state — previously this drawer had NO way to
+  // Acknowledge/Resolve/Escalate/Decline at all, only Department/
+  // Remark/Print/History/Evidence. On desktop (the grid table view)
+  // and on Reports, this drawer is the ONLY way to open a complaint —
+  // there was no separate card with action buttons like mobile's Queue
+  // has, so desktop/Reports users genuinely had no way to change a
+  // complaint's status. Mobile was never broken; it uses ComplaintCard
+  // directly, which already has these buttons. This mirrors that exact
+  // same logic here so every entry point has equal, real functionality.
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [warn, setWarn] = useState(false);
 
   useEffect(() => {
     fetchComplaintHistory(complaint.id).then(setHistory);
   }, [complaint.id]);
+
+  async function act(stage, visibility = 'public') {
+    if (stage === 'Declined' && !note.trim()) { setWarn(true); return; }
+    setWarn(false);
+    setBusy(true);
+    await advanceComplaint({ complaintId: complaint.id, stage, byName: actorName, note, visibility });
+    setNote('');
+    setBusy(false);
+    onAction?.();
+    onClose();
+  }
 
   async function handleSaveDepartment() {
     setSavingDept(true);
@@ -637,6 +650,46 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
             <strong>Citizen's suggested solution:</strong> {complaint.suggested_solution}
           </p>
         )}
+
+        {/* Status actions — same role/stage rules as ComplaintCard */}
+        <input
+          value={note}
+          onChange={(e) => { setNote(e.target.value); if (warn) setWarn(false); }}
+          placeholder="Add a note — required if declining"
+          style={{ width: '100%', padding: '7px 10px', fontSize: 12.5, border: '1px solid #D9D5C8', borderRadius: 6, margin: '10px 0 8px', boxSizing: 'border-box' }}
+        />
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          {(role === 'representative' || role === 'grievance_staff') && (
+            <>
+              {complaint.stage === 'Submitted' && <ActionBtn onClick={() => act('Acknowledged')} disabled={busy}>👀 Acknowledge</ActionBtn>}
+              {complaint.stage === 'Acknowledged' && <ActionBtn onClick={() => act('In Progress')} disabled={busy}>🔧 Start work</ActionBtn>}
+              {['Acknowledged', 'In Progress'].includes(complaint.stage) && (
+                <>
+                  <ActionBtn onClick={() => act('Resolved')} disabled={busy} color="#3E5C45">✅ Mark resolved</ActionBtn>
+                  <ActionBtn onClick={() => act('Escalated', 'internal')} disabled={busy} color="#9B3C2E">⬆️ Escalate</ActionBtn>
+                </>
+              )}
+              {['Submitted', 'Acknowledged', 'In Progress'].includes(complaint.stage) && (
+                <ActionBtn onClick={() => act('Declined')} disabled={busy} color="#6B5B73">💬 Decline, with reason</ActionBtn>
+              )}
+            </>
+          )}
+          {role === 'authority' && complaint.stage === 'Escalated' && (
+            <>
+              <ActionBtn onClick={() => act('Sanctioned')} disabled={busy} color="#A8762C">💰 Approve &amp; sanction</ActionBtn>
+              <ActionBtn onClick={() => act('In Progress', 'internal')} disabled={busy}>↩️ Send back</ActionBtn>
+              <ActionBtn onClick={() => act('Declined')} disabled={busy} color="#6B5B73">💬 Decline, with reason</ActionBtn>
+            </>
+          )}
+          {role === 'grievance_admin' && (
+            <>
+              <ActionBtn onClick={() => act('Acknowledged')} disabled={busy}>👀 Acknowledge</ActionBtn>
+              <ActionBtn onClick={() => act('Resolved')} disabled={busy} color="#3E5C45">✅ Mark resolved</ActionBtn>
+              <ActionBtn onClick={() => act('Declined')} disabled={busy} color="#6B5B73">💬 Decline, with reason</ActionBtn>
+            </>
+          )}
+        </div>
+        {warn && <p style={{ fontSize: 11, color: '#9B3C2E', marginTop: -4, marginBottom: 10 }}>Add a reason before declining — the citizen will see it.</p>}
 
         <div style={{ background: '#F7F6F2', border: '1px solid #D9D5C8', borderRadius: 8, padding: 12, margin: '12px 0' }}>
           <label style={{ fontSize: 11, fontWeight: 600, color: '#5B6473', display: 'block', marginBottom: 4 }}>

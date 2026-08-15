@@ -377,6 +377,10 @@ export default function ReportsDashboard() {
           staffUserId={tenant.userRowId}
           actorName={tenant.fullName}
           onClose={() => setActiveComplaint(null)}
+          onAction={() => {
+            fetchReportRollup(level).then(setData).catch(e => setError(e.message));
+            fetchEnrichedComplaints(tenant.appId).then(setEnriched).catch(() => {});
+          }}
         />
       )}
 
