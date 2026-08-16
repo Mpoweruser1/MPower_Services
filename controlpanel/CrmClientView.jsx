@@ -35,7 +35,7 @@ const APP_TYPES = {
 };
 
 export default function CrmClientView() {
-  const { tenant } = useTenant();
+  const { tenant, loading: tenantLoading } = useTenant();
   const [clients, setClients]       = useState([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
@@ -62,11 +62,14 @@ export default function CrmClientView() {
     setSelected(client);
     setLoadingDetails(true);
 
+    // FIXED: was billing_invoices_platform, a table that doesn't exist
+    // — same wrong-table bug already found and fixed in
+    // BillingTracker.jsx. client_invoices is the real table.
     const [ticketsRes, onboardRes, billingRes] = await Promise.allSettled([
       supabase.from('support_tickets').select('id, subject, status, created_at')
         .eq('client_id', client.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('client_onboarding').select('*').eq('client_id', client.id).single(),
-      supabase.from('billing_invoices_platform').select('id, amount, status, due_date')
+      supabase.from('client_invoices').select('id, amount, status, due_date')
         .eq('client_id', client.id).order('due_date', { ascending: false }).limit(5),
     ]);
 
@@ -79,14 +82,31 @@ export default function CrmClientView() {
   }
 
   async function updateStatus(clientId, newStatus) {
+    if (newStatus === 'suspended') {
+      const client = clients.find((c) => c.id === clientId);
+      const ok = window.confirm(`Suspend ${client?.org_name || 'this client'}? They will lose access immediately.`);
+      if (!ok) return;
+    }
     await supabase.from('crm_clients').update({ status: newStatus }).eq('id', clientId);
     setClients((prev) => prev.map((c) => c.id === clientId ? { ...c, status: newStatus } : c));
     if (selected?.id === clientId) setSelected((s) => ({ ...s, status: newStatus }));
   }
 
   async function sendWhatsApp(client, type) {
-    await supabase.functions.invoke('send-whatsapp', { body: { clientId: client.id, type } });
-    alert(`WhatsApp sent to ${client.org_name}`);
+    // FIXED: previously alerted "sent" unconditionally — send-whatsapp
+    // always returns HTTP 200 even when it silently skips sending
+    // (no approved template for this type), so only the response
+    // body's actual sent count tells you what really happened.
+    const { data, error } = await supabase.functions.invoke('send-whatsapp', { body: { clientId: client.id, type } });
+    const actuallySent = !error && data?.sent > 0;
+    if (actuallySent) {
+      alert(`WhatsApp sent to ${client.org_name}`);
+    } else {
+      const reason = data?.skipped
+        ? 'No approved WhatsApp template exists for this yet.'
+        : (error?.message || 'The message failed to send.');
+      alert(`WhatsApp NOT sent to ${client.org_name}. ${reason}`);
+    }
   }
 
   const filtered = useMemo(() => {
@@ -119,6 +139,14 @@ export default function CrmClientView() {
     const daysLeft = Math.ceil((new Date(c.trial_ended_at) - Date.now()) / 86400000);
     return daysLeft <= 7 && daysLeft >= 0;
   });
+
+  // Was reachable by anyone at this URL with no check at all — same
+  // gap already fixed in FeedbackOverview.jsx and HelpSystemAdmin.jsx.
+  if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading…</p></div></div>;
+
+  if (!tenant || !['developer', 'support'].includes(tenant.role)) {
+    return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Control Panel access only.</p></div></div>;
+  }
 
   return (
     <div style={S.page}>
@@ -207,8 +235,15 @@ export default function CrmClientView() {
             const statusCfg = STATUS_CONFIG[client.status] || STATUS_CONFIG.trial;
             const tier      = client.tier || client.apps?.subscription_tier || 'basic';
             const tierCfg   = TIER_CONFIG[tier] || TIER_CONFIG.basic;
-            const appType   = client.apps?.app_type || 'school';
-            const appInfo   = APP_TYPES[appType] || APP_TYPES.school;
+            // FIXED: previously silently defaulted a client with a
+            // missing/broken app link to displaying as "School" — no
+            // error, no warning, just a wrong label with no sign
+            // anything was off. Confirmed via direct query that no
+            // real client is affected today, but this closes the gap
+            // so a future broken link can never be silently mislabeled
+            // again — it now shows an honest "Unknown module" instead.
+            const appType   = client.apps?.app_type || null;
+            const appInfo   = appType ? (APP_TYPES[appType] || { icon: '\u2753', label: appType }) : { icon: '\u26A0\uFE0F', label: 'Unknown module' };
             const daysLeft  = client.trial_ended_at && client.status === 'trial'
               ? Math.ceil((new Date(client.trial_ended_at) - Date.now()) / 86400000)
               : null;
@@ -308,6 +343,20 @@ export default function CrmClientView() {
                               )}
                               {clientDetails.onboarding.golive_at ? ` · ${new Date(clientDetails.onboarding.golive_at).toLocaleDateString('en-IN')}` : ''}
                             </p>
+                          </div>
+                        )}
+
+                        {/* Recent billing — data was already being
+                            fetched here but never actually shown */}
+                        {clientDetails?.billing?.length > 0 && (
+                          <div style={{ marginTop: 14 }}>
+                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, margin: '0 0 8px' }}>RECENT BILLING</p>
+                            {clientDetails.billing.map((inv) => (
+                              <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 12 }}>
+                                <span style={{ color: 'rgba(255,255,255,0.6)' }}>₹{Number(inv.amount).toLocaleString('en-IN')} · Due {inv.due_date}</span>
+                                <span style={{ color: inv.status === 'paid' ? '#6AAA90' : '#E8A020' }}>{inv.status}</span>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </>

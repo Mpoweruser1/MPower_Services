@@ -17,6 +17,16 @@ const TEMPLATE_SIDS: Record<string, string> = {
   discharge_summary: Deno.env.get('TWILIO_TEMPLATE_DISCHARGE_SUMMARY') || '',
   golive_welcome: Deno.env.get('TWILIO_TEMPLATE_GOLIVE_WELCOME') || '',
   bug_report_ack: Deno.env.get('TWILIO_TEMPLATE_BUG_REPORT_ACK') || '',
+  // Previously missing entirely — meaning 'billing_reminder' and
+  // 'client_reminder' (the two types Control Panel actually sends)
+  // could never have worked, ever, regardless of Twilio approval
+  // status. These two secrets don't exist yet and these will keep
+  // returning skipped:true until real templates are created and
+  // approved in Twilio and these two env vars are set — but the code
+  // is now ready to work the moment that happens, no further changes
+  // needed here.
+  billing_reminder: Deno.env.get('TWILIO_TEMPLATE_BILLING_REMINDER') || '',
+  client_reminder: Deno.env.get('TWILIO_TEMPLATE_CLIENT_REMINDER') || '',
 };
 
 async function sendTemplateMessage(toPhone: string, templateSid: string, variables: Record<string, string>) {

@@ -1,11 +1,24 @@
 // controlpanel/HelpSystemAdmin.jsx — restyled to match the current dark-theme standard
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { useTenant } from '../context/TenantContext';
 import ControlPanelNav from '../shared/ControlPanelNav';
 import { ScreenVideoButton } from '../shared/HelpWidget';
 import BugReporter from '../shared/BugReporter';
 
-const MODULE_FILTERS = ['All modules', 'School', 'Hospital', 'CTS', 'HRMS'];
+// Module filter values must match the real app_type values stored on
+// help_content (confirmed via schema check) — lowercase, and CTS is
+// internally called 'grievance', not 'CTS'. Previously these were
+// plain display strings ('School', 'CTS', etc.) used directly as the
+// filter value, which could never have matched real data even if the
+// filter had been wired up to begin with.
+const MODULE_FILTERS = [
+  { key: '',          label: 'All modules' },
+  { key: 'school',    label: 'School' },
+  { key: 'hospital',  label: 'Hospital' },
+  { key: 'grievance', label: 'CTS' },
+  { key: 'hrms',       label: 'HRMS' },
+];
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -15,11 +28,12 @@ const S = {
 };
 
 export default function HelpSystemAdmin() {
+  const { tenant, loading: tenantLoading } = useTenant();
   const [videos, setVideos] = useState([]);
   const [fieldHelps, setFieldHelps] = useState([]);
   const [analytics, setAnalytics] = useState([]);
   const [tab, setTab] = useState('videos');
-  const [moduleFilter, setModuleFilter] = useState('All modules');
+  const [moduleFilter, setModuleFilter] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadAll(); }, []);
@@ -61,6 +75,20 @@ export default function HelpSystemAdmin() {
     return [...new Set(fieldHelps.map((f) => f.screen_code))].filter((s) => !withVideo.has(s));
   }, [videos, fieldHelps]);
 
+  // This screen's own subtitle has always said "Internal tool" — but
+  // nothing was actually enforcing that. ControlPanelNav hides its nav
+  // link from non-staff, but that only hides the link, not the page
+  // itself; anyone reaching this URL directly had full access to real
+  // help-content management with no check at all. Same gate as
+  // FeedbackOverview.jsx, for consistency.
+  if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading…</p></div></div>;
+
+  if (!tenant || !['developer', 'support'].includes(tenant.role)) {
+    return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Control Panel access only.</p></div></div>;
+  }
+
+  const filteredVideos = moduleFilter ? videos.filter((v) => v.app_type === moduleFilter) : videos;
+
   return (
     <div style={S.page}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
@@ -93,16 +121,16 @@ export default function HelpSystemAdmin() {
               <>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
                   {MODULE_FILTERS.map((m) => (
-                    <button key={m} onClick={() => setModuleFilter(m)}
-                      style={{ padding: '6px 14px', fontSize: 12, borderRadius: 16, cursor: 'pointer', border: moduleFilter === m ? 'none' : '1px solid rgba(255,255,255,0.1)', background: moduleFilter === m ? 'rgba(154,138,224,0.2)' : 'transparent', color: moduleFilter === m ? '#9A8AE0' : 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
-                      {m}
+                    <button key={m.key} onClick={() => setModuleFilter(m.key)}
+                      style={{ padding: '6px 14px', fontSize: 12, borderRadius: 16, cursor: 'pointer', border: moduleFilter === m.key ? 'none' : '1px solid rgba(255,255,255,0.1)', background: moduleFilter === m.key ? 'rgba(154,138,224,0.2)' : 'transparent', color: moduleFilter === m.key ? '#9A8AE0' : 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
+                      {m.label}
                     </button>
                   ))}
                 </div>
-                {videos.length === 0 ? (
-                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>No help videos configured yet.</p>
+                {filteredVideos.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>No help videos {moduleFilter ? 'for this module' : 'configured'} yet.</p>
                 ) : (
-                  videos.map((v) => (
+                  filteredVideos.map((v) => (
                     <div key={v.id} style={S.card}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                         <div style={{ flex: 1 }}>

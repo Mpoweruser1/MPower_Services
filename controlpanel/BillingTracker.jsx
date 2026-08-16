@@ -115,7 +115,12 @@ export default function BillingTracker() {
 
   async function sendReminder(invoice) {
     setSendingReminder((r) => ({ ...r, [invoice.id]: true }));
-    await supabase.functions.invoke('send-whatsapp', {
+    // FIXED: previously only checked whether the function call itself
+    // errored — but send-whatsapp always returns HTTP 200, even when
+    // it silently skips sending because no approved template exists
+    // for this type. The only way to know if a message really went
+    // out is to check data.sent (a count) in the response body itself.
+    const { data, error } = await supabase.functions.invoke('send-whatsapp', {
       body: {
         type:     'billing_reminder',
         clientId: invoice.client_id,
@@ -124,7 +129,20 @@ export default function BillingTracker() {
         invoiceNo: invoice.invoice_no,
       },
     });
-    setTimeout(() => setSendingReminder((r) => ({ ...r, [invoice.id]: false })), 2000);
+
+    const actuallySent = !error && data?.sent > 0;
+    if (actuallySent) {
+      const newCount = (invoice.reminder_count || 0) + 1;
+      await supabase.from('client_invoices').update({ reminder_count: newCount }).eq('id', invoice.id);
+      setInvoices((prev) => prev.map((inv) => inv.id === invoice.id ? { ...inv, reminder_count: newCount } : inv));
+    } else {
+      const reason = data?.skipped
+        ? 'No approved WhatsApp template exists for billing reminders yet.'
+        : (error?.message || 'The message failed to send.');
+      alert(`Reminder NOT sent to ${invoice.crm_clients?.org_name || 'this client'}. ${reason}`);
+    }
+
+    setSendingReminder((r) => ({ ...r, [invoice.id]: false }));
   }
 
   const stats = useMemo(() => {
@@ -259,7 +277,7 @@ export default function BillingTracker() {
                         </button>
                         <button onClick={() => sendReminder(inv)} disabled={sendingReminder[inv.id]}
                           style={{ flex: 1, padding: '8px 0', background: 'rgba(37,211,102,0.08)', color: '#25D366', border: '1px solid rgba(37,211,102,0.25)', borderRadius: 7, cursor: sendingReminder[inv.id] ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
-                          {sendingReminder[inv.id] ? 'Sent ✓' : '📱 Remind'}
+                          {sendingReminder[inv.id] ? 'Sending…' : '📱 Remind'}
                         </button>
                       </div>
                     )}

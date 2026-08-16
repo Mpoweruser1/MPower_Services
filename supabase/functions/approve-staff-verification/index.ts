@@ -77,7 +77,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return json({ error: 'Missing Authorization header' }, 401);
 
-    const { requestId, verificationMethod, note } = await req.json();
+    const { requestId, verificationMethod, note, repPhotoPath } = await req.json();
     if (!requestId) return json({ error: 'requestId is required' }, 400);
     if (!verificationMethod || !verificationMethod.trim()) {
       return json({ error: 'verificationMethod is required before approving' }, 400);
@@ -204,6 +204,23 @@ serve(async (req) => {
         // failure here — surface it clearly, since it usually means a
         // handover step is needed rather than a fresh approval.
         return json({ error: `Account created but could not assign constituency: ${repError.message}` }, 409);
+      }
+
+      // Rep photo — reuses the SAME constituency.id already resolved
+      // above (app_id + tier + name match), rather than doing a second,
+      // separate lookup that could theoretically resolve to a different
+      // row. Storage upload itself happens client-side before this call;
+      // this just records the resulting path against the right seat.
+      // Optional — a request approved without a photo is fine, the
+      // Batch Report already handles a missing rep_photo_url gracefully.
+      if (repPhotoPath) {
+        const { error: photoError } = await adminClient
+          .from('constituencies')
+          .update({ rep_photo_url: repPhotoPath })
+          .eq('id', constituency.id);
+        if (photoError) {
+          return json({ error: `Account created but rep photo could not be saved: ${photoError.message}` }, 500);
+        }
       }
     }
 

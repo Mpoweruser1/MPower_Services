@@ -99,12 +99,25 @@ function categoryLabel(cat) {
 // capitalize it — showing it exactly as typed (e.g. "kondayya") reads
 // informally on what's meant to be a respectful, official document.
 // This only changes how it's DISPLAYED, never the stored value itself.
-// CM photos for the batch report letterhead — placeholder until the
-// real images are provided. Keyed by state name (from apps.state_name).
+// CM photos for the batch report letterhead. Keyed by state name (from
+// apps.state_name). Path is a storage path in the same 'staff-photos'
+// bucket rep/staff photos already use, resolved to a signed URL at
+// print time via getStaffPhotoUrl — not a plain public URL, since this
+// bucket is private.
 const CM_PHOTOS = {
-  'Andhra Pradesh': null,
+  'Andhra Pradesh': 'cm_photo.jpg',
   'Telangana': null,
 };
+
+// CM/MLA photos live in their own dedicated bucket, 'representative-
+// photos' — separate from staff-photos (which is for staff members'
+// own profile photos, an unrelated thing). Signed URL either way,
+// works regardless of whether the bucket is public or private.
+async function getRepPhotoUrl(path, expiresInSeconds = 3600) {
+  const { data, error } = await supabase.storage.from('representative-photos').createSignedUrl(path, expiresInSeconds);
+  if (error) throw error;
+  return data.signedUrl;
+}
 
 function toTitleCase(str) {
   if (!str) return str;
@@ -593,6 +606,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
   const [filterPriority, setFilterPriority] = useState(searchParams.get('priority') || '');
   const [realCategories, setRealCategories] = useState([]);
   const [mlaPhotoUrl, setMlaPhotoUrl] = useState(null);
+  const [cmPhotoUrl, setCmPhotoUrl] = useState(null);
   const [stateName, setStateName] = useState(null);
   const [mlaConfigEditing, setMlaConfigEditing] = useState(false);
   const [filterStage, setFilterStage] = useState(searchParams.get('status') || '');
@@ -634,14 +648,12 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     fetchVillages(filterMandalId).then(setVillageOptions).catch(() => {});
   }, [filterMandalId]);
 
-  // MLA photo for the batch report letterhead — pulled from the
-  // logged-in staff member's own profile photo (already collected
-  // during staff registration, just never displayed anywhere before).
-  useEffect(() => {
-    if (tenant?.photoUrl && printType === 'staff_batch') {
-      getStaffPhotoUrl(tenant.photoUrl).then(setMlaPhotoUrl).catch(() => {});
-    }
-  }, [tenant?.photoUrl, printType]);
+  // FIXED: MLA photo previously came from tenant.photoUrl — whichever
+  // staff member happened to be logged in and printing, not a fixed
+  // photo for the constituency itself. Removed that useEffect entirely;
+  // the photo now comes from the exact same query below that already
+  // correctly fetches the real MLA name, so both are always in sync
+  // and both come from the one real source of truth.
 
   // Previously mlaName/constituency were only ever set for single-
   // complaint mode — batch mode's header stayed blank unless someone
@@ -651,11 +663,30 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
   // and constituency name in the header automatically.
   useEffect(() => {
     if (printType !== 'staff_batch' || !filterConstituencyId) return;
-    supabase.from('constituencies').select('name, rep_name').eq('id', filterConstituencyId).single()
+    supabase.from('constituencies').select('name, rep_name, rep_photo_url').eq('id', filterConstituencyId).single()
       .then(({ data }) => {
-        if (data) { setConstituency(data.name || ''); setMlaName(data.rep_name || ''); }
+        if (data) {
+          setConstituency(data.name || '');
+          setMlaName(data.rep_name || '');
+          if (data.rep_photo_url) {
+            getRepPhotoUrl(data.rep_photo_url).then(setMlaPhotoUrl).catch(() => setMlaPhotoUrl(null));
+          } else {
+            setMlaPhotoUrl(null);
+          }
+        }
       });
   }, [printType, filterConstituencyId]);
+
+  // CM photo — same private-bucket, signed-URL pattern as the MLA
+  // photo. CM_PHOTOS holds a storage path, not a directly-usable URL.
+  useEffect(() => {
+    const path = stateName && CM_PHOTOS[stateName];
+    if (path) {
+      getRepPhotoUrl(path).then(setCmPhotoUrl).catch(() => setCmPhotoUrl(null));
+    } else {
+      setCmPhotoUrl(null);
+    }
+  }, [stateName]);
 
   // Fetch stateName for every print type, not just staff_batch -- the
   // citizen letter and single-complaint print both showed no state/
@@ -1049,7 +1080,7 @@ useEffect(() => {
               addresseeRole={addresseeRole}
               filters={{ dateFrom, dateTo, filterCategory, filterStage }}
               mlaPhotoUrl={mlaPhotoUrl}
-              cmPhotoUrl={CM_PHOTOS[stateName] || null}
+              cmPhotoUrl={cmPhotoUrl}
               stateName={stateName}
             />
           )}

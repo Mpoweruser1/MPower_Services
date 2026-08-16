@@ -15,6 +15,9 @@ const VERIFICATION_METHODS = [
   { value: 'other', label: 'Other' },
 ];
 
+const REP_TIERS = ['MLA', 'MP', 'MLC'];
+const REP_PHOTO_BUCKET = 'representative-photos';
+
 export default function AdminVerificationQueue() {
   const { stateSlug } = useParams();
   const { tenant } = useTenant();
@@ -22,9 +25,15 @@ export default function AdminVerificationQueue() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('pending');
   const [processing, setProcessing] = useState(null);
-  const [note, setNote] = useState('');
-  const [verificationMethod, setVerificationMethod] = useState('');
-  const [approveError, setApproveError] = useState('');
+  // FIXED: these four were previously single, shared variables — with
+  // more than one pending request shown at once, filling in one card's
+  // verification method (or photo) visually changed what every OTHER
+  // pending card showed too, since they all read the exact same state.
+  // Now keyed by request id, so each card's inputs are genuinely its own.
+  const [note, setNote] = useState({});
+  const [verificationMethod, setVerificationMethod] = useState({});
+  const [approveError, setApproveError] = useState({});
+  const [repPhotoFile, setRepPhotoFile] = useState({});
 
   useEffect(() => {
     if (tenant) loadRequests();
@@ -46,17 +55,35 @@ export default function AdminVerificationQueue() {
   // for this office, so it goes through the Edge Function rather than a
   // direct table write. Requires a verification method to be selected
   // first; the function itself also enforces this server-side.
-  async function approveRequest(id) {
-    if (!verificationMethod) {
-      setApproveError('Select how this was verified before approving.');
+  async function approveRequest(id, roleRequested) {
+    if (!verificationMethod[id]) {
+      setApproveError((e) => ({ ...e, [id]: 'Select how this was verified before approving.' }));
       return;
     }
-    setApproveError('');
+    setApproveError((e) => ({ ...e, [id]: '' }));
     setProcessing(id);
+
+    // Photo is uploaded first, client-side, same bucket staff photos
+    // already use — the edge function then just records the resulting
+    // path against whichever constituency it reliably resolves, rather
+    // than this screen trying to resolve that link itself.
+    let repPhotoPath = null;
+    const file = repPhotoFile[id];
+    if (file && REP_TIERS.includes(roleRequested)) {
+      const ext = file.name.split('.').pop();
+      const path = `rep-photos/${id}-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from(REP_PHOTO_BUCKET).upload(path, file, { upsert: true });
+      if (uploadError) {
+        setApproveError((e) => ({ ...e, [id]: `Photo upload failed: ${uploadError.message}` }));
+        setProcessing(null);
+        return;
+      }
+      repPhotoPath = path;
+    }
 
     const { data: { session } } = await supabase.auth.getSession();
     const { data, error } = await supabase.functions.invoke('approve-staff-verification', {
-      body: { requestId: id, verificationMethod, note },
+      body: { requestId: id, verificationMethod: verificationMethod[id], note: note[id], repPhotoPath },
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
 
@@ -75,13 +102,14 @@ export default function AdminVerificationQueue() {
           // Response body wasn't JSON — fall through to the generic message
         }
       }
-      setApproveError(message || error?.message || 'Failed to approve this request.');
+      setApproveError((e) => ({ ...e, [id]: message || error?.message || 'Failed to approve this request.' }));
       setProcessing(null);
       return;
     }
 
-    setNote('');
-    setVerificationMethod('');
+    setNote((n) => ({ ...n, [id]: '' }));
+    setVerificationMethod((v) => ({ ...v, [id]: '' }));
+    setRepPhotoFile((f) => ({ ...f, [id]: null }));
     loadRequests();
     setProcessing(null);
   }
@@ -94,14 +122,14 @@ export default function AdminVerificationQueue() {
       .from('staff_access_requests')
       .update({
         status: 'rejected',
-        notes: note || null,
+        notes: note[id] || null,
         processed_at: new Date().toISOString(),
         processed_by: tenant.userRowId,
       })
       .eq('id', id);
 
     if (!error) {
-      setNote('');
+      setNote((n) => ({ ...n, [id]: '' }));
       loadRequests();
     }
     setProcessing(null);
@@ -215,11 +243,11 @@ export default function AdminVerificationQueue() {
                 {activeTab === 'pending' && (
                   <div style={{ display: 'grid', gap: 8 }}>
                     <select
-                      value={verificationMethod}
-                      onChange={e => { setVerificationMethod(e.target.value); setApproveError(''); }}
+                      value={verificationMethod[r.id] || ''}
+                      onChange={e => { setVerificationMethod(v => ({ ...v, [r.id]: e.target.value })); setApproveError(er => ({ ...er, [r.id]: '' })); }}
                       style={{
                         width: '100%', padding: '9px 12px',
-                        border: `1px solid ${approveError ? '#dc2626' : '#e2e8f0'}`, borderRadius: 8,
+                        border: `1px solid ${approveError[r.id] ? '#dc2626' : '#e2e8f0'}`, borderRadius: 8,
                         fontSize: 13, fontFamily: 'inherit', color: '#1e293b',
                         boxSizing: 'border-box', background: '#fff',
                       }}
@@ -229,8 +257,8 @@ export default function AdminVerificationQueue() {
                       ))}
                     </select>
                     <input
-                      value={note}
-                      onChange={e => setNote(e.target.value)}
+                      value={note[r.id] || ''}
+                      onChange={e => setNote(n => ({ ...n, [r.id]: e.target.value }))}
                       placeholder="Add a note (optional)"
                       style={{
                         width: '100%', padding: '9px 12px',
@@ -239,12 +267,25 @@ export default function AdminVerificationQueue() {
                         boxSizing: 'border-box',
                       }}
                     />
-                    {approveError && (
-                      <div style={{ fontSize: 12, color: '#dc2626' }}>{approveError}</div>
+                    {REP_TIERS.includes(r.role_requested) && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4 }}>
+                          {r.role_requested} photo (optional) — shown on printed Batch Reports for this constituency
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={e => setRepPhotoFile(f => ({ ...f, [r.id]: e.target.files?.[0] || null }))}
+                          style={{ width: '100%', fontSize: 12 }}
+                        />
+                      </div>
+                    )}
+                    {approveError[r.id] && (
+                      <div style={{ fontSize: 12, color: '#dc2626' }}>{approveError[r.id]}</div>
                     )}
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
-                        onClick={() => approveRequest(r.id)}
+                        onClick={() => approveRequest(r.id, r.role_requested)}
                         disabled={processing === r.id}
                         style={{
                           flex: 1, padding: '10px 8px', borderRadius: 8,
