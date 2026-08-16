@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStateConfig } from './useStateConfig';
 import { fetchAppIdBySlug } from './grievanceApi';
+import { supabase } from '../lib/supabaseClient';
 
 // One localStorage key per state, so a remembered choice for Andhra Pradesh
 // never bleeds into a different state's CTS deployment.
@@ -22,6 +23,14 @@ export default function CtsLanding() {
   const { stateConfig, loading } = useStateConfig();
   const [checkingRemembered, setCheckingRemembered] = useState(true);
   const [appId, setAppId] = useState(undefined); // undefined = still resolving, null = not found
+  // CM photo — same private bucket + signed URL pattern used on the
+  // Batch Report letterhead and Home.jsx, resolved fresh on page load.
+  const [cmPhotoUrl, setCmPhotoUrl] = useState(null);
+  useEffect(() => {
+    supabase.storage.from('representative-photos').createSignedUrl('cm_photo.jpg', 3600)
+      .then(({ data }) => setCmPhotoUrl(data?.signedUrl || null))
+      .catch(() => setCmPhotoUrl(null));
+  }, []);
 
   useEffect(() => {
     fetchAppIdBySlug(slug).then(setAppId);
@@ -89,6 +98,13 @@ export default function CtsLanding() {
 
       {/* Hero */}
       <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', padding: '20px 0 32px', textAlign: 'center', color: '#fff' }}>
+
+        {cmPhotoUrl && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
+            <img src={cmPhotoUrl} alt="Chief Minister" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e8a020' }} />
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Chief Minister, {stateName}</span>
+          </div>
+        )}
 
         {/* Continuously-scrolling single-line banner — replaces the
             earlier static, wrapped two-line tagline, which took up

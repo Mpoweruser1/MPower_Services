@@ -62,6 +62,30 @@ export async function fetchConstituencies(appId, tier) {
   return data;
 }
 
+// A constituency's real representative — name and photo, resolved to a
+// usable signed URL (photos live in a private bucket). Used to show a
+// citizen their own MLA once their constituency is known — during
+// registration review, and persistently afterward on their complaints
+// list — instead of nothing at all.
+export async function fetchConstituencyRep(constituencyId) {
+  if (!constituencyId) return null;
+  const { data, error } = await supabase
+    .from('constituencies')
+    .select('rep_name, rep_photo_url')
+    .eq('id', constituencyId)
+    .maybeSingle();
+  if (error || !data) return null;
+
+  let repPhotoUrl = null;
+  if (data.rep_photo_url) {
+    const { data: signed } = await supabase.storage
+      .from('representative-photos')
+      .createSignedUrl(data.rep_photo_url, 3600);
+    repPhotoUrl = signed?.signedUrl || null;
+  }
+  return { repName: data.rep_name || null, repPhotoUrl };
+}
+
 export async function fetchMandals(constituencyId) {
   const { data, error } = await supabase
     .from('mandals')

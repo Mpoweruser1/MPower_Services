@@ -20,6 +20,7 @@ import {
   createMandal, createVillage,
   fetchCategories, fetchCategoryTranslations, fetchSubissueTranslations, fetchCategoryDocuments,
   submitComplaint, checkDailyComplaintLimit, fetchMyComplaints, fetchComplaintHistory, uploadEvidence,
+  fetchConstituencyRep,
 } from './grievanceApi';
 
 // Plain emoji, not an icon library — works everywhere with zero new
@@ -291,6 +292,9 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
   // was entered and requires a second, explicit confirmation before
   // anything is actually submitted.
   const [showReview, setShowReview] = useState(false);
+  // Shown once the citizen reaches the review screen with a real
+  // constituency chosen — their actual MLA, not a generic message.
+  const [rep, setRep] = useState(null);
 
   function handleContinue(e) {
     e.preventDefault();
@@ -313,6 +317,11 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
     setBusy(false);
   }
 
+  useEffect(() => {
+    if (!showReview || !geo.constituencyId) { setRep(null); return; }
+    fetchConstituencyRep(geo.constituencyId).then(setRep).catch(() => setRep(null));
+  }, [showReview, geo.constituencyId]);
+
   if (showReview) {
     const constituencyName = geo.constituencies.find((c) => c.id === geo.constituencyId)?.name;
     const mandalName = geo.mandals.find((m) => m.id === geo.mandalId)?.name;
@@ -323,6 +332,17 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
       <div style={{ maxWidth: 480, margin: '40px auto', padding: 24 }}>
         <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Review your details</h2>
         <p style={{ fontSize: 12.5, color: '#64748b', marginBottom: 18 }}>Please check everything carefully — this is used on every complaint you file.</p>
+        {rep && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+            {rep.repPhotoUrl && (
+              <img src={rep.repPhotoUrl} alt="Your representative" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e8a020' }} />
+            )}
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>Your representative</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a2e' }}>{rep.repName || 'Not yet listed'}</div>
+            </div>
+          </div>
+        )}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16, display: 'grid', gap: 10, marginBottom: 18 }}>
           {[
             [t('field_name', 'Name'), fullName],
@@ -391,6 +411,14 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
   const [complaints, setComplaints] = useState([]);
   const [activeComplaint, setActiveComplaint] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  // Same representative info shown during registration review, now
+  // persistent here — a citizen's own MLA, once known.
+  const [rep, setRep] = useState(null);
+
+  useEffect(() => {
+    if (!citizen?.constituency_id) return;
+    fetchConstituencyRep(citizen.constituency_id).then(setRep).catch(() => setRep(null));
+  }, [citizen?.constituency_id]);
 
   const loadComplaints = useCallback(() => {
     fetchMyComplaints().then(setComplaints);
@@ -412,6 +440,18 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
           💬 Feedback
         </button>
       </div>
+
+      {rep && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
+          {rep.repPhotoUrl && (
+            <img src={rep.repPhotoUrl} alt="Your representative" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e8a020' }} />
+          )}
+          <div>
+            <div style={{ fontSize: 10, color: '#94a3b8' }}>Your representative</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a2e' }}>{rep.repName || 'Not yet listed'}</div>
+          </div>
+        </div>
+      )}
 
       {showForm ? (
         <ComplaintForm

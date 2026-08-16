@@ -1,6 +1,7 @@
 // website/pages/Home.jsx — FINAL
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabaseClient';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff' },
@@ -57,6 +58,14 @@ const FEATURES = [
 
 export default function Home() {
   const navigate = useNavigate();
+  // CM photo — same private bucket + signed URL pattern already used
+  // for the Batch Report letterhead, resolved fresh on each page load.
+  const [cmPhotoUrl, setCmPhotoUrl] = useState(null);
+  useEffect(() => {
+    supabase.storage.from('representative-photos').createSignedUrl('cm_photo.jpg', 3600)
+      .then(({ data }) => setCmPhotoUrl(data?.signedUrl || null))
+      .catch(() => setCmPhotoUrl(null));
+  }, []);
   return (
     <div style={S.page}>
       <style>{`
@@ -132,6 +141,22 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* CTS callout — CM photo + tagline, kept separate from the
+          product grid above so School/Hospital's cards stay visually
+          uniform rather than one of three suddenly having a photo. */}
+      <section style={{ padding: '0 24px 80px' }}>
+        <div style={{ maxWidth: 1080, margin: '0 auto', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', borderRadius: 16, padding: '28px 32px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+          {cmPhotoUrl && (
+            <img src={cmPhotoUrl} alt="Chief Minister" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: '2px solid #E8A020', flexShrink: 0 }} />
+          )}
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <p style={{ fontSize: 15, fontWeight: 500, color: '#fff', margin: '0 0 4px', lineHeight: 1.6 }}>Your concern won't stop until it reaches your leader</p>
+            <p style={{ fontSize: 14, color: '#E8A020', fontWeight: 500, margin: 0 }}>మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు</p>
+          </div>
+          <Link to="/grievance" style={{ fontSize: 13, color: '#fff', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 20px', borderRadius: 20, textDecoration: 'none', fontWeight: 500, flexShrink: 0 }}>File a complaint →</Link>
         </div>
       </section>
 
