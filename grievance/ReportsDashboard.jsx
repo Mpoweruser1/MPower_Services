@@ -95,6 +95,14 @@ export default function ReportsDashboard() {
   const resolved = data.reduce((sum, row) => sum + (row.resolved_count || 0), 0);
   const pending = data.reduce((sum, row) => sum + (row.open_count || 0), 0);
   const escalated = data.reduce((sum, row) => sum + (row.currently_escalated_count || 0), 0);
+  // Declined and Sanctioned both count toward Total (it's every
+  // complaint, unfiltered) but neither had its own visible number
+  // anywhere — Total minus Resolved/Pending/Escalated left an
+  // unexplained gap whenever either existed, with nothing on screen
+  // to say why. Both fields already existed correctly in the database
+  // view; they just weren't being displayed.
+  const declined = data.reduce((sum, row) => sum + (row.declined_count || 0), 0);
+  const sanctioned = data.reduce((sum, row) => sum + (row.sanctioned_count || 0), 0);
 
   return (
     <div style={{ background: '#f8fafc', minHeight: '100vh', fontFamily: 'Inter, sans-serif', paddingBottom: 80 }}>
@@ -108,12 +116,14 @@ export default function ReportsDashboard() {
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '16px 16px 20px' }}>
 
         {/* Summary cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))', gap: 10, marginBottom: 20 }}>
           {[
             { label: 'Total', value: total, color: '#1a1a2e' },
             { label: 'Resolved', value: resolved, color: '#16a34a' },
             { label: 'Pending', value: pending, color: '#f59e0b' },
             { label: 'Escalated', value: escalated, color: '#dc2626' },
+            { label: 'Declined', value: declined, color: '#64748b' },
+            { label: 'Sanctioned', value: sanctioned, color: '#A8762C' },
           ].map(s => (
             <div key={s.label} style={{ background: '#fff', borderRadius: 10, padding: 14, textAlign: 'center', border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -331,7 +341,7 @@ export default function ReportsDashboard() {
         <button
           onClick={() => {
             const csv = [
-              ['Name', 'Total', 'Resolved', 'Pending', 'Urgent (still open)', 'Escalated'],
+              ['Name', 'Total', 'Resolved', 'Pending', 'Urgent (still open)', 'Escalated', 'Declined', 'Sanctioned'],
               ...data.map(r => [
                 r.village_name || r.mandal_name || r.category || r.constituency_name || '',
                 r.total || 0,
@@ -339,6 +349,8 @@ export default function ReportsDashboard() {
                 r.open_count || 0,
                 r.urgent_open_count || 0,
                 r.currently_escalated_count || 0,
+                r.declined_count || 0,
+                r.sanctioned_count || 0,
               ])
             ].map(row => row.join(',')).join('\n');
             const blob = new Blob([csv], { type: 'text/csv' });

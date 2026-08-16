@@ -55,12 +55,6 @@ const FEATURES = [
   { icon: '💳', title: '3-way fee payment', desc: 'Collect fees at counter, online on this device, or send WhatsApp payment link to parent. All three in one screen.' },
 ];
 
-const TESTIMONIALS = [
-  { name: 'K. Suresh Kumar', role: 'Principal, Sri Vidya School, Machilipatnam', text: 'Earlier attendance was paper. Now parents get WhatsApp when their child is absent within minutes. Fees collection is much faster.' },
-  { name: 'Dr. Lakshmi Devi', role: 'Doctor, City Care Hospital, Tenali', text: 'Lab reports, OPD prescriptions, billing — all in one. Patients with Aarogyasri card can be managed without separate registers.' },
-  { name: 'Ch. Ravi Prasad', role: 'MLA Representative, Krishna District', text: 'Complaints from 47 villages, mandal-wise. Pension, ration, roads — all categorised. Minister gets the batch print directly.' },
-];
-
 export default function Home() {
   const navigate = useNavigate();
   return (
@@ -160,24 +154,20 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* Why MPower — honest "we're new" framing, replaces fabricated testimonials */}
       <section style={{ padding: '80px 24px', background: '#161618' }}>
-        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <p style={{ fontSize: 12, color: '#E8A020', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: 12 }}>Testimonials · అభిప్రాయాలు</p>
-            <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 700, color: '#fff', margin: 0, letterSpacing: -1 }}>What our clients say</h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} style={{ padding: '24px', background: '#1C1C1E', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14 }}>
-                <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', margin: '0 0 20px', lineHeight: 1.8, fontStyle: 'italic' }}>"{t.text}"</p>
-                <div>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{t.name}</p>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{t.role}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
+          <p style={{ fontSize: 12, color: '#E8A020', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: 12 }}>Why MPower</p>
+          <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 700, color: '#fff', margin: '0 0 24px', letterSpacing: -1 }}>
+            We're new. That's exactly why it works.
+          </h2>
+          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, margin: 0 }}>
+            MPower launched in 2026, built by a single developer working directly with the schools, hospitals, and
+            constituency offices it's made for — not a legacy platform padded with features nobody asked for. Every
+            part of it exists because a real institution needed it. As one of our first clients, you get direct
+            access to the person actually building this, pricing that won't change once we scale, and a platform
+            still young enough to be shaped by what you need.
+          </p>
         </div>
       </section>
 
