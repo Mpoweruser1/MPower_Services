@@ -86,6 +86,25 @@ export async function fetchConstituencyRep(constituencyId) {
   return { repName: data.rep_name || null, repPhotoUrl };
 }
 
+// A representative's own constituency — looked up via rep_assignments,
+// the same table approve-staff-verification writes to when an office
+// is approved. Used so a real MLA/MP office's own login never has to
+// manually search a statewide dropdown for their own seat before
+// printing their own Batch Report — it can just default to them.
+// Returns null for any non-representative role, or if no assignment
+// exists yet (not an error — same "leave it blank, don't guess" stance
+// as everywhere else in this module).
+export async function fetchMyConstituencyId(userId) {
+  if (!userId) return null;
+  const { data, error } = await supabase
+    .from('rep_assignments')
+    .select('constituency_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.constituency_id || null;
+}
+
 export async function fetchMandals(constituencyId) {
   const { data, error } = await supabase
     .from('mandals')

@@ -97,31 +97,37 @@ export default function CtsLanding() {
       </div>
 
       {/* Hero */}
-      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', padding: '20px 0 32px', textAlign: 'center', color: '#fff' }}>
+      <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', padding: '20px 0 32px', color: '#fff' }}>
 
-        {cmPhotoUrl && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
-            <img src={cmPhotoUrl} alt="Chief Minister" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e8a020' }} />
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Chief Minister, {stateName}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: cmPhotoUrl ? '0 16px' : 0 }}>
+          {/* Continuously-scrolling single-line banner — replaces the
+              earlier static, wrapped two-line tagline, which took up
+              real vertical space before anyone reached the actual
+              citizen/office choice below. Two identical copies placed
+              back to back, animated left by exactly one copy's width,
+              is what makes the loop seamless (no visible jump/reset).
+              Still full-width on its own when there's no CM photo to
+              share the row with — only shrinks to make room when one
+              exists. */}
+          <div style={{ flex: 1, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'inline-block', animation: 'ctsTickerScroll 22s linear infinite' }}>
+              <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', padding: '0 40px' }}>
+                Your concern won't stop until it reaches your leader — <span style={{ color: '#e8a020', fontWeight: 600 }}>మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు</span>
+              </span>
+              <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', padding: '0 40px' }}>
+                Your concern won't stop until it reaches your leader — <span style={{ color: '#e8a020', fontWeight: 600 }}>మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు</span>
+              </span>
+            </div>
           </div>
-        )}
 
-        {/* Continuously-scrolling single-line banner — replaces the
-            earlier static, wrapped two-line tagline, which took up
-            real vertical space before anyone reached the actual
-            citizen/office choice below. Two identical copies placed
-            back to back, animated left by exactly one copy's width,
-            is what makes the loop seamless (no visible jump/reset). */}
-        <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', width: '100%' }}>
-          <div style={{ display: 'inline-block', animation: 'ctsTickerScroll 22s linear infinite' }}>
-            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', padding: '0 40px' }}>
-              Your concern won't stop until it reaches your leader — <span style={{ color: '#e8a020', fontWeight: 600 }}>మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు</span>
-            </span>
-            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', padding: '0 40px' }}>
-              Your concern won't stop until it reaches your leader — <span style={{ color: '#e8a020', fontWeight: 600 }}>మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు</span>
-            </span>
-          </div>
+          {cmPhotoUrl && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <img src={cmPhotoUrl} alt="Chief Minister" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e8a020' }} />
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>Chief Minister,<br />{stateName}</span>
+            </div>
+          )}
         </div>
+
         <style>{`
           @keyframes ctsTickerScroll {
             from { transform: translateX(0); }
