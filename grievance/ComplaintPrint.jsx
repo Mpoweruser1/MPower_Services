@@ -578,7 +578,7 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
 // CM), but grouped BY CONSTITUENCY rather than by category — a
 // Minister reading this needs to see which areas need attention, not
 // one flat mixed list of 40 complaints from nine different places.
-function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole, filters, cmPhotoUrl, stateName, issuedByName }) {
+function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole, filters, cmPhotoUrl, stateName, issuedByName, districtName }) {
   // Group by constituency (falling back to a clear label for any
   // complaint that somehow has no constituency on file, rather than
   // silently dropping it from the report), then sort each group
@@ -627,13 +627,13 @@ function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole,
       {/* Covering letter header */}
       <div style={{ textAlign: 'center', marginBottom: 16, borderBottom: '3px double #000', paddingBottom: 10 }}>
         <p style={{ margin: 0, fontSize: '14pt', fontWeight: 'bold', letterSpacing: 1 }}>
-          STATEWIDE GRIEVANCE SUMMARY
+          {districtName ? 'DISTRICT GRIEVANCE SUMMARY' : 'STATEWIDE GRIEVANCE SUMMARY'}
         </p>
         <p className="telugu" style={{ margin: '4px 0', fontSize: '12pt' }}>
           రాష్ట్రవ్యాప్త ఫిర్యాదుల సారాంశం
         </p>
         <p style={{ margin: '4px 0 0', fontSize: '10pt' }}>
-          {stateName} · {constituencyCount} constituencies covered
+          {districtName ? `${districtName} District, ${stateName}` : stateName} · {constituencyCount} constituencies covered
         </p>
       </div>
 
@@ -642,13 +642,14 @@ function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole,
         <p style={{ margin: 0 }}><strong>To,</strong></p>
         <p style={{ margin: '4px 0 0' }}>The Honourable {addresseeRole || 'Minister'},</p>
         <p style={{ margin: 0, fontWeight: 'bold' }}>{addresseeName || '________________________'}</p>
-        <p style={{ margin: 0 }}>Subject: Consolidated Statewide Grievance Summary for necessary action</p>
+        <p style={{ margin: 0 }}>Subject: Consolidated {districtName ? `${districtName} District` : 'Statewide'} Grievance Summary for necessary action</p>
       </div>
 
       <p>Respected Sir/Madam,</p>
       <p style={{ textIndent: '2em' }}>
         I am enclosing herewith, on behalf of the {stateName} Grievance Administration, the consolidated
         list of <strong>{totalCount}</strong> grievances received from citizens across <strong>{constituencyCount}</strong> constituencies
+        {districtName ? <> within <strong>{districtName}</strong> district</> : null}
         through the MPower Digital Grievance Tracking System. Of these, <strong>{resolvedCount}</strong> have
         been resolved and <strong>{pendingCount}</strong> are pending resolution. I request your kind attention
         and necessary action on the pending matters.
@@ -836,6 +837,20 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
   const [filterMandalId, setFilterMandalId] = useState(searchParams.get('mandalId') || '');
   const [filterVillageId, setFilterVillageId] = useState(searchParams.get('villageId') || '');
   const [constituencyOptions, setConstituencyOptions] = useState([]);
+  // District/branch — only meaningful for Statewide Summary, narrowing
+  // it from "whole state" to "one district's constituencies" — the
+  // real middle ground between Batch List's one-constituency and
+  // Statewide's default of everything, for a District Collector who
+  // needs their own district's picture, not the whole state's.
+  const [filterBranchId, setFilterBranchId] = useState('');
+  const [branchOptions, setBranchOptions] = useState([]);
+
+  useEffect(() => {
+    if (!appId) return;
+    supabase.from('branches').select('id, branch_name').eq('app_id', appId).order('branch_name')
+      .then(({ data }) => setBranchOptions(data || []))
+      .catch(() => setBranchOptions([]));
+  }, [appId]);
 
   // A real MLA/MP office login (role=representative) is tied to
   // exactly one constituency via rep_assignments — auto-fill the
@@ -981,6 +996,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     setFilterPriority('');
     setFilterStage('');
     setFilterConstituencyId('');
+    setFilterBranchId('');
     setFilterMandalId('');
     setFilterVillageId('');
     setDateFrom('');
@@ -1040,6 +1056,17 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     // citizen having filed a complaint.
     if (!filterConstituencyId) {
       setError('Select a constituency before generating this report — Batch List for Minister is written as one MLA\u2019s letter, so it must be scoped to exactly one office. For an overview across many constituencies, use Reports instead.');
+      setLoading(false);
+      return;
+    }
+    // An MRO's real authority is one MANDAL, not a whole constituency
+    // (which usually contains several). Sending them complaints from
+    // mandals outside their own would ask them to act on something
+    // they have no actual jurisdiction over — same "don't produce a
+    // document nobody could honestly act on" principle as the
+    // constituency requirement above, just one level narrower.
+    if (addresseeRole === 'MRO' && !filterMandalId) {
+      setError('An MRO\u2019s authority covers one mandal, not the whole constituency — select which mandal this report is for before generating.');
       setLoading(false);
       return;
     }
@@ -1106,7 +1133,21 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     if (!appId) { setLoading(false); return; }
     setError('');
     setLoading(true);
+
+    // District narrows by first resolving which constituencies
+    // actually belong to it — a complaint only ever links to a
+    // constituency_id directly, never to a branch/district itself.
+    let branchConstituencyIds = null;
+    if (filterBranchId) {
+      const { data: branchConsts, error: branchErr } = await supabase
+        .from('constituencies').select('id').eq('branch_id', filterBranchId);
+      if (branchErr) { setError('Failed to resolve this district\u2019s constituencies.'); setLoading(false); return; }
+      branchConstituencyIds = (branchConsts || []).map((c) => c.id);
+      if (branchConstituencyIds.length === 0) { setComplaints([]); setLoading(false); return; }
+    }
+
     let query = supabase.from('complaints').select('*').eq('app_id', appId).order('created_at', { ascending: false });
+    if (branchConstituencyIds) query = query.in('constituency_id', branchConstituencyIds);
     if (filterCategory) query = query.eq('category', filterCategory);
     if (filterSearch.trim()) query = query.ilike('title', `%${filterSearch.trim()}%`);
     if (filterStage === 'PENDING_ONLY') {
@@ -1160,13 +1201,13 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, marginBottom: 16 },
     input: { width: '100%', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, fontSize: 13, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
     select: { width: '100%', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, fontSize: 13, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' },
-    label: { fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
+    label: { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
   };
 
   if (tenantLoading) {
     return (
       <div style={S.page}>
-        <div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading…</p></div>
+        <div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading…</p></div>
       </div>
     );
   }
@@ -1178,9 +1219,9 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
       <div style={S.inner} className="no-print">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Print / Export</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Print / Export</p>
             <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0, letterSpacing: -0.5 }}>Complaint Print Centre</h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>ఫిర్యాదు ముద్రణ కేంద్రం</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>ఫిర్యాదు ముద్రణ కేంద్రం</p>
           </div>
           <button onClick={() => window.print()} style={{ padding: '10px 24px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: 'inherit' }}>
             🖨️ Print now
@@ -1205,12 +1246,12 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
               // constituency in the first place.
               { k: 'staff_statewide', icon: '🗺️', title: 'Statewide Summary for Minister', sub: 'Many constituencies at once', te: 'రాష్ట్రవ్యాప్త సారాంశం', roles: ['grievance_admin', 'developer', 'support'] },
             ].filter((opt) => isStaff || opt.k === 'citizen').filter((opt) => !opt.roles || opt.roles.includes(tenant?.role)).map((opt) => (
-              <div key={opt.k} onClick={() => setPrintType(opt.k)} style={{ padding: 14, border: `1px solid ${printType === opt.k ? 'rgba(232,160,32,0.5)' : 'rgba(255,255,255,0.07)'}`, background: printType === opt.k ? 'rgba(232,160,32,0.08)' : '#111113', borderRadius: 10, cursor: 'pointer' }}>
+              <button key={opt.k} onClick={() => setPrintType(opt.k)} aria-pressed={printType === opt.k} style={{ textAlign: 'left', padding: 14, border: `1px solid ${printType === opt.k ? 'rgba(232,160,32,0.5)' : 'rgba(255,255,255,0.07)'}`, background: printType === opt.k ? 'rgba(232,160,32,0.08)' : '#111113', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <p style={{ fontSize: 22, margin: '0 0 6px' }}>{opt.icon}</p>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{opt.title}</p>
-                <p style={{ margin: '2px 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{opt.sub}</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>{opt.te}</p>
-              </div>
+                <p style={{ margin: '2px 0', fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{opt.sub}</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{opt.te}</p>
+              </button>
             ))}
           </div>
         </div>
@@ -1313,6 +1354,18 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                 ))}
               </div>
               <input value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} placeholder="Search by title…" style={{ ...S.input, marginBottom: 10 }} />
+              {printType === 'staff_statewide' && (
+                <div style={{ marginBottom: 10 }}>
+                  <label style={S.label}>District (optional)</label>
+                  <select value={filterBranchId} onChange={(e) => setFilterBranchId(e.target.value)} style={S.select}>
+                    <option value="">All districts — full statewide summary</option>
+                    {branchOptions.map((b) => <option key={b.id} value={b.id}>{b.branch_name}</option>)}
+                  </select>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
+                    Narrows this report to just one district's constituencies — the real scope a District Collector actually needs, rather than the whole state.
+                  </p>
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 10 }}>
                 <div>
                   <label style={S.label}>Constituency {printType === 'staff_batch' && <span style={{ color: '#E8A020' }}>(required)</span>}</label>
@@ -1321,17 +1374,22 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                     {constituencyOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                   {printType === 'staff_batch' && !filterConstituencyId && (
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
                       This letter is written as one MLA's own correspondence — it needs exactly one office to be from. For a statewide or multi-constituency overview instead, use Reports.
                     </p>
                   )}
                 </div>
                 <div>
-                  <label style={S.label}>Mandal</label>
-                  <select value={filterMandalId} onChange={(e) => { setFilterMandalId(e.target.value); setFilterVillageId(''); }} disabled={!filterConstituencyId} style={{ ...S.select, opacity: filterConstituencyId ? 1 : 0.5 }}>
-                    <option value="">All mandals</option>
+                  <label style={S.label}>Mandal {addresseeRole === 'MRO' && <span style={{ color: '#E8A020' }}>(required for MRO)</span>}</label>
+                  <select value={filterMandalId} onChange={(e) => { setFilterMandalId(e.target.value); setFilterVillageId(''); setError(''); }} disabled={!filterConstituencyId} style={{ ...S.select, opacity: filterConstituencyId ? 1 : 0.5, border: (addresseeRole === 'MRO' && !filterMandalId) ? '1px solid rgba(232,160,32,0.5)' : S.select.border }}>
+                    <option value="">{addresseeRole === 'MRO' ? 'Select a mandal…' : 'All mandals'}</option>
                     {mandalOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
+                  {addresseeRole === 'MRO' && !filterMandalId && (
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
+                      An MRO can only act on their own mandal, not the whole constituency.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label style={S.label}>Village</label>
@@ -1383,7 +1441,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                   <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={S.input} />
                 </div>
               </div>
-              <button onClick={() => printType === 'staff_statewide' ? loadStatewideComplaints() : loadBatchComplaints()} style={{ padding: '8px 18px', background: (printType === 'staff_batch' && !filterConstituencyId) ? 'rgba(232,160,32,0.3)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
+              <button onClick={() => printType === 'staff_statewide' ? loadStatewideComplaints() : loadBatchComplaints()} style={{ padding: '8px 18px', background: (printType === 'staff_batch' && (!filterConstituencyId || (addresseeRole === 'MRO' && !filterMandalId))) ? 'rgba(232,160,32,0.3)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
                 Apply filters & preview
               </button>
               {complaints.length > 0 && (
@@ -1400,7 +1458,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
         )}
 
         {loading && (
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading complaint data...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading complaint data...</p>
         )}
 
         {/* Print preview label */}
@@ -1409,7 +1467,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
             <p style={{ margin: 0, fontSize: 13, color: '#E8A020', fontWeight: 500 }}>
               📄 Print preview below — looks exactly like the printed output
             </p>
-            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
               Click "Print now" above or use Ctrl+P / ⌘+P to print
             </p>
           </div>
@@ -1456,6 +1514,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
               cmPhotoUrl={cmPhotoUrl}
               stateName={stateName}
               issuedByName={tenant?.fullName}
+              districtName={filterBranchId ? branchOptions.find((b) => b.id === filterBranchId)?.branch_name : null}
             />
           )}
         </>

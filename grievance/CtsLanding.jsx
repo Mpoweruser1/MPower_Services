@@ -86,7 +86,7 @@ export default function CtsLanding() {
           <div style={{ width: 36, height: 36, borderRadius: 8, background: '#e8a020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1a1a2e', fontSize: 16 }}>M</div>
           <div>
             <div style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>MPower CTS</div>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
+            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>
               {stateName} Grievance System
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function CtsLanding() {
           {cmPhotoUrl && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <img src={cmPhotoUrl} alt="Chief Minister" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e8a020' }} />
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>Chief Minister,<br />{stateName}</span>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', whiteSpace: 'nowrap' }}>Chief Minister,<br />{stateName}</span>
             </div>
           )}
         </div>
@@ -156,8 +156,7 @@ export default function CtsLanding() {
 
         {/* Citizen Card */}
         <div
-          onClick={() => chooseRole('citizen')}
-          style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', padding: 22, cursor: 'pointer', border: '2px solid transparent' }}
+          style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', padding: 22, border: '2px solid transparent' }}
         >
           <div style={{ width: 52, height: 52, borderRadius: 14, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 12 }}>🏠</div>
           <div style={{ fontSize: 17, fontWeight: 700, color: '#1a1a2e', marginBottom: 2 }}>I am a Citizen</div>
@@ -170,15 +169,14 @@ export default function CtsLanding() {
           <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6, marginBottom: 14 }}>
             File a complaint to your MLA or MP about government schemes, roads, water, electricity or any local issue. Completely free.
           </div>
-          <button style={{ width: '100%', padding: 12, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#1a1a2e', color: '#e8a020' }}>
+          <button onClick={() => chooseRole('citizen')} style={{ width: '100%', padding: 12, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#1a1a2e', color: '#e8a020' }}>
             📋 File a Complaint → ఫిర్యాదు దాఖలు చేయండి
           </button>
         </div>
 
         {/* MLA Card */}
         <div
-          onClick={() => chooseRole('office')}
-          style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', padding: 22, cursor: 'pointer', border: '2px solid transparent' }}
+          style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', padding: 22, border: '2px solid transparent' }}
         >
           <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 12 }}>🏛️</div>
           <div style={{ fontSize: 17, fontWeight: 700, color: '#1a1a2e', marginBottom: 2 }}>I am an MLA / MP Office</div>
@@ -191,15 +189,15 @@ export default function CtsLanding() {
           <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6, marginBottom: 14 }}>
             Register your constituency to receive, monitor and resolve citizen complaints. Real-time dashboard and monthly reports. Free forever.
           </div>
-          <button style={{ width: '100%', padding: 12, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#e8a020', color: '#1a1a2e' }}>
+          <button onClick={() => chooseRole('office')} style={{ width: '100%', padding: 12, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#e8a020', color: '#1a1a2e' }}>
             🏛️ Register / Login → నమోదు / లాగిన్
           </button>
-          <div
-            onClick={(e) => { e.stopPropagation(); navigate(`/grievance/${slug}/request-access`); }}
-            style={{ textAlign: 'center', marginTop: 10, fontSize: 12, color: '#64748b', cursor: 'pointer' }}
+          <button
+            onClick={() => navigate(`/grievance/${slug}/request-access`)}
+            style={{ width: '100%', background: 'none', border: 'none', textAlign: 'center', marginTop: 10, fontSize: 12, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit', padding: 4 }}
           >
             New MLA/MP office? <span style={{ color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>Register here →</span>
-          </div>
+          </button>
         </div>
 
       </div>

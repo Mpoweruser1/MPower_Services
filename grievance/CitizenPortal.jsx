@@ -137,13 +137,13 @@ function CitizenTopBar({ stateSlug, citizenName, onSignOut }) {
   const navigate = useNavigate();
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', background: '#1a1a2e' }}>
-      <div
+      <button
         onClick={() => navigate(`/grievance/${stateSlug}?switch=1`)}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: 'none', border: 'none', padding: 0, fontFamily: 'inherit' }}
       >
         <div style={{ width: 26, height: 26, borderRadius: 6, background: '#e8a020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#1a1a2e', fontSize: 13 }}>M</div>
         <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>MPower CTS · Home</span>
-      </div>
+      </button>
       {onSignOut && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {citizenName && (
@@ -255,7 +255,7 @@ function PhoneLogin({ auth }) {
               type="button"
               onClick={handleResend}
               disabled={resendCooldown > 0 || busy}
-              style={{ background: 'none', border: 'none', padding: 0, color: resendCooldown > 0 ? '#94a3b8' : '#1a1a2e', fontWeight: 600, cursor: resendCooldown > 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
+              style={{ background: 'none', border: 'none', padding: 0, color: resendCooldown > 0 ? '#64748b' : '#1a1a2e', fontWeight: 600, cursor: resendCooldown > 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
             >
               {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
             </button>
@@ -338,7 +338,7 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
               <img src={rep.repPhotoUrl} alt="Your representative" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e8a020' }} />
             )}
             <div>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Your representative</div>
+              <div style={{ fontSize: 11, color: '#64748b' }}>Your representative</div>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a2e' }}>{rep.repName || 'Not yet listed'}</div>
             </div>
           </div>
@@ -356,7 +356,7 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
             ...(sachivalayamName ? [['Sachivalayam', sachivalayamName]] : []),
           ].filter(([, v]) => v).map(([label, value]) => (
             <div key={label}>
-              <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{label}</div>
+              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{label}</div>
               <div style={{ fontSize: 14, color: '#1a1a2e' }}>{value}</div>
             </div>
           ))}
@@ -447,7 +447,7 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
             <img src={rep.repPhotoUrl} alt="Your representative" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e8a020' }} />
           )}
           <div>
-            <div style={{ fontSize: 10, color: '#94a3b8' }}>Your representative</div>
+            <div style={{ fontSize: 10, color: '#64748b' }}>Your representative</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a2e' }}>{rep.repName || 'Not yet listed'}</div>
           </div>
         </div>
@@ -484,7 +484,7 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
           >
             <span style={{ fontSize: 26, flexShrink: 0 }}>{CATEGORY_EMOJI[c.category] || '📄'}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>{c.case_no}</div>
+              <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{c.case_no}</div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{c.title}</div>
               <div style={{ marginTop: 6 }}><StageBadge stage={c.stage} /></div>
             </div>
@@ -672,36 +672,36 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
         <p style={{ fontSize: 12.5, color: '#64748b', margin: '-10px 0 0' }}>Please check everything before submitting.</p>
         <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16, display: 'grid', gap: 10 }}>
           <div>
-            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Subject</div>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Subject</div>
             <div style={{ fontSize: 14, color: '#1a1a2e' }}>{title}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Category</div>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Category</div>
             <div style={{ fontSize: 14, color: '#1a1a2e' }}>{CATEGORY_EMOJI[activeCategory?.label_en] || '📄'} {activeCategory?.label_en}</div>
           </div>
           {issueLabels.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Specific issues</div>
+              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Specific issues</div>
               <div style={{ fontSize: 14, color: '#1a1a2e' }}>{issueLabels.join(', ')}{otherDetail ? ` — ${otherDetail}` : ''}</div>
             </div>
           )}
           <div>
-            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Priority</div>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Priority</div>
             <div style={{ fontSize: 14, color: '#1a1a2e' }}>{priority === 'Urgent' ? '🚨 Urgent' : '📅 Normal'}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Description</div>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Description</div>
             <div style={{ fontSize: 14, color: '#1a1a2e' }}>{description}</div>
           </div>
           {suggestedSolution && (
             <div>
-              <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Suggested Solution</div>
+              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Suggested Solution</div>
               <div style={{ fontSize: 14, color: '#1a1a2e' }}>{suggestedSolution}</div>
             </div>
           )}
           {stagedFiles.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Evidence attached</div>
+              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Evidence attached</div>
               <div style={{ fontSize: 14, color: '#1a1a2e' }}>{stagedFiles.length} file(s)</div>
             </div>
           )}
@@ -784,6 +784,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
               key={p}
               type="button"
               onClick={() => setPriority(p)}
+              aria-pressed={priority === p}
               style={{
                 flex: 1, padding: '10px', borderRadius: 8, fontWeight: 700, fontSize: 13,
                 border: `2px solid ${priority === p ? (p === 'Urgent' ? '#9B3C2E' : '#1a1a2e') : '#e2e8f0'}`,
@@ -823,7 +824,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
             {stagedFiles.map((f, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, background: '#f8fafc', padding: '6px 10px', borderRadius: 6 }}>
                 <span>{f.type.startsWith('video') ? '🎥' : '🖼️'} {f.name}</span>
-                <button type="button" onClick={() => removeStagedFile(i)} style={{ border: 'none', background: 'none', color: '#9B3C2E', fontWeight: 700 }}>✕</button>
+                <button type="button" onClick={() => removeStagedFile(i)} aria-label={`Remove ${f.name}`} style={{ border: 'none', background: 'none', color: '#9B3C2E', fontWeight: 700 }}>✕</button>
               </div>
             ))}
           </div>
@@ -855,6 +856,7 @@ function MicButton({ onClick }) {
       type="button"
       onClick={onClick}
       title="Speak instead of typing"
+      aria-label="Speak instead of typing"
       style={{
         flexShrink: 0, width: 42, border: '1px solid #e2e8f0', borderRadius: 6,
         background: '#f8fafc', fontSize: 18, cursor: 'pointer',
@@ -876,8 +878,8 @@ function ComplaintDetail({ complaint, citizenId, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end' }} onClick={onClose}>
       <div style={{ width: 380, background: '#fff', height: '100%', padding: 20, overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} style={{ float: 'right', border: 'none', background: 'none' }}>✕</button>
-        <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>{complaint.case_no}</div>
+        <button onClick={onClose} aria-label="Close" style={{ float: 'right', border: 'none', background: 'none' }}>✕</button>
+        <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{complaint.case_no}</div>
         <h3 style={{ fontSize: 16, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 22 }}>{CATEGORY_EMOJI[complaint.category] || '📄'}</span>{complaint.title}
         </h3>
@@ -902,7 +904,7 @@ function ComplaintDetail({ complaint, citizenId, onClose }) {
         {history.map((h) => (
           <div key={h.id} style={{ padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{h.stage}</div>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>{toTitleCase(h.by_name)} · {new Date(h.created_at).toLocaleString()}</div>
+            <div style={{ fontSize: 11, color: '#64748b' }}>{toTitleCase(h.by_name)} · {new Date(h.created_at).toLocaleString()}</div>
             {h.note && <div style={{ fontSize: 12.5, marginTop: 3 }}>{h.note}</div>}
           </div>
         ))}
@@ -1117,7 +1119,7 @@ function EditableCombobox({ value, options, onSelect, onCreate, placeholder, cre
             </div>
           )}
           {filtered.length === 0 && !trimmedQuery && (
-            <div style={{ padding: '8px 11px', fontSize: 12, color: '#94a3b8' }}>Type to search or add one</div>
+            <div style={{ padding: '8px 11px', fontSize: 12, color: '#64748b' }}>Type to search or add one</div>
           )}
         </div>
       )}

@@ -133,11 +133,13 @@ export default function Home() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
             {PRODUCTS.map((p) => (
-              <div key={p.name} onClick={() => navigate(p.directHref)} style={{ display: 'block', padding: '28px 24px', background: '#1C1C1E', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, cursor: 'pointer', transition: 'border-color 0.2s' }}>
-                <span style={{ fontSize: 36, display: 'block', marginBottom: 14 }}>{p.icon}</span>
-                <h3 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: '0 0 10px' }}>{p.name}</h3>
-                <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', margin: '0 0 20px', lineHeight: 1.7 }}>{p.desc}</p>
-                <Link to={p.href} onClick={(e) => e.stopPropagation()} style={{ fontSize: 13, color: p.color, fontWeight: 500, textDecoration: 'none' }}>Learn more →</Link>
+              <div key={p.name} style={{ padding: '28px 24px', background: '#1C1C1E', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, transition: 'border-color 0.2s' }}>
+                <button onClick={() => navigate(p.directHref)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <span style={{ fontSize: 36, display: 'block', marginBottom: 14 }}>{p.icon}</span>
+                  <h3 style={{ fontSize: 20, fontWeight: 600, color: '#fff', margin: '0 0 10px' }}>{p.name}</h3>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', margin: '0 0 20px', lineHeight: 1.7 }}>{p.desc}</p>
+                </button>
+                <Link to={p.href} style={{ fontSize: 13, color: p.color, fontWeight: 500, textDecoration: 'none' }}>Learn more →</Link>
               </div>
             ))}
           </div>

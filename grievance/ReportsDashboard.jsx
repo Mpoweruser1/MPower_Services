@@ -17,7 +17,7 @@ const STAGE_COLORS = {
   Submitted:    '#f59e0b',
   Acknowledged: '#3b82f6',
   'In Progress':'#7c3aed',
-  Escalated:    '#dc2626',
+  Escalated:    '#B91C1C',
   Resolved:     '#16a34a',
   Declined:     '#64748b',
   Sanctioned:   '#e8a020',
@@ -121,7 +121,7 @@ export default function ReportsDashboard() {
             { label: 'Total', value: total, color: '#1a1a2e' },
             { label: 'Resolved', value: resolved, color: '#16a34a' },
             { label: 'Pending', value: pending, color: '#f59e0b' },
-            { label: 'Escalated', value: escalated, color: '#dc2626' },
+            { label: 'Escalated', value: escalated, color: '#B91C1C' },
             { label: 'Declined', value: declined, color: '#64748b' },
             { label: 'Sanctioned', value: sanctioned, color: '#A8762C' },
           ].map(s => (
@@ -141,7 +141,7 @@ export default function ReportsDashboard() {
           <button onClick={() => setShowPatterns(!showPatterns)}
             style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e' }}>
-              🔥 Patterns & Duplicates {patternCount > 0 && <span style={{ color: '#dc2626' }}>({patternCount})</span>}
+              🔥 Patterns & Duplicates {patternCount > 0 && <span style={{ color: '#B91C1C' }}>({patternCount})</span>}
             </span>
             <span style={{ fontSize: 12, color: '#64748b' }}>{showPatterns ? '▲ Hide' : '▼ Show'}</span>
           </button>
@@ -149,7 +149,7 @@ export default function ReportsDashboard() {
           {showPatterns && (
             <div style={{ padding: '0 16px 16px', display: 'grid', gap: 18 }}>
               {patternCount === 0 && (
-                <p style={{ fontSize: 12.5, color: '#94a3b8', margin: 0 }}>Nothing detected yet — this fills in as complaints come in.</p>
+                <p style={{ fontSize: 12.5, color: '#64748b', margin: 0 }}>Nothing detected yet — this fills in as complaints come in.</p>
               )}
 
               {hotspots.length > 0 && (
@@ -239,6 +239,7 @@ export default function ReportsDashboard() {
             <button
               key={l.key}
               onClick={() => { setLevel(l.key); setExpandedRow(null); }}
+              aria-pressed={level === l.key}
               style={{
                 padding: '7px 14px', borderRadius: 20,
                 border: level === l.key ? 'none' : '1px solid #e2e8f0',
@@ -256,11 +257,11 @@ export default function ReportsDashboard() {
 
         {/* Data table */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: 13 }}>Loading...</div>
+          <div style={{ textAlign: 'center', padding: 40, color: '#64748b', fontSize: 13 }}>Loading...</div>
         ) : error ? (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 14, color: '#dc2626', fontSize: 13 }}>{error}</div>
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 14, color: '#B91C1C', fontSize: 13 }}>{error}</div>
         ) : data.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: 13 }}>No data yet.</div>
+          <div style={{ textAlign: 'center', padding: 40, color: '#64748b', fontSize: 13 }}>No data yet.</div>
         ) : (
           <div style={{ display: 'grid', gap: 10, maxHeight: '60vh', overflowY: 'auto', paddingRight: 4 }}>
             {data.map((row, i) => {
@@ -269,20 +270,20 @@ export default function ReportsDashboard() {
               const rowComplaints = isExpanded ? getRowComplaints(row) : [];
               return (
               <div key={i} style={{ background: '#fff', borderRadius: 10, padding: 14, border: '1px solid #e2e8f0' }}>
-                <div onClick={() => setExpandedRow(isExpanded ? null : rowName)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, cursor: 'pointer' }}>
+                <button onClick={() => setExpandedRow(isExpanded ? null : rowName)} aria-expanded={isExpanded} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, cursor: 'pointer', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, fontFamily: 'inherit' }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b' }}>
                       {isExpanded ? '▼' : '▶'} {rowName}
                     </div>
                     {row.mandal_name && level === 'village' && (
-                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{row.mandal_name}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{row.mandal_name}</div>
                     )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1a2e' }}>{row.total || 0}</div>
-                    <div style={{ fontSize: 10, color: '#94a3b8' }}>total</div>
+                    <div style={{ fontSize: 10, color: '#64748b' }}>total</div>
                   </div>
-                </div>
+                </button>
 
                 {/* Progress bar */}
                 <div style={{ background: '#f1f5f9', borderRadius: 4, height: 6, marginBottom: 8, overflow: 'hidden' }}>
@@ -300,20 +301,20 @@ export default function ReportsDashboard() {
                     <span style={{ fontSize: 11, color: '#ea580c', fontWeight: 600 }}>🚨 {row.urgent_open_count} urgent (still open)</span>
                   )}
                   {row.currently_escalated_count > 0 && (
-                    <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>⬆️ {row.currently_escalated_count} escalated</span>
+                    <span style={{ fontSize: 11, color: '#B91C1C', fontWeight: 600 }}>⬆️ {row.currently_escalated_count} escalated</span>
                   )}
                 </div>
 
                 {isExpanded && (
                   <div style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 10, display: 'grid', gap: 6 }}>
                     {rowComplaints.length === 0 ? (
-                      <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>No individual complaints matched (data may still be loading).</p>
+                      <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>No individual complaints matched (data may still be loading).</p>
                     ) : rowComplaints.map((c) => {
                       const days = daysPending(c);
                       const overdue = days >= 14 && c.stage !== 'Resolved' && c.stage !== 'Declined';
                       return (
-                        <div key={c.id} onClick={() => setActiveComplaint(c)}
-                          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#f8fafc', borderRadius: 6, cursor: 'pointer' }}>
+                        <button key={c.id} onClick={() => setActiveComplaint(c)}
+                          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#f8fafc', borderRadius: 6, cursor: 'pointer', width: '100%', textAlign: 'left', border: 'none', fontFamily: 'inherit' }}>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1e293b' }}>{c.title}</div>
                             <div style={{ fontSize: 11, color: '#64748b' }}>
@@ -321,12 +322,12 @@ export default function ReportsDashboard() {
                             </div>
                           </div>
                           <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
-                            <div style={{ fontSize: 11, fontWeight: overdue ? 700 : 500, color: overdue ? '#dc2626' : '#64748b' }}>
+                            <div style={{ fontSize: 11, fontWeight: overdue ? 700 : 500, color: overdue ? '#B91C1C' : '#64748b' }}>
                               {days}d
                             </div>
                             <div style={{ fontSize: 10, color: STAGE_COLORS[c.stage] || '#64748b', fontWeight: 600 }}>{c.stage}</div>
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>

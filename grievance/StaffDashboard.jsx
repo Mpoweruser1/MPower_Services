@@ -228,7 +228,7 @@ export default function StaffDashboard() {
 
           {showMoreFilters && (
             <div style={{ background: '#fff', border: '1px solid #D9D5C8', borderRadius: 8, padding: 12, marginTop: 8 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#8B9099', letterSpacing: 0.5, margin: '0 0 6px' }}>PERIOD</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#5B6473', letterSpacing: 0.5, margin: '0 0 6px' }}>PERIOD</p>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                 {[
                   { label: 'Today', apply: () => { const d = new Date().toISOString().slice(0, 10); setDateFrom(d); setDateTo(d); } },
@@ -249,7 +249,7 @@ export default function StaffDashboard() {
                   style={{ flex: 1, padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit' }} />
               </div>
 
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#8B9099', letterSpacing: 0.5, margin: '0 0 6px' }}>LOCATION</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#5B6473', letterSpacing: 0.5, margin: '0 0 6px' }}>LOCATION</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <select value={constituencyFilter} onChange={(e) => setConstituencyFilter(e.target.value)}
                   style={{ flex: '1 1 140px', padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit', background: '#fff' }}>
@@ -287,7 +287,7 @@ export default function StaffDashboard() {
           <CenteredNote>{activeTab === 'pending' ? 'Queue clear.' : 'Nothing here yet.'}</CenteredNote>
         ) : (
           <>
-            <p style={{ fontSize: 11.5, color: '#8B9099', margin: '0 0 10px' }}>
+            <p style={{ fontSize: 11.5, color: '#5B6473', margin: '0 0 10px' }}>
               {totalCount} total · showing {page * PAGE_SIZE + 1}–{Math.min(totalCount, (page + 1) * PAGE_SIZE)}
             </p>
             <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
@@ -339,7 +339,7 @@ export default function StaffDashboard() {
             numbers at all. Wider screens only; mobile keeps the card
             view above completely untouched. */}
         <div className="desktop-queue-grid">
-          <p style={{ fontSize: 11.5, color: '#8B9099', margin: '0 0 10px' }}>
+          <p style={{ fontSize: 11.5, color: '#5B6473', margin: '0 0 10px' }}>
             {gridData.length} of {totalCount} loaded — scroll for more
           </p>
           <div
@@ -357,19 +357,27 @@ export default function StaffDashboard() {
               </thead>
               <tbody>
                 {gridData.length === 0 && !gridLoading ? (
-                  <tr><td colSpan={6} style={{ padding: 20, textAlign: 'center', color: '#8B9099' }}>{activeTab === 'pending' ? 'Queue clear.' : 'Nothing here yet.'}</td></tr>
+                  <tr><td colSpan={6} style={{ padding: 20, textAlign: 'center', color: '#5B6473' }}>{activeTab === 'pending' ? 'Queue clear.' : 'Nothing here yet.'}</td></tr>
                 ) : gridData.map((c) => (
-                  <tr key={c.id} onClick={() => setActiveComplaint(c)} style={{ cursor: 'pointer', borderBottom: '1px solid #EFEDE6' }}>
-                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 11.5, color: '#8B9099' }}>{c.case_no}</td>
+                  <tr
+                    key={c.id}
+                    onClick={() => setActiveComplaint(c)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveComplaint(c); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Open complaint ${c.case_no}: ${c.title}`}
+                    style={{ cursor: 'pointer', borderBottom: '1px solid #EFEDE6' }}
+                  >
+                    <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 11.5, color: '#5B6473' }}>{c.case_no}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 600 }}>{CATEGORY_EMOJI[c.category] || '📄'} {c.title}</td>
                     <td style={{ padding: '10px 14px', color: '#5B6473' }}>{c.category}</td>
                     <td style={{ padding: '10px 14px' }}>{c.priority === 'Urgent' ? <span style={{ color: '#9B3C2E', fontWeight: 700 }}>🚨 Urgent</span> : 'Normal'}</td>
                     <td style={{ padding: '10px 14px' }}><StageBadge stage={c.stage} /></td>
-                    <td style={{ padding: '10px 14px', color: '#8B9099', whiteSpace: 'nowrap' }}>{new Date(c.created_at).toLocaleDateString('en-IN')}</td>
+                    <td style={{ padding: '10px 14px', color: '#5B6473', whiteSpace: 'nowrap' }}>{new Date(c.created_at).toLocaleDateString('en-IN')}</td>
                   </tr>
                 ))}
                 {gridLoading && (
-                  <tr><td colSpan={6} style={{ padding: 14, textAlign: 'center', color: '#8B9099', fontSize: 12 }}>Loading more…</td></tr>
+                  <tr><td colSpan={6} style={{ padding: 14, textAlign: 'center', color: '#5B6473', fontSize: 12 }}>Loading more…</td></tr>
                 )}
               </tbody>
             </table>
@@ -461,7 +469,7 @@ function StaffProfileSetup({ tenant, onClose }) {
             <input value={alternatePhone} onChange={(e) => setAlternatePhone(e.target.value)} required style={fieldStyle} />
           </label>
           <label style={{ display: 'grid', gap: 5 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: '#8B9099' }}>📷 Photo (entirely optional)</span>
+            <span style={{ fontSize: 12, fontWeight: 500, color: '#5B6473' }}>📷 Photo (entirely optional)</span>
             <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
           </label>
           {error && <p style={{ fontSize: 12, color: '#9B3C2E' }}>{error}</p>}
@@ -508,10 +516,17 @@ function ComplaintCard({ complaint, role, actorName, onOpen, onAction }) {
 
   return (
     <div style={{ background: '#fff', border: '1px solid #D9D5C8', borderRadius: 9, padding: 14 }}>
-      <div onClick={onOpen} style={{ cursor: 'pointer', marginBottom: 10, display: 'flex', gap: 12 }}>
+      <div
+        onClick={onOpen}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+        tabIndex={0}
+        role="button"
+        aria-label={`Open complaint ${complaint.case_no}: ${complaint.title}`}
+        style={{ cursor: 'pointer', marginBottom: 10, display: 'flex', gap: 12 }}
+      >
         <span style={{ fontSize: 28, flexShrink: 0 }}>{CATEGORY_EMOJI[complaint.category] || '📄'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: '#8B9099', fontFamily: 'monospace' }}>{complaint.case_no}</div>
+          <div style={{ fontSize: 11, color: '#5B6473', fontFamily: 'monospace' }}>{complaint.case_no}</div>
           <div style={{ fontSize: 14.5, fontWeight: 600 }}>{complaint.title}</div>
           <div style={{ fontSize: 12, color: '#5B6473', marginTop: 3 }}>{complaint.description}</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
@@ -641,8 +656,8 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end' }} onClick={onClose}>
       <div style={{ width: 400, background: '#fff', height: '100%', padding: 20, overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} style={{ float: 'right', border: 'none', background: 'none' }}>✕</button>
-        <div style={{ fontSize: 11, color: '#8B9099', fontFamily: 'monospace' }}>{complaint.case_no}</div>
+        <button onClick={onClose} aria-label="Close" style={{ float: 'right', border: 'none', background: 'none' }}>✕</button>
+        <div style={{ fontSize: 11, color: '#5B6473', fontFamily: 'monospace' }}>{complaint.case_no}</div>
         <h3 style={{ fontSize: 16, fontWeight: 600 }}>{complaint.title}</h3>
         <p style={{ fontSize: 13, color: '#3A4250', margin: '10px 0' }}>{complaint.description}</p>
         {complaint.suggested_solution && (
@@ -740,7 +755,7 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 11, color: '#8B9099' }}>{h.by_name} · {new Date(h.created_at).toLocaleString()}</div>
+            <div style={{ fontSize: 11, color: '#5B6473' }}>{h.by_name} · {new Date(h.created_at).toLocaleString()}</div>
             {h.note && <div style={{ fontSize: 12.5, marginTop: 3 }}>{h.note}</div>}
           </div>
         ))}
