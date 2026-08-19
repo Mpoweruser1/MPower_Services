@@ -1,7 +1,6 @@
 // website/pages/Home.jsx — FINAL
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabaseClient';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff' },
@@ -40,13 +39,6 @@ const PRODUCTS = [
   { icon: '🙏', name: 'MPower CTS', desc: "Your concern won't stop until it reaches your leader — no delay, no silence, no forgetting.", href: '/products/grievance', directHref: '/grievance', color: '#E8A020' },
 ];
 
-const STATS = [
-  { value: '3',    label: 'Apps in one platform', labelTe: 'ఒకే వేదికపై అనువర్తనాలు' },
-  { value: '100%', label: 'Telugu bilingual',     labelTe: 'తెలుగు + English' },
-  { value: '6mo',  label: 'Free trial',           labelTe: 'ఉచిత ట్రయల్' },
-  { value: '₹299', label: 'Starting price/month', labelTe: 'నెలవారీ ధర' },
-];
-
 const FEATURES = [
   { icon: '📱', title: 'WhatsApp first', desc: 'Every action — attendance, fees, lab results, complaint updates — notifies via WhatsApp. No app install needed for parents or citizens.' },
   { icon: '🌐', title: 'Telugu + English', desc: 'Every screen, every label, every notification — available in Telugu and English. Designed for AP and Telangana.' },
@@ -58,14 +50,6 @@ const FEATURES = [
 
 export default function Home() {
   const navigate = useNavigate();
-  // CM photo — same private bucket + signed URL pattern already used
-  // for the Batch Report letterhead, resolved fresh on each page load.
-  const [cmPhotoUrl, setCmPhotoUrl] = useState(null);
-  useEffect(() => {
-    supabase.storage.from('representative-photos').createSignedUrl('cm_photo.jpg', 3600)
-      .then(({ data }) => setCmPhotoUrl(data?.signedUrl || null))
-      .catch(() => setCmPhotoUrl(null));
-  }, []);
   return (
     <div style={S.page}>
       <style>{`
@@ -76,62 +60,27 @@ export default function Home() {
 
       <Nav />
 
-      {/* Hero */}
-      <section style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '120px 24px 80px', position: 'relative', overflow: 'hidden' }}>
+      {/* Hero + Products — merged into one section. Previously the
+          "One platform for..." headline dominated a full-viewport
+          hero on its own, with Products as a separate section further
+          down the page. Now the headline is a small supporting line
+          and the three product cards are what the section is
+          actually built around. */}
+      <section style={{ padding: '120px 24px 60px', position: 'relative', overflow: 'hidden' }}>
         {/* Background gradient */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(232,160,32,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-        <div style={{ maxWidth: 780, position: 'relative' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', background: 'rgba(232,160,32,0.1)', border: '1px solid rgba(232,160,32,0.2)', borderRadius: 20, marginBottom: 28 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E8A020', display: 'inline-block' }} />
-            <span style={{ fontSize: 13, color: '#E8A020', fontWeight: 500 }}>Free 6-month trial · No credit card · Cancel anytime</span>
-          </div>
-
-          <h1 style={{ fontSize: 'clamp(36px, 6vw, 68px)', fontWeight: 800, color: '#fff', margin: '0 0 12px', lineHeight: 1.1, letterSpacing: -2 }}>
-            One platform for<br />
-            <span style={{ color: '#E8A020' }}>Schools, Hospitals</span><br />
-            and <span style={{ color: '#E8A020' }}>Every Citizen's Voice</span>
-          </h1>
-
-          <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: 'rgba(255,255,255,0.5)', margin: '0 0 8px', lineHeight: 1.6 }}>
-            Built for Andhra Pradesh and Telangana. Telugu + English. WhatsApp first.
+        <div style={{ maxWidth: 1080, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+          <p style={{ fontSize: 'clamp(13px, 1.5vw, 17px)', color: 'rgba(255,255,255,0.45)', margin: '0 0 6px', lineHeight: 1.6 }}>
+            One platform for <span style={{ color: '#E8A020' }}>Schools, Hospitals</span> and <span style={{ color: '#E8A020' }}>Every Citizen's Voice</span>
           </p>
-          <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)', margin: '0 0 40px', fontFamily: "'Noto Sans Telugu', sans-serif" }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', margin: '0 0 40px', fontFamily: "'Noto Sans Telugu', sans-serif" }}>
             పాఠశాలలు · ఆసుపత్రులు · ప్రతి పౌరుని సమస్య
           </p>
 
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 60 }}>
-            <Link to="/registration"
-              style={{ padding: '14px 32px', background: '#E8A020', color: '#111113', borderRadius: 10, textDecoration: 'none', fontSize: 16, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              Start free trial → <span style={{ fontSize: 12, opacity: 0.7 }}>6 months free</span>
-            </Link>
-            <Link to="/products"
-              style={{ padding: '14px 32px', background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, textDecoration: 'none', fontSize: 16, fontWeight: 500 }}>
-              See all products
-            </Link>
-          </div>
+          <h2 style={{ fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 700, color: '#fff', margin: '0 0 32px', letterSpacing: -0.5 }}>Three apps. One login.</h2>
 
-          {/* Stats row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, maxWidth: 680, margin: '0 auto' }}>
-            {STATS.map((s) => (
-              <div key={s.label} style={{ padding: '16px 12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, textAlign: 'center' }}>
-                <p style={{ fontSize: 24, fontWeight: 700, color: '#E8A020', margin: 0 }}>{s.value}</p>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: '4px 0 2px' }}>{s.label}</p>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>{s.labelTe}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Products */}
-      <section style={{ padding: '80px 24px', background: '#161618' }}>
-        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <p style={{ fontSize: 12, color: '#E8A020', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: 12 }}>Products · ఉత్పత్తులు</p>
-            <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 700, color: '#fff', margin: 0, letterSpacing: -1 }}>Three apps. One login.</h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, textAlign: 'left' }}>
             {PRODUCTS.map((p) => (
               <div key={p.name} style={{ padding: '28px 24px', background: '#1C1C1E', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, transition: 'border-color 0.2s' }}>
                 <button onClick={() => navigate(p.directHref)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -143,22 +92,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* CTS callout — CM photo + tagline, kept separate from the
-          product grid above so School/Hospital's cards stay visually
-          uniform rather than one of three suddenly having a photo. */}
-      <section style={{ padding: '0 24px 80px' }}>
-        <div style={{ maxWidth: 1080, margin: '0 auto', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', borderRadius: 16, padding: '28px 32px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-          {cmPhotoUrl && (
-            <img src={cmPhotoUrl} alt="Chief Minister" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: '2px solid #E8A020', flexShrink: 0 }} />
-          )}
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <p style={{ fontSize: 15, fontWeight: 500, color: '#fff', margin: '0 0 4px', lineHeight: 1.6 }}>Your concern won't stop until it reaches your leader</p>
-            <p style={{ fontSize: 14, color: '#E8A020', fontWeight: 500, margin: 0 }}>మీ సమస్య మీ నాయకుడి వరకు చేరే వరకు ఆగదు</p>
-          </div>
-          <Link to="/grievance" style={{ fontSize: 13, color: '#fff', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 20px', borderRadius: 20, textDecoration: 'none', fontWeight: 500, flexShrink: 0 }}>File a complaint →</Link>
         </div>
       </section>
 
