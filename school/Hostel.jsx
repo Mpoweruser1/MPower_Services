@@ -152,13 +152,13 @@ export default function Hostel() {
     if (!newMedical.action_taken.trim())  { setMedicalError('Action taken is required.'); return; }
 
     setSaving(true);
-    const { error } = await supabase.from('hostel_medical_log').insert({
+    const { data: inserted, error } = await supabase.from('hostel_medical_log').insert({
       student_id:    newMedical.student_id,
       issue:         newMedical.issue.trim(),
       action_taken:  newMedical.action_taken.trim(),
       reported_at:   new Date().toISOString(),
       notified_parent: false,
-    });
+    }).select().single();
 
     if (error) { setMedicalError('Failed to log incident.'); setSaving(false); return; }
 
@@ -172,11 +172,13 @@ export default function Hostel() {
       },
     });
 
+    // Update by this specific row's id — order()/limit() are not valid
+    // on an UPDATE request, so the previous version silently marked
+    // notified_parent on every past incident for this student, not
+    // just this one.
     await supabase.from('hostel_medical_log')
       .update({ notified_parent: true })
-      .eq('student_id', newMedical.student_id)
-      .order('reported_at', { ascending: false })
-      .limit(1);
+      .eq('id', inserted.id);
 
     setNewMedical({ student_id: '', issue: '', action_taken: '' });
     setShowAddMedical(false);

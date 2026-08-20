@@ -26,7 +26,9 @@ export default function PortalLogin() {
   const [sendingReset, setSendingReset] = useState(false);
 
   // Check URL params for messages
-  const idleReason = new URLSearchParams(window.location.search).get('reason') === 'idle';
+  const reasonParam = new URLSearchParams(window.location.search).get('reason');
+  const idleReason = reasonParam === 'idle';
+  const replacedReason = reasonParam === 'session_replaced';
 
   // If already logged in redirect
   useEffect(() => {
@@ -40,9 +42,9 @@ export default function PortalLogin() {
     setLoggingIn(true);
 
     const { error: loginErr } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setLoggingIn(false);
 
     if (loginErr) {
+      setLoggingIn(false);
       if (loginErr.message?.includes('Invalid login')) {
         setError('Incorrect email or password. Please try again.');
       } else if (loginErr.message?.includes('Email not confirmed')) {
@@ -53,6 +55,27 @@ export default function PortalLogin() {
       return;
     }
 
+    // Single-session enforcement — Supabase's own login just succeeded,
+    // but that alone doesn't mean this login should be allowed to
+    // proceed. Claim the session now; if another device already has a
+    // genuinely active one (used within the last 30 minutes), sign
+    // this just-created session back out immediately rather than
+    // letting the user into the app. Supabase can't be intercepted
+    // before it issues a session, so this is the same "authenticate
+    // first, then enforce" pattern used everywhere real systems
+    // implement this.
+    const { data: claimResult, error: claimError } = await supabase.functions.invoke('check-and-claim-session', {
+      body: { action: 'claim' },
+    });
+
+    if (claimError || !claimResult?.claimed) {
+      await supabase.auth.signOut();
+      setLoggingIn(false);
+      setError('This account is already signed in on another device or browser. Sign out there first, or wait up to 30 minutes for that session to go idle.');
+      return;
+    }
+
+    setLoggingIn(false);
     navigate('/portal/dashboard', { replace: true });
   }
 
@@ -102,6 +125,13 @@ export default function PortalLogin() {
         {idleReason && !error && (
           <div style={S.error}>
             You were signed out after 30 minutes of inactivity.
+          </div>
+        )}
+
+        {/* Session claimed elsewhere */}
+        {replacedReason && !error && (
+          <div style={S.error}>
+            You were signed out because this account signed in on another device or browser.
           </div>
         )}
 

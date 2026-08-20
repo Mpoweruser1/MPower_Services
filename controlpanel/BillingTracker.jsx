@@ -146,11 +146,17 @@ export default function BillingTracker() {
   }
 
   const stats = useMemo(() => {
+    const currentMonth = new Date().toISOString().slice(0, 7);
     const mrr         = clients.filter((c) => c.status === 'active').reduce((sum, c) => {
       const tier = c.tier || c.apps?.subscription_tier || 'basic';
       return sum + (TIER_PRICES[tier] || 0);
     }, 0);
-    const collected   = invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + Number(i.amount), 0);
+    // "This month" means paid_date actually falls in the current
+    // month — previously this summed every paid invoice ever, however
+    // long ago, which was wrong regardless of what the label said.
+    const collected   = invoices
+      .filter((i) => i.status === 'paid' && i.paid_date?.slice(0, 7) === currentMonth)
+      .reduce((s, i) => s + Number(i.amount), 0);
     const pending     = invoices.filter((i) => i.status === 'pending').reduce((s, i) => s + Number(i.amount), 0);
     const overdue     = invoices.filter((i) => i.status === 'overdue' || (i.status === 'pending' && new Date(i.due_date) < new Date())).length;
     return { mrr, collected, pending, overdue };

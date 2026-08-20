@@ -54,7 +54,7 @@ export default function StudentAdmission() {
   } = useFormValidation(RULES);
 
   // ── Auto-save draft ─────────────────────────────────────────
-  const { hasDraft, draftData, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft } =
+  const { hasDraft, draftData, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft, resetBaseline } =
     useAutoSave(`student_admission_${tenant?.userRowId}`, form);
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function StudentAdmission() {
 
   function generateSid() {
     const year   = new Date().getFullYear().toString().slice(-2);
-    const random = Math.floor(1000 + Math.random() * 9000);
+    const random = Math.floor(100000 + Math.random() * 900000);
     return `STU${year}${random}`;
   }
 
@@ -127,7 +127,14 @@ export default function StudentAdmission() {
 
     if (insertErr) {
       if (insertErr.message?.includes('unique') || insertErr.code === '23505') {
-        setError('Admission number already exists. Please use a different one.');
+        // sid is auto-generated and never shown for editing — if that's
+        // what collided (now rare with a wider random range, but not
+        // impossible), telling the person to "use a different admission
+        // number" would be both wrong and unactionable, since they
+        // typed nothing that caused it. Without knowing which
+        // constraint fired, staying honest about that is safer than
+        // guessing wrong.
+        setError('This admission number or student ID is already in use. If your admission number is correct, just try submitting again.');
       } else {
         setError('Failed to save student. Please try again.');
       }
@@ -159,6 +166,7 @@ export default function StudentAdmission() {
     setAdmitted(null);
     setError('');
     resetValidation();
+    resetBaseline();
   }
 
   const S = {

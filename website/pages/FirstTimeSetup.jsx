@@ -32,6 +32,7 @@ export default function FirstTimeSetup() {
   const [step, setStep]   = useState(1);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState('');
 
   const [orgInfo, setOrgInfo] = useState({
     orgName: tenant?.orgName || '',
@@ -98,15 +99,48 @@ export default function FirstTimeSetup() {
   async function saveAndNext() {
     if (!validateStep()) return;
     setSaving(true);
+    setSubmitError('');
 
     if (step === 1) {
-      await supabase.from('apps').update({ org_name: orgInfo.orgName.trim() }).eq('id', tenant?.appId);
+      const { error: appErr } = await supabase.from('apps').update({ org_name: orgInfo.orgName.trim() }).eq('id', tenant?.appId);
+      if (appErr) { setSubmitError('Failed to save organisation name. Please try again.'); setSaving(false); return; }
+
       if (tenant?.branchId) {
-        await supabase.from('branches').update({
+        const { error: branchErr } = await supabase.from('branches').update({
           address:  orgInfo.address.trim(),
           district: orgInfo.district,
         }).eq('id', tenant.branchId);
+        if (branchErr) { setSubmitError('Failed to save address/district. Please try again.'); setSaving(false); return; }
+      } else {
+        // No branch exists yet — this is the normal path for every
+        // fresh signup, not an edge case, since Registration.jsx never
+        // creates a branches row. Previously this whole block was
+        // skipped whenever branchId was null, meaning District and
+        // Address were silently discarded for every new account with
+        // no error shown. Creating the branch here instead, and
+        // pointing this user's own row at it so future logins pick it
+        // up via TenantContext.
+        const { data: newBranch, error: branchErr } = await supabase
+          .from('branches')
+          .insert({
+            app_id:   tenant.appId,
+            address:  orgInfo.address.trim(),
+            district: orgInfo.district,
+          })
+          .select()
+          .single();
+
+        if (branchErr) {
+          setSubmitError('Failed to save address/district. Please try again or contact support.');
+          setSaving(false);
+          return;
+        }
+
+        if (newBranch) {
+          await supabase.from('users').update({ branch_id: newBranch.id }).eq('auth_id', tenant?.userId);
+        }
       }
+
       if (orgInfo.contact_phone) {
         await supabase.from('users').update({ phone: orgInfo.contact_phone.trim() }).eq('auth_id', tenant?.userId);
       }
@@ -322,6 +356,13 @@ export default function FirstTimeSetup() {
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.7 }}>
               Your {tenant?.appType} is ready. Click below to open your dashboard.
             </p>
+          </div>
+        )}
+
+        {/* Submit error */}
+        {submitError && (
+          <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#E05A5A' }}>
+            ⚠️ {submitError}
           </div>
         )}
 

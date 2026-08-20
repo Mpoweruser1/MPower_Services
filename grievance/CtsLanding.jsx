@@ -15,6 +15,18 @@ function destinationFor(slug, role) {
   return role === 'office' ? '/portal/login' : `/grievance/${slug}/citizen`;
 }
 
+// Same mapping ComplaintPrint.jsx uses for the batch-report
+// letterhead — keyed by state name (apps.state_name), not slug. My
+// earlier fix here guessed at a {slug}/cm_photo.jpg subfolder that
+// doesn't actually exist in the bucket, which silently broke the
+// photo instead of fixing the original wrong-state-photo bug. This
+// is the real, verified layout. Telangana is explicitly null since
+// no photo has been uploaded for it yet — not a bug, just not done.
+const CM_PHOTOS = {
+  'Andhra Pradesh': 'cm_photo.jpg',
+  'Telangana': null,
+};
+
 export default function CtsLanding() {
   const { stateSlug } = useParams();
   const navigate = useNavigate();
@@ -24,13 +36,29 @@ export default function CtsLanding() {
   const [checkingRemembered, setCheckingRemembered] = useState(true);
   const [appId, setAppId] = useState(undefined); // undefined = still resolving, null = not found
   // CM photo — same private bucket + signed URL pattern used on the
-  // Batch Report letterhead and Home.jsx, resolved fresh on page load.
+  // Batch Report letterhead (ComplaintPrint.jsx) and Home.jsx, resolved
+  // fresh on page load. Waits for stateConfig so the real state name is
+  // available before looking it up in CM_PHOTOS.
   const [cmPhotoUrl, setCmPhotoUrl] = useState(null);
   useEffect(() => {
-    supabase.storage.from('representative-photos').createSignedUrl('cm_photo.jpg', 3600)
-      .then(({ data }) => setCmPhotoUrl(data?.signedUrl || null))
-      .catch(() => setCmPhotoUrl(null));
-  }, []);
+    const fileName = CM_PHOTOS[stateConfig?.name_en];
+    // TEMPORARY — remove once the real cause is confirmed. Logs the
+    // exact value being looked up, since a silent no-photo result with
+    // zero console errors is consistent with this never matching a
+    // CM_PHOTOS key in the first place (fetch never even attempted),
+    // rather than the fetch itself failing.
+    console.log('[CM photo debug] stateConfig?.name_en =', JSON.stringify(stateConfig?.name_en), '→ fileName =', fileName);
+    if (!fileName) { setCmPhotoUrl(null); return; }
+    supabase.storage.from('representative-photos').createSignedUrl(fileName, 3600)
+      .then(({ data, error }) => {
+        console.log('[CM photo debug] createSignedUrl result:', { data, error });
+        setCmPhotoUrl(data?.signedUrl || null);
+      })
+      .catch((err) => {
+        console.log('[CM photo debug] createSignedUrl threw:', err);
+        setCmPhotoUrl(null);
+      });
+  }, [stateConfig?.name_en]);
 
   useEffect(() => {
     fetchAppIdBySlug(slug).then(setAppId);

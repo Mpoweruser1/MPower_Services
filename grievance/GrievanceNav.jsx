@@ -14,6 +14,7 @@ export default function GrievanceNav() {
     { to: `/grievance/${slug}/staff`,   icon: '📋', label: 'Queue',   te: 'క్యూ',       staffOnly: true },
     { to: `/grievance/${slug}/reports`, icon: '📈', label: 'Reports', te: 'నివేదికలు',  staffOnly: true },
     { to: `/grievance/${slug}/admin`,   icon: '✅', label: 'Verify',  te: 'ధృవీకరణ',    staffOnly: true },
+    { to: `/grievance/${slug}/feedback`, icon: '💬', label: 'Feedback', te: 'అభిప్రాయం', staffOnly: true },
     { to: `/grievance/print`,           icon: '🖨️', label: 'Print',   te: 'ముద్రణ',      staffOnly: false },
   ];
   const links = allLinks.filter((l) => !l.staffOnly || isStaff);

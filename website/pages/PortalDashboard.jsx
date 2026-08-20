@@ -73,7 +73,7 @@ export default function PortalDashboard() {
       if (!tenant?.appId) { setLoading(false); return; }
       const { data } = await supabase
         .from('apps')
-        .select('app_type, org_name, subscription_tier')
+        .select('app_type, org_name, subscription_tier, state_name')
         .eq('id', tenant.appId)
         .single();
       setAppInfo(data);
@@ -110,7 +110,7 @@ export default function PortalDashboard() {
 
   const links = isControl   ? CONTROL_LINKS
               : isHospital  ? HOSPITAL_LINKS
-              : isGrievance ? grievanceLinks(tenant.role)
+              : isGrievance ? grievanceLinks(tenant.role, appInfo)
               : SCHOOL_LINKS;
 
   const sectorBadge = isControl   ? { icon: '🖥️',  label: 'Control Panel',      color: '#9B7FE8' }
@@ -123,6 +123,11 @@ export default function PortalDashboard() {
     : null;
 
   const isPrincipalOrDoctor = ['principal', 'doctor', 'grievance_admin'].includes(tenant.role);
+
+  // Same state → slug derivation as grievanceLinks() above, so the
+  // citizen-portal share link below points at this tenant's actual
+  // state instead of a hardcoded default.
+  const citizenPortalSlug = (appInfo?.state_name || 'Andhra Pradesh').toLowerCase().replace(/ /g, '-');
 
   return (
     <div style={S.page}>
@@ -202,9 +207,9 @@ export default function PortalDashboard() {
             <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
               Share this link with citizens to file complaints
             </p>
-            <Link to="/grievance/andhra-pradesh/citizen"
+            <Link to={`/grievance/${citizenPortalSlug}/citizen`}
               style={{ fontSize: 13, color: '#5A9ADF', textDecoration: 'none', fontWeight: 500 }}>
-              /grievance/andhra-pradesh/citizen →
+              /grievance/{citizenPortalSlug}/citizen →
             </Link>
           </div>
         )}

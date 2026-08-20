@@ -75,6 +75,13 @@ export default function TopNav({ screen }) {
     Object.keys(localStorage).forEach(k => {
       if (k.startsWith('draft_') || k.startsWith('mpower_')) localStorage.removeItem(k);
     });
+    // Must run BEFORE signOut() — the edge function identifies the
+    // caller from their own still-valid access token. Wrapped so a
+    // failed release (e.g. offline) never blocks sign-out itself;
+    // worst case the row just goes stale on its own after 30 minutes.
+    try {
+      await supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } });
+    } catch { /* non-blocking */ }
     await supabase.auth.signOut();
     // signOut triggers onAuthStateChange → session becomes null → RequireAuth redirects to /login
     setLoggingOut(false);

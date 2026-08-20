@@ -47,12 +47,15 @@ export function useAutoSave(key, formData, {
     }
   }, [key]);
 
-  // Save initial form state to detect changes
+  // Save initial form state to detect changes. initialRef starting at
+  // null (not just "unset on mount") lets resetBaseline() below force
+  // a resync: the next time this effect's dependency changes, it
+  // re-captures whatever formData is current as the new baseline.
   useEffect(() => {
     if (initialRef.current === null) {
       initialRef.current = JSON.stringify(formData);
     }
-  }, []);
+  }, [formData]);
 
   // Auto-save on form data change
   useEffect(() => {
@@ -122,5 +125,16 @@ export function useAutoSave(key, formData, {
     return draftData;
   }, [draftData]);
 
-  return { hasDraft, draftData, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft };
+  // For callers that reset form state externally (e.g. "Admit another"
+  // after a successful submit) without going through clearDraft(). Only
+  // resyncs the dirty-tracking baseline — leaves any saved draft alone,
+  // unlike clearDraft() which wipes both. Without this, isDirty stays
+  // pinned to a comparison against the PREVIOUS entry's data, so the
+  // browser's unsaved-changes warning fires on a genuinely blank form.
+  const resetBaseline = useCallback(() => {
+    initialRef.current = null;
+    setIsDirty(false);
+  }, []);
+
+  return { hasDraft, draftData, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft, resetBaseline };
 }

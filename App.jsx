@@ -20,6 +20,7 @@ import PayFee from './website/pages/PayFee';
 import PrivacyPolicy from './website/pages/PrivacyPolicy';
 import TermsOfService from './website/pages/TermsOfService';
 import RefundPolicy from './website/pages/RefundPolicy';
+import GrievanceStateSelect from './website/pages/GrievanceStateSelect';
 
 // School
 import SchoolDashboard from './school/Dashboard';
@@ -27,13 +28,13 @@ import Attendance from './school/Attendance';
 import FeeCollection from './school/FeeCollection';
 import TransferCertificate from './school/TransferCertificate';
 import Certificates from './school/Certificates';
+import StudentDetail from './school/StudentDetail';
 import Transport from './school/Transport';
 import Hostel from './school/Hostel';
 import ActivitiesCoaching from './school/ActivitiesCoaching';
 import StudentAdmission from './school/StudentAdmission';
 import ManageClasses from './school/ManageClasses';
 import { ReportEngine, IdCardPrinter, UniversalSearch } from './school/ReportsSearchIdCards';
-import StudentDetail from './school/StudentDetail';
 
 // Hospital
 import HospitalDashboard from './hospital/HospitalDashboard';
@@ -42,25 +43,23 @@ import OpdVisit from './hospital/OpdVisit';
 import LabReports from './hospital/LabReports';
 import HospitalBilling from './hospital/HospitalBilling';
 import IPDManagement from './hospital/IPDManagement';
-import PatientDetail from './hospital/PatientDetail';
 
 // Grievance
 import CtsLanding from './grievance/CtsLanding';
-import GrievanceStateSelect from './website/pages/GrievanceStateSelect';
 import CitizenPortal from './grievance/CitizenPortal';
 import StaffDashboard from './grievance/StaffDashboard';
 import ReportsDashboard from './grievance/ReportsDashboard';
 import AdminVerificationQueue from './grievance/AdminVerificationQueue';
 import RequestStaffAccess from './grievance/RequestStaffAccess';
 import ComplaintPrint from './grievance/ComplaintPrint';
-import FeedbackViewer from './grievance/FeedbackViewer';
+import FeedbackDashboard from './grievance/FeedbackDashboard';
 
 // Control Panel
 import CrmClientView from './controlpanel/CrmClientView';
-import FeedbackOverview from './controlpanel/FeedbackOverview';
 import SupportTickets from './controlpanel/SupportTickets';
 import BillingTracker from './controlpanel/BillingTracker';
 import OnboardingWizard from './controlpanel/OnboardingWizard';
+import FeedbackOverview from './controlpanel/FeedbackOverview';
 import ModificationRequestPortal from './controlpanel/ModificationRequestPortal';
 import HelpSystemAdmin from './controlpanel/HelpSystemAdmin';
 import ManageAccess from './controlpanel/ManageAccess';
@@ -78,7 +77,7 @@ function RequireAuth({ children }) {
   const { session, loading } = useTenant();
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#1C1C1E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif' }}>
-      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading...</p>
+      <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading...</p>
     </div>
   );
   if (!session) return <Navigate to="/portal/login" replace />;
@@ -98,28 +97,20 @@ function RequestStaffAccessWrapper() {
   return <RequestStaffAccess stateSlug={stateSlug} />;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Student/Patient detail wrappers — read :id from the URL and pass it
-// as the prop these screens expect. Visiting the bare route (no :id)
-// shows the search-first screen, since studentId/patientId is optional.
-// ─────────────────────────────────────────────────────────────
-function StudentDetailWrapper() {
-  const { id } = useParams();
-  return <StudentDetail studentId={id} />;
-}
-
-function PatientDetailWrapper() {
-  const { id } = useParams();
-  return <PatientDetail patientId={id} />;
-}
-
-// OnboardingWizard expects a clientId prop, not a URL param directly —
-// this was previously unreachable with any client selected at all,
-// since the route accepted no parameter to pass through.
+// OnboardingWizard takes clientId as a plain prop, not a URL param —
+// CrmClientView.jsx links to /control/onboarding/:clientId to open it
+// for a specific client, but no route matched that and nothing fed
+// the id through, so that link 404'd to the wildcard route. Same
+// wrapper pattern as CitizenPortalWrapper above.
 function OnboardingWizardWrapper() {
   const { clientId } = useParams();
   return <OnboardingWizard clientId={clientId} />;
 }
+// Role lists kept in sync with TopNav.jsx's own ROLE_TO_MODULE map —
+// same source of truth for "which roles belong to which module".
+const SCHOOL_ROLES   = ['principal', 'teacher', 'fee_clerk', 'parent', 'student'];
+const HOSPITAL_ROLES = ['doctor', 'nurse', 'receptionist', 'pharmacist'];
+
 const SCREEN_NAMES = {
   '/school/dashboard': 'Dashboard', '/school/admission': 'Student admission',
   '/school/attendance': 'Attendance', '/school/fee-collection': 'Fee collection',
@@ -128,12 +119,10 @@ const SCREEN_NAMES = {
   '/school/activities': 'Activities', '/school/reports': 'Reports',
   '/school/id-cards': 'ID cards', '/school/search': 'Search',
   '/school/classes': 'Manage classes',
-  '/school/students/new': 'Find student',
   '/hospital/dashboard': 'Dashboard', '/hospital/patients/new': 'Patient registration',
   '/hospital/opd': 'OPD visit', '/hospital/lab': 'Lab reports',
   '/hospital/billing': 'Billing', '/hospital/ipd': 'IPD management',
-  '/hospital/patients/find': 'Find patient',
-  '/control/clients': 'Clients', '/control/feedback': 'App feedback', '/control/tickets': 'Support tickets',
+  '/control/clients': 'Clients', '/control/tickets': 'Support tickets',
   '/control/billing': 'Billing tracker', '/control/onboarding': 'Onboarding',
   '/control/modifications': 'Modifications', '/control/help-admin': 'Help admin',
   '/control/access': 'Manage access', '/control/security': 'Security monitor',
@@ -159,19 +148,22 @@ function AppRoutes() {
     && !path.startsWith('/refund')
     && !path.startsWith('/pay/');
 
-  // Idle timeout — 10 minutes, matching the standard practice for
-  // shared workstations handling sensitive data (patient/student/
-  // citizen records): short enough that walking away from a shared
-  // office computer is the actual risk covered, not just closing the
-  // browser. Was 30 minutes, which is long by that same standard.
+  // Idle timeout...
   useEffect(() => {    if (!session) return;
     let idleTimer;
     function resetTimer() {
       clearTimeout(idleTimer);
       idleTimer = setTimeout(async () => {
+        // Release before signOut() — the edge function identifies the
+        // caller from their own still-valid access token, so this must
+        // run first. Non-blocking: idle sign-out still proceeds even if
+        // release fails (e.g. offline right as the timer fires).
+        try {
+          await supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } });
+        } catch { /* non-blocking */ }
         await supabase.auth.signOut();
         window.location.href = '/portal/login?reason=idle';
-      }, 10 * 60 * 1000);
+      }, 30 * 60 * 1000);
     }
     const events = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll', 'click'];
     events.forEach((e) => window.addEventListener(e, resetTimer));
@@ -182,10 +174,31 @@ function AppRoutes() {
     };
   }, [session]);
 
+  // Session heartbeat — keeps this session's claim in active_sessions
+  // fresh every 5 minutes so a genuinely still-active user is never
+  // mistaken for stale after the 30-minute claim window. If the
+  // response says the session's no longer active (another device
+  // claimed it), sign out here immediately rather than waiting for
+  // the person to hit an RLS error on their next action. No release
+  // call needed on that path — this device's own row is already gone,
+  // that's exactly why stillActive came back false.
+  useEffect(() => {
+    if (!session) return;
+    const interval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('check-and-claim-session', { body: { action: 'heartbeat' } });
+        if (!error && data && data.stillActive === false) {
+          await supabase.auth.signOut();
+          window.location.href = '/portal/login?reason=session_replaced';
+        }
+      } catch { /* network hiccup — try again next interval */ }
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [session]);
+
   return (
     <>
       {showNav && <TopNav screen={SCREEN_NAMES[path] || ''} />}
-      <VisitProvider>
       <Routes>
 
       {/* ── Website — public ── */}
@@ -203,30 +216,24 @@ function AppRoutes() {
       {/* ── Payment — public ── */}
       <Route path="/pay/:token"      element={<PayFee />} />
 
-      {/* ── Grievance — public (citizens, no login needed) ── */}
-      <Route path="/grievance" element={<GrievanceStateSelect />} />
-      <Route path="/grievance/:stateSlug" element={<CtsLanding />} />
+
+{/* ── Grievance — public (citizens, no login needed) ── */}
+<Route path="/grievance" element={<GrievanceStateSelect />} />
+<Route path="/grievance/:stateSlug" element={<CtsLanding />} />
 <Route path="/grievance/:stateSlug/citizen"
   element={<CitizenPortalWrapper />} />
-{/* staff/admin/reports below were previously listed as "public, no
-    login needed" alongside the genuinely-public citizen routes above
-    -- an older duplicate route set further down (/grievance/staff,
-    /grievance/reports, /grievance/verify-queue) correctly wraps the
-    same screens in RequireAuth, but these newer :stateSlug versions
-    never got the same guard. That's the direct cause of staff/admin
-    landing on these pages with no session and hitting a dead end. */}
 <Route path="/grievance/:stateSlug/staff"
-  element={<RequireAuth><StaffDashboard /></RequireAuth>} />
+  element={<StaffDashboard />} />
 <Route path="/grievance/:stateSlug/admin"
-  element={<RequireAuth><AdminVerificationQueue /></RequireAuth>} />
+  element={<AdminVerificationQueue />} />
 <Route path="/grievance/:stateSlug/reports"
-  element={<RequireAuth><ReportsDashboard /></RequireAuth>} />
+  element={<ReportsDashboard />} />
 <Route path="/grievance/:stateSlug/request-access"
   element={<RequestStaffAccess />} />
+<Route path="/grievance/:stateSlug/feedback"
+  element={<FeedbackDashboard />} />
 <Route path="/grievance/print"
   element={<ComplaintPrint />} />
-<Route path="/grievance/:stateSlug/feedback"
-  element={<FeedbackViewer />} />
   
   
         {/* ── Portal — auth required ── */}
@@ -243,67 +250,61 @@ function AppRoutes() {
 
       {/* ── School ── */}
       <Route path="/school/dashboard"
-        element={<RequireAuth><SchoolDashboard /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><SchoolDashboard /></RequireRole></RequireAuth>} />
       <Route path="/school/admission"
-        element={<RequireAuth><StudentAdmission /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><StudentAdmission /></RequireRole></RequireAuth>} />
       <Route path="/school/attendance"
-        element={<RequireAuth><Attendance /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><Attendance /></RequireRole></RequireAuth>} />
       <Route path="/school/fee-collection"
-        element={<RequireAuth><FeeCollection /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><FeeCollection /></RequireRole></RequireAuth>} />
       <Route path="/school/tc"
-        element={<RequireAuth><TransferCertificate /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><TransferCertificate /></RequireRole></RequireAuth>} />
       <Route path="/school/certificates"
-        element={<RequireAuth><Certificates /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><Certificates /></RequireRole></RequireAuth>} />
       <Route path="/school/transport"
-        element={<RequireAuth><Transport /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><Transport /></RequireRole></RequireAuth>} />
       <Route path="/school/hostel"
-        element={<RequireAuth><Hostel /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><Hostel /></RequireRole></RequireAuth>} />
       <Route path="/school/activities"
-        element={<RequireAuth><ActivitiesCoaching /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><ActivitiesCoaching /></RequireRole></RequireAuth>} />
       <Route path="/school/reports"
-        element={<RequireAuth><ReportEngine userTier={tenant?.tier} /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><ReportEngine userTier={tenant?.tier} /></RequireRole></RequireAuth>} />
       <Route path="/school/id-cards"
-        element={<RequireAuth><IdCardPrinter /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><IdCardPrinter /></RequireRole></RequireAuth>} />
       <Route path="/school/search"
-        element={<RequireAuth><UniversalSearch /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><UniversalSearch /></RequireRole></RequireAuth>} />
       <Route path="/school/classes"
-        element={<RequireAuth><ManageClasses /></RequireAuth>} />
-      <Route path="/school/students/new"
-        element={<RequireAuth><StudentDetail /></RequireAuth>} />
-      <Route path="/school/students/:id"
-        element={<RequireAuth><StudentDetailWrapper /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><ManageClasses /></RequireRole></RequireAuth>} />
+      <Route path="/school/student"
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><StudentDetail /></RequireRole></RequireAuth>} />
 
       {/* ── Hospital ── */}
       <Route path="/hospital/dashboard"
-        element={<RequireAuth><HospitalDashboard /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><VisitProvider><HospitalDashboard /></VisitProvider></RequireRole></RequireAuth>} />
       <Route path="/hospital/patients/new"
-        element={<RequireAuth><PatientRegistration userTier={tenant?.tier} /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><VisitProvider><PatientRegistration userTier={tenant?.tier} /></VisitProvider></RequireRole></RequireAuth>} />
       <Route path="/hospital/opd"
-        element={<RequireAuth><OpdVisit /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><VisitProvider><OpdVisit /></VisitProvider></RequireRole></RequireAuth>} />
       <Route path="/hospital/lab"
-        element={<RequireAuth><LabReports /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><VisitProvider><LabReports /></VisitProvider></RequireRole></RequireAuth>} />
       <Route path="/hospital/billing"
-        element={<RequireAuth><HospitalBilling /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><VisitProvider><HospitalBilling /></VisitProvider></RequireRole></RequireAuth>} />
       <Route path="/hospital/ipd"
-        element={<RequireAuth><IPDManagement /></RequireAuth>} />
-      <Route path="/hospital/patients/find"
-        element={<RequireAuth><PatientDetail /></RequireAuth>} />
-      <Route path="/hospital/patients/:id"
-        element={<RequireAuth><PatientDetailWrapper /></RequireAuth>} />
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><VisitProvider><IPDManagement /></VisitProvider></RequireRole></RequireAuth>} />
 
       {/* ── Grievance — staff (auth required) ── */}
       <Route path="/grievance/staff"
         element={<RequireAuth><StaffDashboard /></RequireAuth>} />
       <Route path="/grievance/reports"
-        element={<RequireAuth><exd /></RequireAuth>} />
+        element={<RequireAuth><ReportsDashboard /></RequireAuth>} />
       <Route path="/grievance/verify-queue"
         element={<RequireAuth><AdminVerificationQueue /></RequireAuth>} />
+      <Route path="/grievance/feedback"
+        element={<RequireAuth><FeedbackDashboard /></RequireAuth>} />
 
       {/* ── Control Panel — developer/support only ── */}
       <Route path="/control/clients"
         element={<RequireAuth><RequireRole roles={['developer','support']}><CrmClientView /></RequireRole></RequireAuth>} />
-      <Route path="/control/feedback"
-        element={<RequireAuth><RequireRole roles={['developer','support']}><FeedbackOverview /></RequireRole></RequireAuth>} />
       <Route path="/control/tickets"
         element={<RequireAuth><RequireRole roles={['developer','support']}><SupportTickets /></RequireRole></RequireAuth>} />
       <Route path="/control/billing"
@@ -312,6 +313,8 @@ function AppRoutes() {
         element={<RequireAuth><RequireRole roles={['developer','support']}><OnboardingWizard /></RequireRole></RequireAuth>} />
       <Route path="/control/onboarding/:clientId"
         element={<RequireAuth><RequireRole roles={['developer','support']}><OnboardingWizardWrapper /></RequireRole></RequireAuth>} />
+      <Route path="/control/feedback"
+        element={<RequireAuth><RequireRole roles={['developer','support']}><FeedbackOverview /></RequireRole></RequireAuth>} />
       <Route path="/control/modifications"
         element={<RequireAuth><RequireRole roles={['developer','support','principal','doctor']}><ModificationRequestPortal /></RequireRole></RequireAuth>} />
       <Route path="/control/help-admin"
@@ -325,7 +328,6 @@ function AppRoutes() {
       <Route path="*" element={<Navigate to="/" replace />} />
 
     </Routes>
-    </VisitProvider>
     </>
   );
 }

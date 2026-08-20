@@ -2,39 +2,88 @@
 // Embed this on any screen to let staff raise a correction or deletion request
 // Usage: <CorrectionRequest module="student" recordId={student.id} recordLabel={student.full_name} fields={STUDENT_FIELDS} />
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
+
+// Verified against StudentAdmission.jsx's own constants — reusing the
+// exact same arrays rather than inventing new ones, so a correction
+// request can never produce a value the admission form itself
+// wouldn't have allowed in the first place.
+const GENDERS = ['Male', 'Female', 'Other'];
+const CASTE_CATEGORIES = ['OC', 'BC-A', 'BC-B', 'BC-C', 'BC-D', 'BC-E', 'SC', 'ST', 'EWS', 'Other'];
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'];
+// Verified against StaffDashboard.jsx's own priority filter — same
+// two values, nothing else exists.
+const PRIORITIES = ['Normal', 'Urgent'];
+
+// Reference-type loaders — fetch real options instead of asking the
+// requester to somehow know and type a raw foreign-key id. Each
+// returns [{ value, label }]; value is what actually gets written to
+// the DB on approval.
+async function loadClassOptions(appId) {
+  const { data } = await supabase.from('classes').select('id, class_name').eq('app_id', appId).order('class_order');
+  return (data || []).map((c) => ({ value: c.id, label: c.class_name }));
+}
+
+async function loadCategoryOptions(appId) {
+  // Same query as fetchCategories() in grievance/grievanceApi.js,
+  // inlined here rather than imported — this file lives in shared/
+  // and is used by School and Hospital too, so it shouldn't pull in
+  // grievance-specific module code just for this one field type.
+  // label_en is what's actually stored/filtered on complaints
+  // elsewhere (see StaffDashboard.jsx's own category filter, which
+  // compares directly against c.label_en) — matching that here so an
+  // approved correction is stored the same way a category is stored
+  // anywhere else in the app.
+  const { data } = await supabase
+    .from('complaint_categories')
+    .select('label_en')
+    .or(`app_id.eq.${appId},app_id.is.null`)
+    .order('sort_order');
+  return (data || []).map((c) => ({ value: c.label_en, label: c.label_en }));
+}
 
 // Pass these per module
 export const STUDENT_FIELDS = [
   { key: 'full_name',      label: 'Full name' },
-  { key: 'dob',            label: 'Date of birth' },
-  { key: 'gender',         label: 'Gender' },
-  { key: 'class_id',       label: 'Class / Section' },
-  { key: 'caste_category', label: 'Caste category' },
+  { key: 'dob',            label: 'Date of birth', type: 'date' },
+  { key: 'gender',         label: 'Gender', type: 'select', options: GENDERS },
+  { key: 'class_id',       label: 'Class / Section', type: 'reference', loadOptions: loadClassOptions },
+  { key: 'caste_category', label: 'Caste category', type: 'select', options: CASTE_CATEGORIES },
   { key: 'parent_name',    label: 'Parent name' },
   { key: 'parent_phone',   label: 'Parent phone' },
   { key: 'admission_no',   label: 'Admission number' },
+  // No schema for this is currently verifiable anywhere in the School
+  // module — village_id isn't set by StudentAdmission.jsx or shown
+  // anywhere else, so there's no confirmed villages table/columns to
+  // build a safe lookup against. Left as free text deliberately,
+  // rather than guessing at a query that could silently 404 or write
+  // the wrong thing.
   { key: 'village_id',     label: 'Village' },
-  { key: 'blood_group',    label: 'Blood group' },
+  { key: 'blood_group',    label: 'Blood group', type: 'select', options: BLOOD_GROUPS },
   { key: 'apaar_id',       label: 'APAAR ID' },
 ];
 
 export const PATIENT_FIELDS = [
   { key: 'full_name',   label: 'Full name' },
-  { key: 'dob',         label: 'Date of birth' },
-  { key: 'gender',      label: 'Gender' },
+  { key: 'dob',         label: 'Date of birth', type: 'date' },
+  // Assumed same values as School's GENDERS/BLOOD_GROUPS — Hospital's
+  // own PatientRegistration.jsx hasn't been reviewed yet to confirm
+  // these are identical there. Low risk (gender/blood-group values
+  // are near-universal) but flagging the assumption rather than
+  // presenting it as verified the way School's are.
+  { key: 'gender',      label: 'Gender', type: 'select', options: GENDERS },
   { key: 'phone',       label: 'Phone number' },
-  { key: 'blood_group', label: 'Blood group' },
+  { key: 'blood_group', label: 'Blood group', type: 'select', options: BLOOD_GROUPS },
   { key: 'address',     label: 'Address' },
   { key: 'allergies',   label: 'Allergies' },
   { key: 'abha_id',     label: 'ABHA ID' },
 ];
 
 export const COMPLAINT_FIELDS = [
-  { key: 'category',    label: 'Category' },
-  { key: 'priority',    label: 'Priority' },
+  { key: 'category',    label: 'Category', type: 'reference', loadOptions: loadCategoryOptions },
+  { key: 'priority',    label: 'Priority', type: 'select', options: PRIORITIES },
   { key: 'title',       label: 'Title' },
   { key: 'description', label: 'Description' },
 ];
@@ -66,6 +115,28 @@ export default function CorrectionRequest({
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone]             = useState(false);
   const [error, setError]           = useState('');
+  const [referenceOptions, setReferenceOptions] = useState([]);
+  const [loadingOptions, setLoadingOptions]     = useState(false);
+
+  const selectedField = fields?.find((f) => f.key === fieldName);
+
+  // Loads real options for a 'reference' field whenever the selected
+  // field changes to one — e.g. real class names instead of asking
+  // the requester to type a raw class_id UUID they'd have no way of
+  // knowing.
+  useEffect(() => {
+    if (!open || selectedField?.type !== 'reference' || !tenant?.appId) {
+      setReferenceOptions([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingOptions(true);
+    selectedField.loadOptions(tenant.appId)
+      .then((opts) => { if (!cancelled) setReferenceOptions(opts); })
+      .catch(() => { if (!cancelled) setReferenceOptions([]); })
+      .finally(() => { if (!cancelled) setLoadingOptions(false); });
+    return () => { cancelled = true; };
+  }, [open, selectedField, tenant?.appId]);
 
   function openModal() {
     setRequestType('correction');
@@ -90,8 +161,6 @@ export default function CorrectionRequest({
     if (requestType === 'correction' && !newValue.trim()) { setError('New value is required.'); return; }
 
     setSubmitting(true);
-
-    const selectedField = fields?.find((f) => f.key === fieldName);
 
     const { error: insertErr } = await supabase
   .from('correction_requests')
@@ -210,10 +279,30 @@ export default function CorrectionRequest({
                       </div>
                       <div>
                         <label style={S.label}>Correct value</label>
-                        <input value={newValue} onChange={(e) => setNewValue(e.target.value)}
-                          placeholder="What it should be" style={S.input} autoFocus />
+                        {selectedField?.type === 'date' ? (
+                          <input type="date" value={newValue} onChange={(e) => setNewValue(e.target.value)}
+                            style={S.input} autoFocus />
+                        ) : selectedField?.type === 'select' ? (
+                          <select value={newValue} onChange={(e) => setNewValue(e.target.value)} style={S.select} autoFocus>
+                            <option value="">-- Select --</option>
+                            {selectedField.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        ) : selectedField?.type === 'reference' ? (
+                          <select value={newValue} onChange={(e) => setNewValue(e.target.value)} style={S.select} disabled={loadingOptions} autoFocus>
+                            <option value="">{loadingOptions ? 'Loading…' : '-- Select --'}</option>
+                            {referenceOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        ) : (
+                          <input value={newValue} onChange={(e) => setNewValue(e.target.value)}
+                            placeholder="What it should be" style={S.input} autoFocus />
+                        )}
                       </div>
                     </div>
+                    {selectedField?.type === 'reference' && !loadingOptions && referenceOptions.length === 0 && (
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: -8, marginBottom: 14 }}>
+                        No options found — check with an admin before submitting.
+                      </p>
+                    )}
                   </>
                 )}
 

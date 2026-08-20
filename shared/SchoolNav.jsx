@@ -16,7 +16,7 @@ const NAV_ITEMS = [
 // Hospital. Too many to fit in the primary bar (14 total would be
 // unusable on mobile), so they live behind the "More" button instead.
 const MORE_ITEMS = [
-  { path: '/school/students/new', icon: '🔎', label: 'Find student' },
+  { path: '/school/student',      icon: '🔎', label: 'Find student' },
   { path: '/school/tc',           icon: '📜', label: 'Transfer certificate' },
   { path: '/school/certificates', icon: '🏅', label: 'Certificates' },
   { path: '/school/transport',    icon: '🚌', label: 'Transport' },

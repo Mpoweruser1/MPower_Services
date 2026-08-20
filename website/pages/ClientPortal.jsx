@@ -26,6 +26,7 @@ export default function ClientPortal() {
   const [phone, setPhone]           = useState(tenant?.phone || '');
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
+  const [profileError, setProfileError] = useState('');
   const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd]         = useState('');
   const [changingPwd, setChangingPwd] = useState(false);
@@ -38,9 +39,14 @@ export default function ClientPortal() {
 
   async function saveProfile() {
     setSaving(true);
-    await supabase.from('apps').update({ org_name: orgName.trim() }).eq('id', tenant?.appId);
-    await supabase.from('users').update({ phone: phone.trim() }).eq('auth_id', tenant?.userId);
+    setProfileError('');
+    const { error: appErr } = await supabase.from('apps').update({ org_name: orgName.trim() }).eq('id', tenant?.appId);
+    const { error: userErr } = await supabase.from('users').update({ phone: phone.trim() }).eq('auth_id', tenant?.userId);
     setSaving(false);
+    if (appErr || userErr) {
+      setProfileError('Failed to save profile. Please try again.');
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
@@ -102,10 +108,15 @@ export default function ClientPortal() {
             {saved ? (
               <p style={{ fontSize: 13, color: '#6AAA90', fontWeight: 500 }}>✓ Profile updated</p>
             ) : (
-              <button onClick={saveProfile} disabled={saving}
-                style={{ width: '100%', padding: 11, background: saving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                {saving ? 'Saving...' : 'Save profile'}
-              </button>
+              <>
+                {profileError && (
+                  <p style={{ fontSize: 13, color: '#E05A5A', marginBottom: 10 }}>{profileError}</p>
+                )}
+                <button onClick={saveProfile} disabled={saving}
+                  style={{ width: '100%', padding: 11, background: saving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                  {saving ? 'Saving...' : 'Save profile'}
+                </button>
+              </>
             )}
           </div>
         )}
@@ -169,7 +180,13 @@ export default function ClientPortal() {
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>
                 Idle timeout: 30 minutes. You are automatically logged out after 30 minutes of inactivity for security.
               </p>
-              <button onClick={() => supabase.auth.signOut().then(() => window.location.href = '/portal/login')}
+              <button onClick={async () => {
+                try {
+                  await supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } });
+                } catch { /* non-blocking */ }
+                await supabase.auth.signOut();
+                window.location.href = '/portal/login';
+              }}
                 style={{ width: '100%', padding: 11, background: 'rgba(224,90,90,0.08)', color: '#E05A5A', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Sign out of all devices
               </button>

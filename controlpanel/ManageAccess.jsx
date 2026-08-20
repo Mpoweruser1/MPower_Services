@@ -7,10 +7,19 @@ import NextActions from '../shared/NextActions';
 import { ScreenVideoButton } from '../shared/HelpWidget';
 import BugReporter from '../shared/BugReporter';
 
+// Verified against real role strings actually checked elsewhere
+// (TopNav.jsx's ROLE_TO_MODULE, StaffDashboard.jsx's role branches).
+// 'clerk' and 'staff' here previously didn't match any role a real
+// user could actually hold (fee_clerk / grievance_staff etc.), so
+// permissions configured under those names would never have applied
+// to anyone. grievance_admin excluded — owner role, always full
+// access, same convention as principal/doctor not needing configurable
+// permissions. 'warden' left as-is: no evidence for or against it
+// existing as a real assignable role anywhere reviewed so far.
 const ROLES_BY_APP_TYPE = {
-  school: ['teacher', 'clerk', 'warden'],
+  school: ['teacher', 'fee_clerk', 'warden'],
   hospital: ['nurse', 'receptionist', 'pharmacist'],
-  grievance: ['staff'],
+  grievance: ['grievance_staff', 'representative', 'authority'],
 };
 
 export default function ManageAccess() {
