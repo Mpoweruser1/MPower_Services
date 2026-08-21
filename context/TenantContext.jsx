@@ -70,7 +70,7 @@ export function TenantProvider({ children }) {
       // Same fix pattern confirmed working in school module.
       const { data: appRow } = await supabase
         .from('apps')
-        .select('subscription_tier, app_type, org_name')
+        .select('subscription_tier, app_type, org_name, school_type')
         .eq('id', data.app_id)
         .maybeSingle();
 
@@ -81,6 +81,14 @@ export function TenantProvider({ children }) {
         .select('id, status, trial_ended_at')
         .eq('app_id', data.app_id)
         .maybeSingle();
+
+      // Branch address/district — for the org-identity banner shown
+      // across School/Hospital. Only queried if a branch actually
+      // exists yet (a very fresh signup, before FirstTimeSetup's
+      // branch-creation step runs, won't have one).
+      const { data: branchRow } = data.branch_id
+        ? await supabase.from('branches').select('address, district').eq('id', data.branch_id).maybeSingle()
+        : { data: null };
 
       setTenant({
         // IDs
@@ -98,7 +106,10 @@ export function TenantProvider({ children }) {
         // App info
         orgName:       appRow?.org_name || '',
         appType:       appRow?.app_type || null,
+        schoolType:    appRow?.school_type || null,
         tier:          appRow?.subscription_tier || 'basic',
+        address:       branchRow?.address || null,
+        district:      branchRow?.district || null,
         // Client status
         clientStatus:  clientRow?.status || 'trial',
         trialEndsAt:   clientRow?.trial_ended_at || null,

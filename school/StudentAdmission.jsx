@@ -9,6 +9,7 @@ import FormField from '../shared/FormField';
 import DraftBanner from '../shared/DraftBanner';
 import UnsavedChangesGuard from '../shared/UnsavedChangesGuard';
 import NextActions from '../shared/NextActions';
+import WelfareSchemesPanel from '../shared/WelfareSchemesPanel';
 import SchoolNav from '../shared/SchoolNav';
 import BugReporter from '../shared/BugReporter';
 
@@ -29,12 +30,17 @@ const GENDERS    = ['Male', 'Female', 'Other'];
 const CATEGORIES = ['OC', 'BC-A', 'BC-B', 'BC-C', 'BC-D', 'BC-E', 'SC', 'ST', 'EWS', 'Other'];
 const MEDIUMS    = ['Telugu Medium', 'English Medium', 'Hindi Medium', 'Urdu Medium'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'];
+// Standard Indian census religion categories — needed because some
+// welfare scholarships (e.g. minority-community schemes) are
+// eligibility-gated on this, and that check was silently always
+// failing since this was never actually collected anywhere.
+const RELIGIONS = ['Hindu', 'Muslim', 'Christian', 'Sikh', 'Buddhist', 'Jain', 'Other'];
 
 const EMPTY_FORM = {
   full_name: '', full_name_telugu: '', dob: '', gender: '',
   admission_no: '', admission_date: new Date().toISOString().slice(0, 10),
   class_id: '', section: '', medium: 'Telugu Medium',
-  caste_category: '', blood_group: '',
+  caste_category: '', blood_group: '', religion: '', annual_income: '',
   parent_name: '', parent_phone: '',
   address: '', apaar_id: '',
   student_type: 'day_scholar',
@@ -116,6 +122,8 @@ export default function StudentAdmission() {
         medium:         form.medium,
         caste_category: form.caste_category || null,
         blood_group:    form.blood_group || null,
+        religion:       form.religion || null,
+        annual_income:  form.annual_income ? Number(form.annual_income) : null,
         parent_name:    form.parent_name.trim(),
         parent_phone:   form.parent_phone.trim(),
         student_type:   form.student_type,
@@ -332,6 +340,33 @@ export default function StudentAdmission() {
             />
           </div>
 
+          <div style={S.row2}>
+            <FormField
+              label="Religion"
+              name="religion"
+              type="select"
+              value={form.religion}
+              onChange={update}
+              onBlur={touch}
+              error={errors.religion}
+              touched={touched.religion}
+              options={RELIGIONS.map((r) => ({ value: r, label: r }))}
+              hint="Affects welfare scheme eligibility"
+            />
+            <FormField
+              label="Annual family income (₹)"
+              name="annual_income"
+              type="amount"
+              value={form.annual_income}
+              onChange={update}
+              onBlur={touch}
+              error={errors.annual_income}
+              touched={touched.annual_income}
+              placeholder="e.g. 200000"
+              hint="Affects welfare scheme eligibility"
+            />
+          </div>
+
           <FormField
             label="APAAR ID"
             name="apaar_id"
@@ -474,6 +509,12 @@ export default function StudentAdmission() {
             rows={2}
           />
         </div>
+
+        {/* Welfare scheme eligibility — live preview based on what's
+            been entered so far. student.id is undefined here (not
+            yet created), so "Mark as identified" naturally stays
+            inactive until after admission; this is preview only. */}
+        <WelfareSchemesPanel mode="student" student={form} appId={tenant?.appId} schoolType={tenant?.schoolType} compact={false} />
 
         {/* Auto-save indicator */}
         {isDirty && (

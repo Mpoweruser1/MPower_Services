@@ -144,7 +144,7 @@ export default function FeedbackDashboard() {
                 )}
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  <Tag>{entry.from_type}{entry.from_name ? ` · ${entry.from_name}` : ''}</Tag>
+                  <Tag>{entry.from_type}{entry.from_name ? ` · ${entry.from_name}` : ''}{entry.from_village ? ` · ${entry.from_village}` : ''}</Tag>
                   {entry.context && <Tag>{entry.context}</Tag>}
                   {isOwnerLevel && entry.app_org_name && (
                     <Tag accent>{entry.app_org_name}{entry.app_type ? ` (${entry.app_type})` : ''}</Tag>

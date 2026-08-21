@@ -36,6 +36,7 @@ export default function WelfareSchemesPanel({
   patient = null,
   category = null,
   appId = null,
+  schoolType = null,
   existingSchemes = [],
   onSchemeMarked = null,
   compact = false,
@@ -45,12 +46,12 @@ export default function WelfareSchemesPanel({
   const [expanded, setExpanded] = useState({});
   const [marking, setMarking]   = useState({});
 
-  useEffect(() => { loadSchemes(); }, [mode, student?.caste_category, patient?.id, category]);
+  useEffect(() => { loadSchemes(); }, [mode, student?.caste_category, student?.religion, student?.annual_income, schoolType, patient?.id, category]);
 
   async function loadSchemes() {
     setLoading(true);
     let result = [];
-    if (mode === 'student' && student)   result = await getStudentWelfareSchemes(student);
+    if (mode === 'student' && student)   result = await getStudentWelfareSchemes(student, schoolType);
     else if (mode === 'patient')         result = await getPatientWelfareSchemes();
     else if (mode === 'grievance' && category) result = await getGrievanceWelfareSchemes(category);
     setSchemes(result);

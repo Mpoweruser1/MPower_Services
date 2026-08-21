@@ -164,6 +164,25 @@ export default function TopNav({ screen }) {
         </div>
       </nav>
 
+      {/* Org identity banner — shows whichever school/hospital/org is
+          active, since it just reads tenant fields directly and
+          works the same regardless of module. */}
+      {tenant?.orgName && (
+        <div style={{
+          padding: '8px 16px',
+          background: '#161618',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          fontFamily: "'Inter', -apple-system, sans-serif",
+        }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#fff' }}>{tenant.orgName}</p>
+          {(tenant.address || tenant.district) && (
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+              {[tenant.address, tenant.district].filter(Boolean).join(', ')}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Confirm dialog — inline, no fixed position */}
       {showConfirm && (
         <div style={{

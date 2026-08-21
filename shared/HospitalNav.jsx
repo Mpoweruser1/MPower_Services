@@ -6,10 +6,9 @@ const NAV_ITEMS = [
   { path: '/hospital/dashboard',    icon: '📊', label: 'Home' },
   { path: '/hospital/patients/new', icon: '👤', label: 'Register' },
   { path: '/hospital/opd',          icon: '🩺', label: 'OPD' },
-  { path: '/hospital/lab',          icon: '🔬', label: 'Lab' },
   { path: '/hospital/billing',      icon: '💳', label: 'Billing' },
   { path: '/hospital/ipd',          icon: '🛏️', label: 'IPD' },
-  { path: '/hospital/patients/find', icon: '🔍', label: 'Find' },
+  { path: '/hospital/patients/find',icon: '🔍', label: 'Find' },
 ];
 
 export default function HospitalNav() {

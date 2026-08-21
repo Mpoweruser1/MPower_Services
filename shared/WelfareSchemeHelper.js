@@ -1,7 +1,7 @@
 // shared/WelfareSchemeHelper.js — FINAL
 import { supabase } from '../lib/supabaseClient';
 
-export async function getStudentWelfareSchemes(student) {
+export async function getStudentWelfareSchemes(student, schoolType) {
   const { data: schemes } = await supabase
     .from('master_welfare_schemes')
     .select('*')
@@ -25,7 +25,10 @@ export async function getStudentWelfareSchemes(student) {
     if (scheme.max_annual_income && student.annual_income) {
       if (Number(student.annual_income) > scheme.max_annual_income) return false;
     }
-    if (scheme.requires_govt_school && student.school_type !== 'government') return false;
+    // school_type is a tenant-level property (every student at the
+    // same school shares it), not a per-student field — passed in
+    // separately rather than read off student, which never had it.
+    if (scheme.requires_govt_school && schoolType !== 'government') return false;
     return true;
   });
 }

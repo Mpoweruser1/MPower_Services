@@ -38,6 +38,7 @@ import { ReportEngine, IdCardPrinter, UniversalSearch } from './school/ReportsSe
 
 // Hospital
 import HospitalDashboard from './hospital/HospitalDashboard';
+import PatientDetail from './hospital/PatientDetail';
 import PatientRegistration from './hospital/PatientRegistration';
 import OpdVisit from './hospital/OpdVisit';
 import LabReports from './hospital/LabReports';
@@ -291,6 +292,8 @@ function AppRoutes() {
         element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><VisitProvider><HospitalBilling /></VisitProvider></RequireRole></RequireAuth>} />
       <Route path="/hospital/ipd"
         element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><VisitProvider><IPDManagement /></VisitProvider></RequireRole></RequireAuth>} />
+      <Route path="/hospital/patients/find"
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><PatientDetail /></RequireRole></RequireAuth>} />
 
       {/* ── Grievance — staff (auth required) ── */}
       <Route path="/grievance/staff"

@@ -42,22 +42,10 @@ export default function CtsLanding() {
   const [cmPhotoUrl, setCmPhotoUrl] = useState(null);
   useEffect(() => {
     const fileName = CM_PHOTOS[stateConfig?.name_en];
-    // TEMPORARY — remove once the real cause is confirmed. Logs the
-    // exact value being looked up, since a silent no-photo result with
-    // zero console errors is consistent with this never matching a
-    // CM_PHOTOS key in the first place (fetch never even attempted),
-    // rather than the fetch itself failing.
-    console.log('[CM photo debug] stateConfig?.name_en =', JSON.stringify(stateConfig?.name_en), '→ fileName =', fileName);
     if (!fileName) { setCmPhotoUrl(null); return; }
     supabase.storage.from('representative-photos').createSignedUrl(fileName, 3600)
-      .then(({ data, error }) => {
-        console.log('[CM photo debug] createSignedUrl result:', { data, error });
-        setCmPhotoUrl(data?.signedUrl || null);
-      })
-      .catch((err) => {
-        console.log('[CM photo debug] createSignedUrl threw:', err);
-        setCmPhotoUrl(null);
-      });
+      .then(({ data }) => setCmPhotoUrl(data?.signedUrl || null))
+      .catch(() => setCmPhotoUrl(null));
   }, [stateConfig?.name_en]);
 
   useEffect(() => {

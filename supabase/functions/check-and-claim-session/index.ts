@@ -19,7 +19,7 @@
 //   'release'   — called on Sign Out, from any module. Deletes the
 //                 row outright, so signing out and immediately
 //                 signing back in (even on the same device) never
-//                 hits the 30-minute wait.
+//                 hits the wait.
 //
 // Deploy: supabase functions deploy check-and-claim-session
 
@@ -29,12 +29,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// A session is treated as abandoned once it's gone quiet this long,
-// not just once time has passed since login — someone actively
-// using the app for hours should never be treated as stale, and
-// someone who closed their laptop 31 minutes ago shouldn't be
-// locked out of their own account.
-const STALE_AFTER_MINUTES = 30;
+// TEMPORARY — lowered from 30 to 2 for active testing, so a tab
+// closed without clicking Sign Out doesn't block re-login for half an
+// hour every time. Set this back to 30 before any real production use
+// — at 2 minutes, single-session enforcement barely does anything;
+// a brief network hiccup or short idle moment would let a second
+// device claim the session almost immediately.
+const STALE_AFTER_MINUTES = 2;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -73,8 +74,8 @@ serve(async (req) => {
 
     if (action === 'release') {
       // Sign Out — always succeeds, always clears the row. No
-      // reason to leave a 30-minute lockout for someone who just
-      // deliberately signed out.
+      // reason to leave a lockout for someone who just deliberately
+      // signed out.
       await adminClient.from('active_sessions').delete().eq('auth_id', caller.id);
       return json({ released: true });
     }

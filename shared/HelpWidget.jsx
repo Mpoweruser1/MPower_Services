@@ -15,8 +15,7 @@ export function FieldHelp({ screenCode, fieldName }) {
       .select('*')
       .eq('screen_code', screenCode)
       .eq('field_name', fieldName)
-      .limit(1)
-      .single();
+      .maybeSingle();
     if (data) {
       setHelp(data);
       await supabase.from('help_analytics').insert({
@@ -59,8 +58,7 @@ export function ScreenVideoButton({ screenCode }) {
       .select('*')
       .eq('screen_code', screenCode)
       .eq('is_active', true)
-      .limit(1)
-      .single();
+      .maybeSingle();
     setChecking(false);
     if (!data?.video_id) {
       alert('Help video coming soon for this screen. · త్వరలో వస్తుంది.');

@@ -39,6 +39,7 @@ export default function FirstTimeSetup() {
     district: '',
     address: '',
     contact_phone: tenant?.phone || '',
+    school_type: '',
   });
 
   const [schoolConfig, setSchoolConfig] = useState({
@@ -102,7 +103,9 @@ export default function FirstTimeSetup() {
     setSubmitError('');
 
     if (step === 1) {
-      const { error: appErr } = await supabase.from('apps').update({ org_name: orgInfo.orgName.trim() }).eq('id', tenant?.appId);
+      const appUpdate = { org_name: orgInfo.orgName.trim() };
+      if (isSchool) appUpdate.school_type = orgInfo.school_type || null;
+      const { error: appErr } = await supabase.from('apps').update(appUpdate).eq('id', tenant?.appId);
       if (appErr) { setSubmitError('Failed to save organisation name. Please try again.'); setSaving(false); return; }
 
       if (tenant?.branchId) {
@@ -232,6 +235,22 @@ export default function FirstTimeSetup() {
               <input value={orgInfo.address} onChange={(e) => setOrgInfo((o) => ({ ...o, address: e.target.value }))}
                 placeholder="Full address" style={S.input(false)} />
             </div>
+
+            {isSchool && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>School type</label>
+                <select value={orgInfo.school_type} onChange={(e) => setOrgInfo((o) => ({ ...o, school_type: e.target.value }))}
+                  style={{ ...S.input(false), cursor: 'pointer' }}>
+                  <option value="">-- Select --</option>
+                  <option value="government">Government</option>
+                  <option value="aided">Government-aided</option>
+                  <option value="private">Private</option>
+                </select>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
+                  Affects which welfare schemes show as eligible for your students
+                </p>
+              </div>
+            )}
 
             <div>
               <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Contact phone</label>

@@ -10,8 +10,16 @@ import { supabase } from '../lib/supabaseClient';
 // the browser back button. Also had no Home link at all. Fixed here
 // with the same primary+overflow "More" pattern already proven for
 // School/Hospital nav once there are too many items for one bottom bar.
+// Role lists verified against App.jsx's own RequireRole on each route —
+// /control/modifications and /control/access both also allow
+// principal/doctor there, but this file previously restricted every
+// item (including those two) to developer/support only. That meant a
+// principal or doctor legitimately using ModificationRequestPortal.jsx
+// or ManageAccess.jsx (both render this nav unconditionally) saw a
+// completely empty nav bar — nothing in the primary row, nothing in
+// "More" either, just a bare Sign out button.
 const PRIMARY_ITEMS = [
-  { path: '/portal/dashboard',      icon: '🏠', label: 'Home',        roles: ['developer', 'support'] },
+  { path: '/portal/dashboard',      icon: '🏠', label: 'Home' }, // no role restriction — safe landing page for anyone who reaches this nav
   { path: '/control/clients',       icon: '👥', label: 'Clients',     roles: ['developer', 'support'] },
   { path: '/control/tickets',       icon: '🎫', label: 'Tickets',     roles: ['developer', 'support'] },
   { path: '/control/billing',       icon: '💳', label: 'Billing',     roles: ['developer', 'support'] },
@@ -19,9 +27,9 @@ const PRIMARY_ITEMS = [
 
 const MORE_ITEMS = [
   { path: '/control/onboarding',    icon: '🚀', label: 'Onboarding',  roles: ['developer', 'support'] },
-  { path: '/control/modifications', icon: '✏️', label: 'Requests',    roles: ['developer', 'support'] },
+  { path: '/control/modifications', icon: '✏️', label: 'Requests',    roles: ['developer', 'support', 'principal', 'doctor'] },
   { path: '/control/help-admin',    icon: '📚', label: 'Help Admin',  roles: ['developer', 'support'] },
-  { path: '/control/access',        icon: '🔐', label: 'Access',      roles: ['developer', 'support'] },
+  { path: '/control/access',        icon: '🔐', label: 'Access',      roles: ['developer', 'support', 'principal', 'doctor'] },
   { path: '/control/security',      icon: '🛡️', label: 'Security',    roles: ['developer', 'support'] },
 ];
 
@@ -49,7 +57,12 @@ export default function ControlPanelNav() {
                 </Link>
               ))}
             </div>
-            <button onClick={() => supabase.auth.signOut()}
+            <button onClick={async () => {
+              try {
+                await supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } });
+              } catch { /* non-blocking */ }
+              await supabase.auth.signOut();
+            }}
               style={{ width: 'calc(100% - 32px)', margin: '0 16px', padding: 12, background: 'transparent', border: '1px solid rgba(224,90,90,0.3)', borderRadius: 10, color: '#E05A5A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               Sign out
             </button>

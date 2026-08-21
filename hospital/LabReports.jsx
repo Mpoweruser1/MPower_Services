@@ -93,6 +93,7 @@ export default function LabReports() {
     setSaving(true);
 
     const rows = selectedTests.map((test) => ({
+      app_id:     tenant.appId,
       patient_id: selectedPatient.id,
       test_name:  test.test_name,
       ordered_by: tenant.userRowId,
@@ -100,7 +101,12 @@ export default function LabReports() {
     }));
 
     const { error } = await supabase.from('lab_tests').insert(rows);
-    if (error) { setSubmitError('Failed to order tests.'); setSaving(false); return; }
+    if (error) {
+      console.error('Lab test order failed:', error);
+      setSubmitError('Failed to order tests.');
+      setSaving(false);
+      return;
+    }
 
     setSelectedTests([]);
     setSaved(true);

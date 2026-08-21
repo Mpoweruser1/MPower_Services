@@ -125,7 +125,7 @@ export default function FeedbackOverview() {
                       {APP_TYPES[f.app_type]?.icon || '📱'} {f.app_org_name || 'Unknown org'}
                     </div>
                     <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.4)' }}>
-                      {f.from_type}{f.from_name ? ` · ${f.from_name}` : ''} · {new Date(f.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {f.from_type}{f.from_name ? ` · ${f.from_name}` : ''}{f.from_village ? ` · ${f.from_village}` : ''} · {new Date(f.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
                   </div>
                   {f.rating && (

@@ -51,10 +51,8 @@ export default function PatientRegistration() {
   const { errors, touched, validate, touch, onChange: onValidate, reset } =
     useFormValidation(RULES);
 
-  const { hasDraft, lastSaved, isDirty, clearDraft, dismissDraft } =
-    useAutoSave('patient_registration', form, {
-      onRestore: (data) => setForm(data),
-    });
+  const { hasDraft, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft } =
+    useAutoSave('patient_registration', form);
 
   function update(field, value) {
     let v = value;
@@ -146,7 +144,7 @@ export default function PatientRegistration() {
 
         {!registered ? (
           <>
-            {hasDraft && <DraftBanner lastSaved={lastSaved} onRestore={() => {}} onDiscard={dismissDraft} />}
+            {hasDraft && <DraftBanner lastSaved={lastSaved} onRestore={() => setForm(restoreDraft())} onDiscard={dismissDraft} />}
 
             {submitError && (
               <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A' }}>

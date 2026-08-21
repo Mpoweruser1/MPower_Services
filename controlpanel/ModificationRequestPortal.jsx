@@ -292,7 +292,7 @@ function RequestCard({ req, tenant, onPaySuccess }) {
 
               {/* Razorpay payment button */}
               <PayButton
-                amount={req.quote_amount * 100}
+                amount={req.quote_amount}
                 label={`Accept & Pay ₹${Number(req.quote_amount).toLocaleString('en-IN')} — Start development`}
                 purpose="modification_request"
                 modRequestId={req.id}

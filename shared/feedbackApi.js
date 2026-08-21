@@ -63,15 +63,29 @@ async function enrichFeedback(rows) {
   const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
 
   const [citizenRes, userRes] = await Promise.all([
-    citizenIds.length ? supabase.from('citizens').select('id, full_name').in('id', citizenIds) : { data: [] },
+    citizenIds.length ? supabase.from('citizens').select('id, full_name, village_id').in('id', citizenIds) : { data: [] },
     userIds.length ? supabase.from('users').select('id, full_name').in('id', userIds) : { data: [] },
   ]);
-  const citizenMap = Object.fromEntries((citizenRes.data || []).map((c) => [c.id, c.full_name]));
+  const citizenMap = Object.fromEntries((citizenRes.data || []).map((c) => [c.id, c]));
   const userMap = Object.fromEntries((userRes.data || []).map((u) => [u.id, u.full_name]));
 
-  return rows.map((r) => ({
-    ...r,
-    from_name: r.citizen_id ? citizenMap[r.citizen_id] : r.user_id ? userMap[r.user_id] : null,
-    from_type: r.citizen_id ? 'Citizen' : r.user_id ? 'Staff' : 'Anonymous',
-  }));
+  // Village only exists on citizens — School/Hospital staff (users)
+  // have no location field at all, so staff-sourced feedback simply
+  // has nothing to show here. Not a gap to fill, just how the data
+  // is structured.
+  const villageIds = [...new Set((citizenRes.data || []).map((c) => c.village_id).filter(Boolean))];
+  const { data: villages } = villageIds.length
+    ? await supabase.from('villages').select('id, name').in('id', villageIds)
+    : { data: [] };
+  const villageMap = Object.fromEntries((villages || []).map((v) => [v.id, v.name]));
+
+  return rows.map((r) => {
+    const citizen = r.citizen_id ? citizenMap[r.citizen_id] : null;
+    return {
+      ...r,
+      from_name: citizen ? citizen.full_name : r.user_id ? userMap[r.user_id] : null,
+      from_type: r.citizen_id ? 'Citizen' : r.user_id ? 'Staff' : 'Anonymous',
+      from_village: citizen?.village_id ? villageMap[citizen.village_id] || null : null,
+    };
+  });
 }

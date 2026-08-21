@@ -119,6 +119,7 @@ export default function IPDManagement() {
 
     setAdmitting(true);
     const { error } = await supabase.from('ipd_admissions').insert({
+      app_id:              tenant.appId,
       patient_id:          admitPatient.id,
       ward_id:             admitWardId,
       bed_no:              admitBedNo.trim(),
@@ -126,6 +127,8 @@ export default function IPDManagement() {
       admitting_doctor_id: tenant.userRowId,
       diagnosis:           admitDiagnosis.trim() || 'Pending',
     });
+
+    if (error) console.error('Admission failed:', error);
 
     if (error) { setAdmitError('Failed to admit patient. Bed may already be occupied.'); setAdmitting(false); return; }
 

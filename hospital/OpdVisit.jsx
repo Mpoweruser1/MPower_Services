@@ -55,8 +55,8 @@ export default function OpdVisit() {
   const { errors, touched, validate, touch, onChange: onValidate, reset } =
     useFormValidation(RULES);
 
-  const { hasDraft, lastSaved, isDirty, clearDraft, dismissDraft } =
-    useAutoSave('opd_visit', form, { onRestore: (d) => setForm(d) });
+  const { hasDraft, lastSaved, isDirty, clearDraft, dismissDraft, restoreDraft } =
+    useAutoSave('opd_visit', form);
 
   useEffect(() => {
     if (tenant?.appId) loadDoctors();
@@ -191,7 +191,7 @@ export default function OpdVisit() {
 
         {!saved ? (
           <>
-            {hasDraft && <DraftBanner lastSaved={lastSaved} onRestore={() => {}} onDiscard={dismissDraft} />}
+            {hasDraft && <DraftBanner lastSaved={lastSaved} onRestore={() => setForm(restoreDraft())} onDiscard={dismissDraft} />}
 
             <div style={{ ...S.card, marginBottom: 16 }}>
               <PatientSelector

@@ -126,6 +126,8 @@ export default function HospitalBilling() {
     const { data: inv, error: invErr } = await supabase
       .from('billing_invoices')
       .insert({
+        app_id:       tenant.appId,
+        branch_id:    tenant.branchId || null,
         patient_id:   selectedPatient.id,
         invoice_no:   invoiceNo,
         line_items:   items,
@@ -137,7 +139,12 @@ export default function HospitalBilling() {
       .select()
       .single();
 
-    if (invErr) { setSubmitError('Failed to generate invoice. Please try again.'); setSaving(false); return; }
+    if (invErr) {
+      console.error('Invoice generation failed:', invErr);
+      setSubmitError('Failed to generate invoice. Please try again.');
+      setSaving(false);
+      return;
+    }
 
     if (selectedPatient.phone) {
       await supabase.functions.invoke('send-whatsapp', {
