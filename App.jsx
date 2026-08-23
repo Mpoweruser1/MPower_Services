@@ -34,11 +34,23 @@ import Hostel from './school/Hostel';
 import ActivitiesCoaching from './school/ActivitiesCoaching';
 import StudentAdmission from './school/StudentAdmission';
 import ManageClasses from './school/ManageClasses';
+import Timetable from './school/Timetable';
+import PromoteStudents from './school/PromoteStudents';
+import PTMScheduling from './school/PTMScheduling';
+import HomeworkTracking from './school/HomeworkTracking';
+import HomeworkView from './website/pages/HomeworkView';
+import PTMBooking from './website/pages/PTMBooking';
 import { ReportEngine, IdCardPrinter, UniversalSearch } from './school/ReportsSearchIdCards';
 
 // Hospital
 import HospitalDashboard from './hospital/HospitalDashboard';
 import PatientDetail from './hospital/PatientDetail';
+import ManageWards from './hospital/ManageWards';
+import ManageDoctors from './hospital/ManageDoctors';
+import ManageLabTests from './hospital/ManageLabTests';
+import OpdAppointments from './hospital/OpdAppointments';
+import OpdAppointmentBooking from './website/pages/OpdAppointmentBooking';
+import { HospitalReports } from './hospital/HospitalReports';
 import PatientRegistration from './hospital/PatientRegistration';
 import OpdVisit from './hospital/OpdVisit';
 import LabReports from './hospital/LabReports';
@@ -120,9 +132,18 @@ const SCREEN_NAMES = {
   '/school/activities': 'Activities', '/school/reports': 'Reports',
   '/school/id-cards': 'ID cards', '/school/search': 'Search',
   '/school/classes': 'Manage classes',
+  '/school/timetable': 'Timetable',
+  '/school/promote-students': 'Promote students',
+  '/school/ptm': 'Parent-Teacher Meetings',
+  '/school/homework': 'Homework Diary',
   '/hospital/dashboard': 'Dashboard', '/hospital/patients/new': 'Patient registration',
   '/hospital/opd': 'OPD visit', '/hospital/lab': 'Lab reports',
   '/hospital/billing': 'Billing', '/hospital/ipd': 'IPD management',
+  '/hospital/patients/find': 'Find patient', '/hospital/wards': 'Manage wards',
+  '/hospital/doctors': 'Manage doctors',
+  '/hospital/lab-tests': 'Manage lab tests',
+  '/hospital/appointments': 'OPD Appointments',
+  '/hospital/reports': 'Reports',
   '/control/clients': 'Clients', '/control/tickets': 'Support tickets',
   '/control/billing': 'Billing tracker', '/control/onboarding': 'Onboarding',
   '/control/modifications': 'Modifications', '/control/help-admin': 'Help admin',
@@ -147,7 +168,10 @@ function AppRoutes() {
     && !path.startsWith('/privacy')
     && !path.startsWith('/terms')
     && !path.startsWith('/refund')
-    && !path.startsWith('/pay/');
+    && !path.startsWith('/pay/')
+    && !path.startsWith('/ptm/')
+    && !path.startsWith('/homework/')
+    && !path.startsWith('/opd-appointment/');
 
   // Idle timeout...
   useEffect(() => {    if (!session) return;
@@ -216,6 +240,9 @@ function AppRoutes() {
 
       {/* ── Payment — public ── */}
       <Route path="/pay/:token"      element={<PayFee />} />
+      <Route path="/ptm/:sessionId"  element={<PTMBooking />} />
+      <Route path="/opd-appointment/:dayId" element={<OpdAppointmentBooking />} />
+      <Route path="/homework/:classId" element={<HomeworkView />} />
 
 
 {/* ── Grievance — public (citizens, no login needed) ── */}
@@ -278,6 +305,14 @@ function AppRoutes() {
         element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><ManageClasses /></RequireRole></RequireAuth>} />
       <Route path="/school/student"
         element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><StudentDetail /></RequireRole></RequireAuth>} />
+      <Route path="/school/timetable"
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><Timetable /></RequireRole></RequireAuth>} />
+      <Route path="/school/promote-students"
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><PromoteStudents /></RequireRole></RequireAuth>} />
+      <Route path="/school/ptm"
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><PTMScheduling /></RequireRole></RequireAuth>} />
+      <Route path="/school/homework"
+        element={<RequireAuth><RequireRole roles={SCHOOL_ROLES}><HomeworkTracking /></RequireRole></RequireAuth>} />
 
       {/* ── Hospital ── */}
       <Route path="/hospital/dashboard"
@@ -294,6 +329,16 @@ function AppRoutes() {
         element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><VisitProvider><IPDManagement /></VisitProvider></RequireRole></RequireAuth>} />
       <Route path="/hospital/patients/find"
         element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><PatientDetail /></RequireRole></RequireAuth>} />
+      <Route path="/hospital/wards"
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><ManageWards /></RequireRole></RequireAuth>} />
+      <Route path="/hospital/doctors"
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><ManageDoctors /></RequireRole></RequireAuth>} />
+      <Route path="/hospital/lab-tests"
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><ManageLabTests /></RequireRole></RequireAuth>} />
+      <Route path="/hospital/appointments"
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><OpdAppointments /></RequireRole></RequireAuth>} />
+      <Route path="/hospital/reports"
+        element={<RequireAuth><RequireRole roles={HOSPITAL_ROLES}><HospitalReports userTier={tenant?.tier} /></RequireRole></RequireAuth>} />
 
       {/* ── Grievance — staff (auth required) ── */}
       <Route path="/grievance/staff"

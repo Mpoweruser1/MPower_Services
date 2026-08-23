@@ -25,6 +25,9 @@ const MORE_ITEMS = [
   { path: '/school/id-cards',     icon: '🪪', label: 'ID cards' },
   { path: '/school/search',       icon: '🔍', label: 'Universal search' },
   { path: '/school/classes',      icon: '🏫', label: 'Manage classes' },
+  { path: '/school/timetable',    icon: '🗓️', label: 'Timetable' },
+  { path: '/school/promote-students', icon: '🎓', label: 'Promote students' },
+  { path: '/school/ptm', icon: '🗓️', label: 'Parent meetings' },
 ];
 
 export default function SchoolNav() {

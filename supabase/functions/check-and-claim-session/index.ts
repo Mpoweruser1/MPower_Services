@@ -29,13 +29,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// TEMPORARY — lowered from 30 to 2 for active testing, so a tab
-// closed without clicking Sign Out doesn't block re-login for half an
-// hour every time. Set this back to 30 before any real production use
-// — at 2 minutes, single-session enforcement barely does anything;
-// a brief network hiccup or short idle moment would let a second
-// device claim the session almost immediately.
-const STALE_AFTER_MINUTES = 2;
+// Production value. A person who genuinely needs back in immediately
+// (their own account, a different device or a closed tab) uses the
+// explicit "It's me — sign in here instead" option in PortalLogin.jsx
+// rather than this window being shortened — that button releases the
+// old session right away, on demand, without weakening this timeout
+// for everyone.
+const STALE_AFTER_MINUTES = 30;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',

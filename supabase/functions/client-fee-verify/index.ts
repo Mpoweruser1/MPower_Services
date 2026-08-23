@@ -93,6 +93,22 @@ serve(async (req) => {
       }),
     }).catch((e) => console.error('WhatsApp receipt failed:', e));
 
+    // Mark the payment link itself as paid — done here, server-side,
+    // ONLY after the signature above is confirmed genuine. Previously
+    // this happened via a direct client-side update, protected only
+    // by an RLS policy with USING (true) — completely unrestricted.
+    // Anyone bypassing the UI (a direct API call with the public anon
+    // key) could mark any fee as paid without ever paying. Doing it
+    // here instead, via the service role, closes that off entirely —
+    // the client no longer has (or needs) any path to flip this
+    // status itself.
+    if (linkToken) {
+      await adminClient
+        .from('fee_payment_links')
+        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .eq('link_token', linkToken);
+    }
+
     return json({ verified: true, paymentId: razorpay_payment_id });
   } catch (err) {
     console.error(err);

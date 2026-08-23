@@ -12,6 +12,7 @@ import FormField from '../shared/FormField';
 import PrintHeader from '../shared/PrintHeader';
 import HospitalNav from '../shared/HospitalNav';
 import NextActions from '../shared/NextActions';
+import VitalsEntry from '../shared/VitalsEntry';
 import BugReporter from '../shared/BugReporter';
 
 const VISIT_TYPES = ['New patient', 'Follow-up', 'Emergency', 'Review'];
@@ -75,6 +76,24 @@ export default function OpdVisit() {
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
     onValidate(field, value);
+  }
+
+  // Pull forward the reason from today's appointment booking, if this
+  // patient checked in via one — otherwise that stated reason for
+  // visit is captured at booking and then just disappears.
+  async function pullAppointmentReason(patient) {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from('opd_appointment_slots')
+      .select('reason, opd_appointment_days(appointment_date)')
+      .eq('patient_id', patient.id)
+      .eq('status', 'completed')
+      .order('slot_time', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data?.reason && data.opd_appointment_days?.appointment_date === today && !form.chief_complaint) {
+      update('chief_complaint', data.reason);
+    }
   }
 
   function addMedicine() {
@@ -196,7 +215,7 @@ export default function OpdVisit() {
             <div style={{ ...S.card, marginBottom: 16 }}>
               <PatientSelector
                 selectedPatient={selectedPatient}
-                onSelect={(p) => { setSelectedPatient(p); setActivePatient(p); }}
+                onSelect={(p) => { setSelectedPatient(p); setActivePatient(p); pullAppointmentReason(p); }}
                 onClear={() => { setSelectedPatient(null); clearPatient(); }}
                 showTodayQueue={true}
                 label="Select patient · రోగిని ఎంచుకోండి"
@@ -239,6 +258,11 @@ export default function OpdVisit() {
 
                   <div style={{ marginBottom: 14 }}>
                     <label style={S.label}>Chief complaint <span style={{ color: '#E05A5A' }}>*</span></label>
+                    {form.chief_complaint && !touched.chief_complaint && (
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: -4, marginBottom: 6 }}>
+                        Pulled forward from their appointment booking today — edit if needed
+                      </p>
+                    )}
                     <textarea value={form.chief_complaint}
                       onChange={(e) => update('chief_complaint', e.target.value)}
                       onBlur={() => touch('chief_complaint', form.chief_complaint)}
@@ -340,18 +364,21 @@ export default function OpdVisit() {
             )}
           </>
         ) : (
-          <NextActions
-            title="OPD visit saved — what next?"
-            actions={[
-              { icon: '🔬', label: 'Order lab tests', href: '/hospital/lab', color: '#5A9ADF' },
-              { icon: '💳', label: 'Generate bill', href: '/hospital/billing', color: '#6AAA90' },
-            ]}
-            secondaryActions={[
-              { icon: '🛏️', label: 'Admit to IPD', href: '/hospital/ipd' },
-              { icon: '👤', label: 'New OPD visit', onClick: startNewVisit },
-              { icon: '🏠', label: 'Dashboard', href: '/hospital/dashboard' },
-            ]}
-          />
+          <>
+            <VitalsEntry patientId={saved.patient.id} contextType="opd" contextId={saved.visitRow.id} />
+            <NextActions
+              title="OPD visit saved — what next?"
+              actions={[
+                { icon: '🔬', label: 'Order lab tests', href: '/hospital/lab', color: '#5A9ADF' },
+                { icon: '💳', label: 'Generate bill', href: '/hospital/billing', color: '#6AAA90' },
+              ]}
+              secondaryActions={[
+                { icon: '🛏️', label: 'Admit to IPD', href: '/hospital/ipd' },
+                { icon: '👤', label: 'New OPD visit', onClick: startNewVisit },
+                { icon: '🏠', label: 'Dashboard', href: '/hospital/dashboard' },
+              ]}
+            />
+          </>
         )}
       </div>
 

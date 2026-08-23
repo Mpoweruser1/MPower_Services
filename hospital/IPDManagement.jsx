@@ -5,6 +5,8 @@ import { useTenant } from '../context/TenantContext';
 import { useVisit } from '../context/VisitContext';
 import { sanitize, validators } from '../shared/useFormValidation';
 import PatientSelector from '../shared/PatientSelector';
+import VitalsEntry from '../shared/VitalsEntry';
+import DischargeSummaryDocument from '../shared/DischargeSummaryDocument';
 import HospitalNav from '../shared/HospitalNav';
 import NextActions from '../shared/NextActions';
 import BugReporter from '../shared/BugReporter';
@@ -31,6 +33,7 @@ export default function IPDManagement() {
 
   // Admit patient
   const [admitPatient, setAdmitPatient] = useState(null);
+  const [vitalsOpenFor, setVitalsOpenFor] = useState(null);
 
   // Was importing activePatient from context but never actually using
   // it — a patient set active on Registration never carried through
@@ -105,6 +108,18 @@ export default function IPDManagement() {
     return null;
   }
 
+  async function selectPatientForAdmission(patient) {
+    setAdmitPatient(patient);
+    const { data: recentVisit } = await supabase
+      .from('opd_visits')
+      .select('diagnosis')
+      .eq('patient_id', patient.id)
+      .order('visit_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (recentVisit?.diagnosis) setAdmitDiagnosis(recentVisit.diagnosis);
+  }
+
   async function admitToWard() {
     setAdmitError('');
     if (!admitPatient)  { setAdmitError('Select a patient.'); return; }
@@ -150,7 +165,7 @@ export default function IPDManagement() {
     setDischarging(true);
     await supabase.from('ipd_admissions').update({
       discharge_date: new Date().toISOString().slice(0, 10),
-      diagnosis: `${dischargingAdm.diagnosis}\n\nDischarge summary: ${dischargeSummary}`,
+      discharge_summary: dischargeSummary,
     }).eq('id', dischargingAdm.id);
 
     if (dischargingAdm.patientPhone) {
@@ -268,7 +283,16 @@ export default function IPDManagement() {
                       </div>
                       <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: 'rgba(106,170,144,0.12)', color: '#6AAA90', border: '1px solid rgba(106,170,144,0.2)', fontWeight: 500 }}>Admitted</span>
                     </div>
+
+                    {vitalsOpenFor === a.id && (
+                      <VitalsEntry patientId={a.patientId} contextType="ipd" contextId={a.id} onSaved={() => setVitalsOpenFor(null)} />
+                    )}
+
                     <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setVitalsOpenFor(vitalsOpenFor === a.id ? null : a.id)}
+                        style={{ flex: 1, padding: '8px 0', border: '1px solid rgba(90,154,223,0.3)', color: '#5A9ADF', background: 'rgba(90,154,223,0.06)', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
+                        {vitalsOpenFor === a.id ? 'Close' : '🩺 Vitals'}
+                      </button>
                       <button onClick={() => { setDischargingAdm(a); setDischargeSummary(''); setDischargeSummaryError(''); }}
                         style={{ flex: 1, padding: '8px 0', border: '1px solid rgba(232,160,32,0.3)', color: '#E8A020', background: 'rgba(232,160,32,0.06)', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                         Discharge →
@@ -297,7 +321,7 @@ export default function IPDManagement() {
                 <div style={{ marginBottom: 14 }}>
                   <PatientSelector
                     selectedPatient={admitPatient}
-                    onSelect={setAdmitPatient}
+                    onSelect={selectPatientForAdmission}
                     onClear={() => setAdmitPatient(null)}
                     label="Select patient to admit"
                   />
@@ -348,6 +372,9 @@ export default function IPDManagement() {
 
                 <div style={{ marginBottom: 16 }}>
                   <label style={S.label}>Initial diagnosis</label>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: -4, marginBottom: 6 }}>
+                    {admitDiagnosis ? 'Pulled forward from their most recent OPD visit — edit if needed' : ''}
+                  </p>
                   <input value={admitDiagnosis} onChange={(e) => setAdmitDiagnosis(e.target.value)}
                     placeholder="e.g. Acute fever, fracture, post-operative care"
                     style={S.input(false)} />
@@ -399,6 +426,10 @@ export default function IPDManagement() {
             </div>
           </div>
         </div>
+      )}
+
+      {completedDischarge && (
+        <DischargeSummaryDocument admission={completedDischarge} onClose={() => setCompletedDischarge(null)} />
       )}
 
       <HospitalNav />

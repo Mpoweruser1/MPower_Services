@@ -54,13 +54,13 @@ export const STUDENT_FIELDS = [
   { key: 'parent_name',    label: 'Parent name' },
   { key: 'parent_phone',   label: 'Parent phone' },
   { key: 'admission_no',   label: 'Admission number' },
-  // No schema for this is currently verifiable anywhere in the School
-  // module — village_id isn't set by StudentAdmission.jsx or shown
-  // anywhere else, so there's no confirmed villages table/columns to
-  // build a safe lookup against. Left as free text deliberately,
-  // rather than guessing at a query that could silently 404 or write
-  // the wrong thing.
-  { key: 'village_id',     label: 'Village' },
+  // Real village data now exists (villages table, proper FK on
+  // students.village_id) — search-as-you-type, matching
+  // StudentAdmission.jsx's own picker, rather than free text. Free
+  // text here would let someone submit a village NAME as new_value,
+  // which CorrectionApprovalQueue.jsx writes directly into a uuid
+  // column with a foreign key — that update would fail outright.
+  { key: 'village_id',     label: 'Village', type: 'village-search' },
   { key: 'blood_group',    label: 'Blood group', type: 'select', options: BLOOD_GROUPS },
   { key: 'apaar_id',       label: 'APAAR ID' },
 ];
@@ -117,6 +117,25 @@ export default function CorrectionRequest({
   const [error, setError]           = useState('');
   const [referenceOptions, setReferenceOptions] = useState([]);
   const [loadingOptions, setLoadingOptions]     = useState(false);
+  const [villageQuery, setVillageQuery]         = useState('');
+  const [villageResults, setVillageResults]     = useState([]);
+  const [villageDisplay, setVillageDisplay]     = useState('');
+
+  async function searchVillage(q) {
+    setVillageQuery(q);
+    setNewValue('');
+    setVillageDisplay('');
+    if (q.trim().length < 2) { setVillageResults([]); return; }
+    const { data } = await supabase.from('villages').select('id, name, mandals(name)').ilike('name', `%${q}%`).limit(8);
+    setVillageResults(data || []);
+  }
+
+  function selectVillage(v) {
+    setNewValue(v.id);
+    setVillageDisplay(`${v.name}${v.mandals?.name ? ` (${v.mandals.name} mandal)` : ''}`);
+    setVillageQuery('');
+    setVillageResults([]);
+  }
 
   const selectedField = fields?.find((f) => f.key === fieldName);
 
@@ -292,6 +311,27 @@ export default function CorrectionRequest({
                             <option value="">{loadingOptions ? 'Loading…' : '-- Select --'}</option>
                             {referenceOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </select>
+                        ) : selectedField?.type === 'village-search' ? (
+                          villageDisplay ? (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 8 }}>
+                              <span style={{ fontSize: 13, color: '#fff' }}>{villageDisplay}</span>
+                              <button type="button" onClick={() => { setNewValue(''); setVillageDisplay(''); }}
+                                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'rgba(255,255,255,0.5)', padding: '3px 8px', fontSize: 11, cursor: 'pointer' }}>
+                                Change
+                              </button>
+                            </div>
+                          ) : (
+                            <div>
+                              <input value={villageQuery} onChange={(e) => searchVillage(e.target.value)}
+                                placeholder="Search village name..." style={S.input} autoFocus />
+                              {villageResults.map((v) => (
+                                <div key={v.id} onClick={() => selectVillage(v)}
+                                  style={{ padding: '7px 10px', cursor: 'pointer', fontSize: 12, color: '#fff', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                  {v.name}{v.mandals?.name ? <span style={{ color: 'rgba(255,255,255,0.4)' }}> · {v.mandals.name} mandal</span> : ''}
+                                </div>
+                              ))}
+                            </div>
+                          )
                         ) : (
                           <input value={newValue} onChange={(e) => setNewValue(e.target.value)}
                             placeholder="What it should be" style={S.input} autoFocus />

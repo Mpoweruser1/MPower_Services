@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { useTenant } from '../../context/TenantContext';
+import MfaSettings from '../../shared/MfaSettings';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 40 },
@@ -174,6 +175,8 @@ export default function ClientPortal() {
               style={{ width: '100%', padding: 11, background: changingPwd || newPwd.length < 8 ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: changingPwd || newPwd.length < 8 ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
               {changingPwd ? 'Changing...' : 'Change password'}
             </button>
+
+            <MfaSettings />
 
             <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 12 }}>Session</p>

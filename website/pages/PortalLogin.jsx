@@ -24,6 +24,12 @@ export default function PortalLogin() {
   const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent]   = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
+  const [sessionBlocked, setSessionBlocked] = useState(false);
+  const [forceReleasing, setForceReleasing] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [verifyingMfa, setVerifyingMfa] = useState(false);
 
   // Check URL params for messages
   const reasonParam = new URLSearchParams(window.location.search).get('reason');
@@ -55,6 +61,26 @@ export default function PortalLogin() {
       return;
     }
 
+    // Two-factor check — password alone isn't enough for an account
+    // that has TOTP enabled. Stop here and prompt for the code rather
+    // than proceeding straight to session-claim.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2') {
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const factor = factorsData?.totp?.find((f) => f.status === 'verified');
+      if (factor) {
+        setLoggingIn(false);
+        setMfaFactorId(factor.id);
+        setMfaRequired(true);
+        return;
+      }
+    }
+
+    await claimSessionAndContinue();
+  }
+
+  async function claimSessionAndContinue() {
+    setLoggingIn(true);
     // Single-session enforcement — Supabase's own login just succeeded,
     // but that alone doesn't mean this login should be allowed to
     // proceed. Claim the session now; if another device already has a
@@ -69,14 +95,67 @@ export default function PortalLogin() {
     });
 
     if (claimError || !claimResult?.claimed) {
-      await supabase.auth.signOut();
+      // Deliberately NOT signing out here — the force-release option
+      // below needs this still-valid session to identify who's
+      // asking. If the person picks "wait instead," we sign out then.
       setLoggingIn(false);
-      setError('This account is already signed in on another device or browser. Sign out there first, or wait up to 30 minutes for that session to go idle.');
+      setSessionBlocked(true);
+      setError('This account is already signed in on another device or browser.');
       return;
     }
 
     setLoggingIn(false);
     navigate('/portal/dashboard', { replace: true });
+  }
+
+  async function verifyMfaCode() {
+    if (mfaCode.trim().length !== 6) { setError('Enter the 6-digit code from your authenticator app.'); return; }
+    setVerifyingMfa(true);
+    setError('');
+
+    const { data: challenge, error: challengeErr } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+    if (challengeErr) { setError(challengeErr.message); setVerifyingMfa(false); return; }
+
+    const { error: verifyErr } = await supabase.auth.mfa.verify({
+      factorId: mfaFactorId, challengeId: challenge.id, code: mfaCode.trim(),
+    });
+    if (verifyErr) {
+      setError('Incorrect code — please try again.');
+      setVerifyingMfa(false);
+      return;
+    }
+
+    setVerifyingMfa(false);
+    setMfaRequired(false);
+    await claimSessionAndContinue();
+  }
+
+  async function forceReleaseAndContinue() {
+    setForceReleasing(true);
+    setError('');
+    try {
+      await supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } });
+      const { data: claimResult, error: claimError } = await supabase.functions.invoke('check-and-claim-session', {
+        body: { action: 'claim' },
+      });
+      if (claimError || !claimResult?.claimed) {
+        setError('Could not claim the session — please try signing in again.');
+        setForceReleasing(false);
+        return;
+      }
+      setForceReleasing(false);
+      setSessionBlocked(false);
+      navigate('/portal/dashboard', { replace: true });
+    } catch {
+      setError('Something went wrong — please try again.');
+      setForceReleasing(false);
+    }
+  }
+
+  async function waitInstead() {
+    await supabase.auth.signOut();
+    setSessionBlocked(false);
+    setError('');
   }
 
   async function sendReset() {
@@ -138,6 +217,39 @@ export default function PortalLogin() {
         {/* Error */}
         {error && <div style={S.error}>{error}</div>}
 
+        {/* Session blocked — offer a real choice instead of a dead end */}
+        {/* Two-factor code prompt */}
+        {mfaRequired && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 10 }}>
+              Enter the 6-digit code from your authenticator app.
+            </p>
+            <input value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000" autoFocus
+              style={{ width: '100%', padding: '11px 14px', marginBottom: 12, background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 18, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: 'center', letterSpacing: 6 }} />
+            <button onClick={verifyMfaCode} disabled={verifyingMfa}
+              style={{ width: '100%', padding: 12, border: 'none', borderRadius: 8, background: verifyingMfa ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', fontWeight: 700, cursor: verifyingMfa ? 'not-allowed' : 'pointer', fontSize: 14, fontFamily: 'inherit' }}>
+              {verifyingMfa ? 'Verifying...' : 'Verify & Sign In'}
+            </button>
+          </div>
+        )}
+
+        {sessionBlocked && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>
+              If that's you on another device and you'd like to continue here instead, you can end that session now.
+            </p>
+            <button onClick={forceReleaseAndContinue} disabled={forceReleasing}
+              style={{ width: '100%', padding: 11, marginBottom: 8, border: 'none', borderRadius: 8, background: forceReleasing ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', fontWeight: 700, cursor: forceReleasing ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
+              {forceReleasing ? 'Ending other session...' : "It's me — sign in here instead"}
+            </button>
+            <button onClick={waitInstead}
+              style={{ width: '100%', padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
+              Not me — I'll wait or sign out there first
+            </button>
+          </div>
+        )}
+
         {/* Reset sent success */}
         {resetSent && (
           <div style={S.success}>
@@ -145,7 +257,7 @@ export default function PortalLogin() {
           </div>
         )}
 
-        {!showForgot ? (
+        {!showForgot && !mfaRequired ? (
           <>
             {/* Login form */}
             <div>
@@ -193,7 +305,7 @@ export default function PortalLogin() {
               </Link>
             </p>
           </>
-        ) : (
+        ) : showForgot ? (
           <>
             {/* Forgot password form */}
             {!resetSent && (
@@ -221,7 +333,7 @@ export default function PortalLogin() {
               ← Back to sign in
             </button>
           </>
-        )}
+        ) : null}
       </div>
 
       <div style={{ textAlign: 'center', marginTop: 20 }}>

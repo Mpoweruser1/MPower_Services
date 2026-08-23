@@ -88,8 +88,9 @@ export default function PayFee() {
           });
 
           if (verifyData?.verified) {
-            // Mark link as paid
-            await supabase.from('fee_payment_links').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('link_token', token);
+            // client-fee-verify already marked this link as paid,
+            // server-side, right after confirming the signature was
+            // genuine — no client-side update needed or wanted here.
             setPaid(true);
           } else {
             setError(`Payment received but verification pending. Payment ID: ${response.razorpay_payment_id}. Contact school.`);

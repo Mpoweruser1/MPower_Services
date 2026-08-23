@@ -88,7 +88,7 @@ export default function StudentDetail({ studentId }) {
     setLoading(true);
     const { data } = await supabase
       .from('students')
-      .select('id, full_name, sid, dob, gender, section, parent_name, parent_phone, blood_group, admission_no, caste_category, apaar_id, village_id, class_id, classes(class_name)')
+      .select('id, full_name, sid, dob, gender, section, parent_name, parent_phone, blood_group, admission_no, caste_category, apaar_id, village_id, villages(name, mandals(name)), class_id, classes(class_name)')
       .eq('id', id)
       .single();
     setStudent(data || null);
@@ -168,6 +168,7 @@ export default function StudentDetail({ studentId }) {
           <div style={S.row}><span style={S.label}>Date of birth</span><span style={S.value}>{student.dob || '—'}</span></div>
           <div style={S.row}><span style={S.label}>Gender</span><span style={S.value}>{student.gender || '—'}</span></div>
           <div style={S.row}><span style={S.label}>Parent name</span><span style={S.value}>{student.parent_name || '—'}</span></div>
+          <div style={S.row}><span style={S.label}>Village</span><span style={S.value}>{student.villages?.name ? `${student.villages.name}${student.villages.mandals?.name ? ` (${student.villages.mandals.name})` : ''}` : '—'}</span></div>
           <div style={{ ...S.row, borderBottom: 'none' }}><span style={S.label}>Admission no</span><span style={S.value}>{student.admission_no || '—'}</span></div>
         </div>
 
