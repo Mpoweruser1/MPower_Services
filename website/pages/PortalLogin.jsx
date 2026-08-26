@@ -90,8 +90,19 @@ export default function PortalLogin() {
     // before it issues a session, so this is the same "authenticate
     // first, then enforce" pattern used everywhere real systems
     // implement this.
+    //
+    // resumeToken: fixes a real, confirmed bug — persistSession:false
+    // means a mobile browser reloading a backgrounded tab (routine
+    // behavior, happens constantly just from switching apps) wipes
+    // the session client-side. Without this, the app would then see
+    // its OWN still-fresh session from moments ago and wrongly
+    // conclude a different device claimed it. sessionStorage survives
+    // a tab reload but genuinely disappears if the browser is closed
+    // or a new tab is opened, so real shared-device protection is
+    // untouched — this only recognizes the same tab resuming.
+    const resumeToken = sessionStorage.getItem('mpower_session_token');
     const { data: claimResult, error: claimError } = await supabase.functions.invoke('check-and-claim-session', {
-      body: { action: 'claim' },
+      body: { action: 'claim', resumeToken },
     });
 
     if (claimError || !claimResult?.claimed) {
@@ -102,6 +113,10 @@ export default function PortalLogin() {
       setSessionBlocked(true);
       setError('This account is already signed in on another device or browser.');
       return;
+    }
+
+    if (claimResult.sessionToken) {
+      sessionStorage.setItem('mpower_session_token', claimResult.sessionToken);
     }
 
     setLoggingIn(false);
@@ -142,6 +157,9 @@ export default function PortalLogin() {
         setError('Could not claim the session — please try signing in again.');
         setForceReleasing(false);
         return;
+      }
+      if (claimResult.sessionToken) {
+        sessionStorage.setItem('mpower_session_token', claimResult.sessionToken);
       }
       setForceReleasing(false);
       setSessionBlocked(false);

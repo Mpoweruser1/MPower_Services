@@ -187,6 +187,7 @@ export default function ClientPortal() {
                 try {
                   await supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } });
                 } catch { /* non-blocking */ }
+                sessionStorage.removeItem('mpower_session_token');
                 await supabase.auth.signOut();
                 window.location.href = '/portal/login';
               }}

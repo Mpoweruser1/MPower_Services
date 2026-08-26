@@ -61,6 +61,7 @@ export default function ControlPanelNav() {
               try {
                 await supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } });
               } catch { /* non-blocking */ }
+              sessionStorage.removeItem('mpower_session_token');
               await supabase.auth.signOut();
             }}
               style={{ width: 'calc(100% - 32px)', margin: '0 16px', padding: 12, background: 'transparent', border: '1px solid rgba(224,90,90,0.3)', borderRadius: 10, color: '#E05A5A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>

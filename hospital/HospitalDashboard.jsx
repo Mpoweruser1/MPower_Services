@@ -123,11 +123,17 @@ export default function HospitalDashboard() {
         .eq('status', 'paid')
         .in('patient_id', patientIds),
 
-      // Pending payments
-      supabase.from('billing_invoices')
+      // New registrations today — replaces a broken "pending
+      // payments" query that filtered on a status value
+      // (billing_invoices.status = 'pending') confirmed this session
+      // to never actually exist; invoices are only ever created
+      // already marked 'paid'. That stat was silently showing 0
+      // always. This is real, working data instead.
+      supabase.from('patients')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending')
-        .in('patient_id', patientIds),
+        .eq('app_id', tenant.appId)
+        .gte('created_at', today)
+        .lt('created_at', new Date(new Date(today).getTime() + 86400000).toISOString().slice(0, 10)),
 
       // ABHA linked patients
       supabase.from('patients')
@@ -160,7 +166,7 @@ export default function HospitalDashboard() {
 
     const opdCount       = opdRes.status === 'fulfilled'          ? (opdRes.value.count || 0) : 0;
     const revenue        = revenueRes.status === 'fulfilled'      ? (revenueRes.value.data || []).reduce((s, r) => s + Number(r.total_amount || 0), 0) : 0;
-    const pendingCount   = pendingRes.status === 'fulfilled'      ? (pendingRes.value.count || 0) : 0;
+    const newRegistrations = pendingRes.status === 'fulfilled'    ? (pendingRes.value.count || 0) : 0;
     const abhaCount      = abhaRes.status === 'fulfilled'         ? (abhaRes.value.count || 0) : 0;
     const totalPatients  = totalPatientsRes.status === 'fulfilled'? (totalPatientsRes.value.count || 0) : 0;
     const totalBeds      = bedsRes.status === 'fulfilled'         ? (bedsRes.value.data || []).reduce((s, w) => s + (w.total_beds || 0), 0) : 0;
@@ -171,7 +177,7 @@ export default function HospitalDashboard() {
     const abhaPct        = totalPatients > 0 ? Math.round((abhaCount / totalPatients) * 100) : 0;
 
     setStats({
-      opdCount, revenue, pendingCount,
+      opdCount, revenue, newRegistrations,
       abhaPct, totalPatients,
       totalBeds, admitted, occupancyPct,
       labPending,
@@ -232,9 +238,9 @@ export default function HospitalDashboard() {
             color="#6AAA90" loading={loading}
           />
           <StatCard
-            value={stats?.pendingCount ?? '—'}
-            label="Pending bills" labelTe="పెండింగ్ బిల్లులు"
-            color="#E05A5A" alert={stats?.pendingCount > 0} loading={loading}
+            value={stats?.newRegistrations ?? '—'}
+            label="New registrations" labelTe="కొత్త నమోదులు"
+            color="#5A9ADF" loading={loading}
           />
         </div>
 
@@ -277,16 +283,7 @@ export default function HospitalDashboard() {
                 </Link>
               </div>
             )}
-            {stats.pendingCount > 0 && (
-              <div style={{ background: 'rgba(224,90,90,0.06)', border: '1px solid rgba(224,90,90,0.15)', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
-                <p style={{ margin: 0, fontSize: 13, color: '#E05A5A', fontWeight: 500 }}>
-                  💳 {stats.pendingCount} unpaid bill{stats.pendingCount > 1 ? 's' : ''} pending collection
-                </p>
-                <Link to="/hospital/billing" style={{ fontSize: 12, color: '#E05A5A', textDecoration: 'none', fontWeight: 500 }}>
-                  Go to billing →
-                </Link>
-              </div>
-            )}
+
           </>
         )}
 

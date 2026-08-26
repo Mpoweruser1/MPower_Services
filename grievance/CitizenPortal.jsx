@@ -111,11 +111,7 @@ export default function CitizenPortal({ stateSlug }) {
         citizenName={auth.isAuthenticated && !auth.needsProfile ? auth.citizen?.full_name : null}
         onSignOut={auth.isAuthenticated && !auth.needsProfile ? auth.signOut : null}
       />
-      {auth.isStaffAccount ? (
-        <CenteredNote showHomeLink>
-          This browser is currently signed in as staff, not a citizen. To file a citizen complaint, please sign out of your staff account first (or use a private/incognito browser window).
-        </CenteredNote>
-      ) : !auth.isAuthenticated ? (
+      {!auth.isAuthenticated ? (
         <PhoneLogin auth={auth} />
       ) : auth.needsProfile ? (
         <ProfileRegistration appId={appId} appSettings={appSettings} auth={auth} t={t} />
@@ -290,6 +286,7 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
   const [membershipId, setMembershipId] = useState('');
   const geo = useGeographyPicker(appId, appSettings);
   const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState('');
   // A citizen's details go straight onto an official document later
   // (the print letter) — a mistake here previously had no chance to be
   // caught before it was saved. This review step shows exactly what
@@ -307,18 +304,27 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
 
   async function handleConfirm() {
     setBusy(true);
-    await auth.registerProfile({
-      full_name: fullName,
-      father_husband_name: fatherHusbandName || null,
-      address: address || null,
-      village_id: geo.villageId || null,
-      mandal_id: geo.mandalId || null,
-      constituency_id: geo.constituencyId || null,
-      ward_no: wardNo || null,
-      membership_id: membershipId || null,
-      sachivalayam_id: geo.sachivalayamId || null,
-    });
-    setBusy(false);
+    setSaveError('');
+    try {
+      const result = await auth.registerProfile({
+        full_name: fullName,
+        father_husband_name: fatherHusbandName || null,
+        address: address || null,
+        village_id: geo.villageId || null,
+        mandal_id: geo.mandalId || null,
+        constituency_id: geo.constituencyId || null,
+        ward_no: wardNo || null,
+        membership_id: membershipId || null,
+        sachivalayam_id: geo.sachivalayamId || null,
+      });
+      if (!result) {
+        setSaveError('Could not save your details. Please check your connection and try again.');
+      }
+    } catch (err) {
+      setSaveError('Something went wrong while saving. Please try again.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   useEffect(() => {
@@ -365,6 +371,11 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
             </div>
           ))}
         </div>
+        {saveError && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#991b1b' }}>
+            ⚠ {saveError}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" onClick={() => setShowReview(false)} style={{ flex: 1, background: 'none', border: '1px solid #e2e8f0', borderRadius: 7, padding: '11px 16px', fontSize: 14, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}>
             ← Edit

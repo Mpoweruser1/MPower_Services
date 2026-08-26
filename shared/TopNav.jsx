@@ -82,6 +82,7 @@ export default function TopNav({ screen }) {
     try {
       await supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } });
     } catch { /* non-blocking */ }
+    sessionStorage.removeItem('mpower_session_token');
     await supabase.auth.signOut();
     // signOut triggers onAuthStateChange → session becomes null → RequireAuth redirects to /login
     setLoggingOut(false);

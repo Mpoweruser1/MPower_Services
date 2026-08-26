@@ -56,7 +56,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return json({ error: 'Missing Authorization header' }, 401);
 
-    const { action } = await req.json();
+    const { action, resumeToken } = await req.json();
     if (!['claim', 'heartbeat', 'release'].includes(action)) {
       return json({ error: 'action must be claim, heartbeat, or release' }, 400);
     }
@@ -96,15 +96,44 @@ serve(async (req) => {
       return json({ stillActive: !!data });
     }
 
-    // action === 'claim'
+    // action === 'claim' — resumeToken already destructured above,
+    // from the single request body read.
+
     const { data: existing, error: fetchError } = await adminClient
       .from('active_sessions')
-      .select('last_seen_at')
+      .select('last_seen_at, session_token')
       .eq('auth_id', caller.id)
       .maybeSingle();
     if (fetchError) return json({ error: fetchError.message }, 500);
 
     if (existing) {
+      // Confirmed real bug: persistSession:false (deliberate, for
+      // shared-device safety) means a mobile browser reloading a
+      // backgrounded tab — something that happens constantly, just
+      // from switching apps and coming back — wipes the session
+      // client-side. The app then has to log back in, sees its own
+      // still-fresh session from moments ago, and wrongly concludes
+      // a different device claimed it. Same phone, mistaken for
+      // someone else, reported by real users as happening
+      // "frequently" — because backgrounding a tab is completely
+      // routine mobile behavior, not a rare edge case.
+      //
+      // Fix: the client remembers its own session_token in
+      // sessionStorage — survives a tab reload, but genuinely
+      // disappears if the browser is actually closed or a new tab is
+      // opened, so the real shared-device protection is untouched.
+      // If the token presented here matches the existing row's own
+      // token, this is the same session resuming, not a competing
+      // device — allow it silently instead of rejecting.
+      if (resumeToken && resumeToken === existing.session_token) {
+        const { error: refreshError } = await adminClient
+          .from('active_sessions')
+          .update({ last_seen_at: new Date().toISOString() })
+          .eq('auth_id', caller.id);
+        if (refreshError) return json({ error: refreshError.message }, 500);
+        return json({ claimed: true, sessionToken: existing.session_token });
+      }
+
       const lastSeen = new Date(existing.last_seen_at).getTime();
       const minutesSince = (Date.now() - lastSeen) / (1000 * 60);
       if (minutesSince < STALE_AFTER_MINUTES) {
@@ -118,12 +147,13 @@ serve(async (req) => {
       }
     }
 
+    const newToken = crypto.randomUUID();
     const { error: upsertError } = await adminClient
       .from('active_sessions')
-      .upsert({ auth_id: caller.id, session_token: crypto.randomUUID(), created_at: new Date().toISOString(), last_seen_at: new Date().toISOString() });
+      .upsert({ auth_id: caller.id, session_token: newToken, created_at: new Date().toISOString(), last_seen_at: new Date().toISOString() });
     if (upsertError) return json({ error: upsertError.message }, 500);
 
-    return json({ claimed: true });
+    return json({ claimed: true, sessionToken: newToken });
   } catch (err) {
     return json({ error: err.message || 'Unexpected error' }, 500);
   }
