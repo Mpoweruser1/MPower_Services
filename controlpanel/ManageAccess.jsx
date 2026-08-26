@@ -96,7 +96,6 @@ export default function ManageAccess() {
   }
 
   async function saveAll() {
-    setSaving(true);
     const rows = Object.values(permissions).map((p) => ({
       app_id: effectiveAppId,
       role: selectedRole,
@@ -109,10 +108,30 @@ export default function ManageAccess() {
       updated_at: new Date().toISOString(),
     }));
 
-    const { error } = await supabase.from('role_permissions').upsert(rows, { onConflict: 'app_id,role,module_code' });
-    setSaving(false);
-    if (error) { console.error(error); alert('Failed to save permissions.'); return; }
-    setSaved(true);
+    if (rows.length === 0) {
+      alert('Nothing to save — no modules are loaded for this role yet.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('role_permissions').upsert(rows, { onConflict: 'app_id,role,module_code' });
+      if (error) {
+        console.error(error);
+        alert('Failed to save permissions. Please try again.');
+        return;
+      }
+      setSaved(true);
+    } catch (err) {
+      console.error(err);
+      alert('Something went wrong while saving. Please try again.');
+    } finally {
+      // Always runs, even if something above threw — the button
+      // should never get stuck showing "Saving..." forever with no
+      // error or success shown, which is what a missing try/catch
+      // here would look like from the outside.
+      setSaving(false);
+    }
   }
 
   if (isDevOrSupport && loadingClients) return <div style={{ padding: 16, fontSize: 13, color: '#888' }}>Loading clients...</div>;

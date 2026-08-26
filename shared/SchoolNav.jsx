@@ -27,7 +27,21 @@ const MORE_ITEMS = [
   { path: '/school/classes',      icon: '🏫', label: 'Manage classes' },
   { path: '/school/timetable',    icon: '🗓️', label: 'Timetable' },
   { path: '/school/promote-students', icon: '🎓', label: 'Promote students' },
+  { path: '/school/staff', icon: '👥', label: 'Manage staff' },
+  { path: '/school/fee-analytics', icon: '📊', label: 'Fee analytics' },
+  { path: '/school/attendance-analytics', icon: '📈', label: 'Attendance analytics' },
+  { path: '/school/academic-analytics', icon: '🎓', label: 'Academic analytics' },
+  { path: '/school/birthdays', icon: '🎂', label: 'Birthday wishes' },
+  { path: '/school/holidays', icon: '📅', label: 'Holiday management' },
+  { path: '/school/activity-finance', icon: '💵', label: 'Activity finance' },
+  { path: '/school/subjects', icon: '📚', label: 'Manage subjects' },
+  { path: '/school/fee-structure', icon: '🧾', label: 'Fee structure' },
+  { path: '/school/fee-structure-report', icon: '📊', label: 'Fee structure report' },
+  { path: '/school/hostel-welfare-report', icon: '🏠', label: 'Hostel welfare eligibility' },
+  { path: '/school/marks-entry', icon: '✍️', label: 'Marks entry' },
+  { path: '/school/report-card', icon: '📜', label: 'Report card' },
   { path: '/school/ptm', icon: '🗓️', label: 'Parent meetings' },
+  { path: '/school/homework', icon: '📔', label: 'Homework diary' },
 ];
 
 export default function SchoolNav() {

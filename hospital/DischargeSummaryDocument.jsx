@@ -108,6 +108,11 @@ export default function DischargeSummaryDocument({ admission, onClose }) {
           <span>{tenant?.orgName}</span>
         </div>
 
+        <div style={{ marginTop: 40, paddingTop: 20, textAlign: 'right' }}>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.3)', width: 200, marginLeft: 'auto', marginBottom: 4 }} />
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Attending Doctor's Signature</p>
+        </div>
+
       </div>
     </div>
   );

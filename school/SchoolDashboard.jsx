@@ -164,7 +164,6 @@ async function fetchStudentParentData(studentId) {
 function PrincipalDashboard({ appId, branchId, tier }) {
   const [stats, setStats] = useState(null);
   const [trend, setTrend] = useState([]);
-  const [noClasses, setNoClasses] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -178,11 +177,6 @@ function PrincipalDashboard({ appId, branchId, tier }) {
       ]);
       setStats({ attendance, feeToday, defaulters, lowAtt });
 
-      // Check if classes exist
-      const { count: classCount } = await supabase
-        .from('classes').select('id', { count: 'exact', head: true }).eq('app_id', appId);
-      setNoClasses(!classCount || classCount === 0);
-
       if (tier !== 'basic') {
         const w = await fetchWeeklyAttendanceTrend(appId);
         setTrend(w);
@@ -194,21 +188,6 @@ function PrincipalDashboard({ appId, branchId, tier }) {
 
   return (
     <>
-      {/* No classes warning */}
-      {noClasses && !loading && (
-        <div style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
-          <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#E8A020' }}>
-            ⚠️ Classes not configured
-          </p>
-          <p style={{ margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-            Set up your classes before admitting students.
-          </p>
-          <Link to="/school/classes" style={{ fontSize: 13, color: '#E8A020', textDecoration: 'none', fontWeight: 600 }}>
-            Set up classes →
-          </Link>
-        </div>
-      )}
-
       {/* Stats grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
         <Counter label="Attendance today"     value={loading ? '—' : `${stats?.attendance?.pct ?? 0}%`} loading={loading} />

@@ -1,5 +1,6 @@
 // hospital/IPDManagement.jsx — FINAL
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import { useVisit } from '../context/VisitContext';
@@ -337,7 +338,11 @@ export default function IPDManagement() {
                       <option key={w.id} value={w.id}>{w.ward_type} Ward — {w.available} beds available</option>
                     ))}
                   </select>
-                  {wards.filter((w) => w.available > 0).length === 0 && (
+                  {wards.length === 0 ? (
+                    <p style={{ fontSize: 11, color: '#E8A020', marginTop: 4 }}>
+                      ⚠ No wards set up yet — <Link to="/hospital/wards" style={{ color: '#E8A020', fontWeight: 600 }}>set up a ward first →</Link>
+                    </p>
+                  ) : wards.filter((w) => w.available > 0).length === 0 && (
                     <p style={{ fontSize: 11, color: '#E05A5A', marginTop: 4 }}>⚠ No beds available in any ward</p>
                   )}
                 </div>

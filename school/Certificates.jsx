@@ -124,7 +124,7 @@ export default function Certificates() {
     <div style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @media print { .no-print { display: none !important; } @page { size: A4 portrait; margin: 15mm 18mm; } }
+        @media print { .no-print { display: none !important; } @page { size: A4 portrait; margin: 15mm 18mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 10px; color: #888; } } }
       `}</style>
 
       <div style={S.inner}>

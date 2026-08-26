@@ -70,7 +70,7 @@ export function TenantProvider({ children }) {
       // Same fix pattern confirmed working in school module.
       const { data: appRow } = await supabase
         .from('apps')
-        .select('subscription_tier, app_type, org_name, school_type')
+        .select('subscription_tier, app_type, org_name, school_type, board_type')
         .eq('id', data.app_id)
         .maybeSingle();
 
@@ -107,6 +107,7 @@ export function TenantProvider({ children }) {
         orgName:       appRow?.org_name || '',
         appType:       appRow?.app_type || null,
         schoolType:    appRow?.school_type || null,
+        boardType:     appRow?.board_type || 'state_board',
         tier:          appRow?.subscription_tier || 'basic',
         address:       branchRow?.address || null,
         district:      branchRow?.district || null,

@@ -42,6 +42,7 @@ export default function HospitalDashboard() {
   const [stats, setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
+  const [setupSteps, setSetupSteps] = useState(null);
 
   useEffect(() => {
     const h = new Date().getHours();
@@ -51,8 +52,40 @@ export default function HospitalDashboard() {
   }, []);
 
   useEffect(() => {
-    if (tenant?.appId) loadStats();
+    if (tenant?.appId) { loadStats(); loadSetupState(); }
   }, [tenant?.appId]);
+
+  async function loadSetupState() {
+    // Informational only, not a forced redirect — verified this
+    // session that most Hospital screens genuinely work standalone
+    // (Patient Registration, Billing need nothing set up first).
+    // Wards is the one real hard block, but only for IPD Admission
+    // specifically, handled separately on that screen itself.
+    //
+    // Note: FirstTimeSetup's hospital "bed count" step actually
+    // upserts directly into the wards table (total_beds), not a
+    // separate apps.num_beds column — confirmed by checking, not
+    // assumed. So "hospital details" and "wards exist" are genuinely
+    // the same action, not two separate checklist items.
+    const [
+      { count: staffCount },
+      { count: wardCount },
+      { count: doctorCount },
+      { count: labTestCount },
+    ] = await Promise.all([
+      supabase.from('users').select('id', { count: 'exact', head: true }).eq('app_id', tenant.appId),
+      supabase.from('wards').select('id', { count: 'exact', head: true }).eq('app_id', tenant.appId),
+      supabase.from('doctors').select('id', { count: 'exact', head: true }).eq('app_id', tenant.appId),
+      supabase.from('master_lab_tests').select('id', { count: 'exact', head: true }).eq('app_id', tenant.appId),
+    ]);
+
+    setSetupSteps([
+      { done: (staffCount || 0) > 1, label: 'Invite at least one staff member', link: '/hospital/staff' },
+      { done: (wardCount || 0) > 0, label: 'Set up your wards', link: '/hospital/wards' },
+      { done: (doctorCount || 0) > 0, label: 'Add your doctors', link: '/hospital/doctors' },
+      { done: (labTestCount || 0) > 0, label: 'Set up lab tests', link: '/hospital/lab-tests' },
+    ]);
+  }
 
   async function loadStats() {
     setLoading(true);
@@ -168,6 +201,23 @@ export default function HospitalDashboard() {
             💬 Feedback
           </button>
         </div>
+
+        {/* Setup checklist — informational, not a forced redirect.
+            Genuinely optional to complete in order, since verified
+            this session that Patient Registration and Billing work
+            standalone regardless. */}
+        {setupSteps && setupSteps.some((s) => !s.done) && (
+          <div style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+            <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: '#E8A020' }}>
+              ⚠️ Setup {setupSteps.filter((s) => s.done).length}/{setupSteps.length} complete
+            </p>
+            {setupSteps.filter((s) => !s.done).map((s) => (
+              <Link key={s.link} to={s.link} style={{ display: 'block', fontSize: 13, color: '#E8A020', textDecoration: 'none', fontWeight: 600, marginBottom: 4 }}>
+                {s.label} →
+              </Link>
+            ))}
+          </div>
+        )}
 
         {/* Today's stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 8 }}>

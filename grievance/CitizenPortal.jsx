@@ -111,7 +111,11 @@ export default function CitizenPortal({ stateSlug }) {
         citizenName={auth.isAuthenticated && !auth.needsProfile ? auth.citizen?.full_name : null}
         onSignOut={auth.isAuthenticated && !auth.needsProfile ? auth.signOut : null}
       />
-      {!auth.isAuthenticated ? (
+      {auth.isStaffAccount ? (
+        <CenteredNote showHomeLink>
+          This browser is currently signed in as staff, not a citizen. To file a citizen complaint, please sign out of your staff account first (or use a private/incognito browser window).
+        </CenteredNote>
+      ) : !auth.isAuthenticated ? (
         <PhoneLogin auth={auth} />
       ) : auth.needsProfile ? (
         <ProfileRegistration appId={appId} appSettings={appSettings} auth={auth} t={t} />

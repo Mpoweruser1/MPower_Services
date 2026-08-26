@@ -136,10 +136,24 @@ export default function FeeCollection() {
     const hasAmountErrors = Object.values(amountErrors).some(Boolean);
     if (hasAmountErrors) { setSubmitError('Please fix the amount errors above.'); return; }
 
-    // UPI requires transaction ID
-    if (['UPI', 'Card', 'Online'].includes(paymentMode) && !transactionId.trim()) {
-      setTxnError('Transaction ID / reference number is required for this payment mode.');
-      return;
+    // Real UPI reference numbers are a 12-16 digit core (NPCI
+    // standard); bank UTRs for other transfer types run up to 22
+    // alphanumeric characters; card references vary by processor.
+    // Since this one field covers UPI, Card, and Online alike, this
+    // checks for a plausible reference (at least 6 alphanumeric
+    // characters, no spaces or symbols) rather than one mode's exact
+    // format — catches obvious junk like "-", "na", or a stray space
+    // without wrongly rejecting a legitimate Card or bank reference.
+    if (['UPI', 'Card', 'Online'].includes(paymentMode)) {
+      const trimmed = transactionId.trim();
+      if (!trimmed) {
+        setTxnError('Transaction ID / reference number is required for this payment mode.');
+        return;
+      }
+      if (!/^[A-Za-z0-9]{6,}$/.test(trimmed)) {
+        setTxnError('Enter the real reference number from the payment — at least 6 letters/digits, no spaces or symbols.');
+        return;
+      }
     }
 
     setSaving(true);

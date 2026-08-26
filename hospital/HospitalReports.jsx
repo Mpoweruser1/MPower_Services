@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import HospitalNav from '../shared/HospitalNav';
 import PrintHeader from '../shared/PrintHeader';
-//import ReportRemark from '../shared/ReportRemark';
+import ReportRemark from '../shared/ReportRemark';
 import BugReporter from '../shared/BugReporter';
 
 const TIER_ORDER = ['basic', 'standard', 'advanced', 'specialised'];
@@ -24,7 +24,6 @@ const S = {
 
 const REPORT_CATALOG = [
   { id: 'daily_opd',        name: "Today's OPD visits",         tier: 'basic',    icon: '🩺' },
-  { id: 'pending_bills',    name: 'Pending bills',               tier: 'basic',    icon: '💳' },
   { id: 'lab_pending',      name: 'Pending lab tests',           tier: 'basic',    icon: '🔬' },
   { id: 'lab_tests_completed', name: 'Completed lab tests',      tier: 'basic',    icon: '✅' },
   { id: 'new_registrations',name: 'New patient registrations',   tier: 'basic',    icon: '🆕' },
@@ -55,15 +54,6 @@ async function runReportQuery(reportId, appId) {
         .eq('visit_date', today)
         .in('patient_id', ids);
       return { data: data || [], columns: ['Patient', 'UID', 'Doctor', 'Visit date', 'Remarks'] };
-    }
-    case 'pending_bills': {
-      const { data } = await supabase
-        .from('billing_invoices')
-        .select('id, invoice_no, total_amount, created_at, patients(full_name, patient_uid)')
-        .eq('app_id', appId)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-      return { data: data || [], columns: ['Patient', 'UID', 'Invoice no', 'Amount', 'Date', 'Remarks'] };
     }
     case 'lab_pending': {
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
@@ -355,16 +345,6 @@ export function HospitalReports({ userTier = 'basic' }) {
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.doctors?.users?.full_name}{row.doctors?.designation ? ` (${row.doctors.designation})` : ''}</td>
                             <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{row.visit_date}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="daily_opd" rowKey={row.id} /></td>
-                          </>
-                        )}
-                        {result.report.id === 'pending_bills' && (
-                          <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.patients?.full_name}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.patients?.patient_uid}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.invoice_no}</td>
-                            <td style={{ padding: '8px 0', color: '#E05A5A', fontWeight: 600 }}>₹{Number(row.total_amount).toLocaleString('en-IN')}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{new Date(row.created_at).toLocaleDateString('en-IN')}</td>
-                            <td style={{ padding: '8px 8px' }}><ReportRemark reportId="pending_bills" rowKey={row.id} /></td>
                           </>
                         )}
                         {result.report.id === 'lab_pending' && (

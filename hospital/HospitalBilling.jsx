@@ -9,8 +9,9 @@ import PrintHeader from '../shared/PrintHeader';
 import HospitalNav from '../shared/HospitalNav';
 import NextActions from '../shared/NextActions';
 import BugReporter from '../shared/BugReporter';
+import { useRazorpay } from '../shared/useRazorpay';
 
-const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Insurance', 'Aarogyasri', 'PMJAY'];
+const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Insurance', 'Aarogyasri', 'PMJAY', 'Online'];
 const SERVICE_TYPES = ['Consultation', 'Lab test', 'Medicines', 'Procedure', 'Bed charges', 'Nursing', 'X-Ray / Scan', 'Other'];
 const GST_RATES     = [0, 5, 12, 18];
 
@@ -49,6 +50,7 @@ export default function HospitalBilling() {
   const [items, setItems]       = useState([{ description: '', service_type: 'Consultation', quantity: '1', unit_price: '', gst_rate: '0' }]);
   const [itemErrors, setItemErrors] = useState([{}]);
   const [paymentMode, setPaymentMode] = useState('Cash');
+  const { initiatePayment, paying } = useRazorpay();
   const [discountAmt, setDiscountAmt] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [saving, setSaving]     = useState(false);
@@ -120,6 +122,30 @@ export default function HospitalBilling() {
       return;
     }
 
+    if (paymentMode === 'Online') {
+      // Real checkout first — the invoice is only ever created after
+      // the payment is actually verified server-side, never before.
+      // Everything else (Cash/UPI/Card/Insurance/Aarogyasri/PMJAY)
+      // keeps its existing immediate-creation behavior untouched,
+      // since those really were already collected in person.
+      initiatePayment({
+        amount: totalAmount,
+        purpose: 'hospital_billing',
+        clientId: tenant.appId,
+        invoiceId: null, // no invoice exists yet — created only after verification
+        customerName: selectedPatient.full_name,
+        customerPhone: selectedPatient.phone,
+        description: `Hospital bill \u2014 ${selectedPatient.full_name}`,
+        onSuccess: (paymentId) => createInvoiceRecord(paymentId),
+        onFailure: (reason) => setSubmitError(`Online payment ${reason === 'payment_dismissed' ? 'was cancelled' : 'failed'}. No invoice was created \u2014 try again or choose a different payment mode.`),
+      });
+      return;
+    }
+
+    await createInvoiceRecord(null);
+  }
+
+  async function createInvoiceRecord(razorpayPaymentId) {
     setSaving(true);
     const invoiceNo = generateInvoiceNo(tenant.orgName);
 
@@ -135,6 +161,7 @@ export default function HospitalBilling() {
         total_amount: totalAmount,
         payment_mode: paymentMode,
         status:       'paid',
+        razorpay_payment_id: razorpayPaymentId || null,
       })
       .select()
       .single();
@@ -326,9 +353,9 @@ export default function HospitalBilling() {
               </div>
             )}
 
-            <button onClick={generateBill} disabled={saving || !selectedPatient}
-              style={{ width: '100%', padding: 14, background: saving || !selectedPatient ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving || !selectedPatient ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: saving || !selectedPatient ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-              {saving ? 'Generating...' : `🧾 Generate invoice — ₹${totalAmount.toLocaleString('en-IN')}`}
+            <button onClick={generateBill} disabled={saving || paying || !selectedPatient}
+              style={{ width: '100%', padding: 14, background: saving || paying || !selectedPatient ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving || paying || !selectedPatient ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: saving || paying || !selectedPatient ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              {paying ? 'Waiting for payment...' : saving ? 'Generating...' : paymentMode === 'Online' ? `💳 Collect online — ₹${totalAmount.toLocaleString('en-IN')}` : `🧾 Generate invoice — ₹${totalAmount.toLocaleString('en-IN')}`}
             </button>
           </>
         ) : (

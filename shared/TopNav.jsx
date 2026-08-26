@@ -103,7 +103,10 @@ export default function TopNav({ screen }) {
 
   return (
     <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @media print { .no-print { display: none !important; } }
+      `}</style>
       <nav style={NAV_STYLE}>
         {/* Left: logo + module badge + screen */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -168,7 +171,7 @@ export default function TopNav({ screen }) {
           active, since it just reads tenant fields directly and
           works the same regardless of module. */}
       {tenant?.orgName && (
-        <div style={{
+        <div className="no-print" style={{
           padding: '8px 16px',
           background: '#161618',
           borderBottom: '1px solid rgba(255,255,255,0.06)',

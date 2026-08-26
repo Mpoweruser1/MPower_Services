@@ -6,6 +6,7 @@ import { fetchCitizenProfile, createCitizenProfile } from './grievanceApi';
 export function useCitizenAuth(appId) {
   const [session, setSession] = useState(null);
   const [citizen, setCitizen] = useState(null);
+  const [isStaffAccount, setIsStaffAccount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [otpSent, setOtpSent] = useState(false);
   const [pendingPhone, setPendingPhone] = useState(null);
@@ -31,15 +32,38 @@ export function useCitizenAuth(appId) {
   useEffect(() => {
     if (!session) {
       setCitizen(null);
+      setIsStaffAccount(null);
       setLoading(false);
       return;
     }
     if (verifyingRef.current) return;
     setLoading(true);
-    fetchCitizenProfile(session.user.id)
-      .then(setCitizen)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+
+    // Block staff accounts from the citizen flow entirely — this is
+    // the actual fix. Supabase Auth sessions are global across the
+    // whole app; without this check, any already-logged-in staff
+    // member (School principal, Hospital doctor, anyone) landing on
+    // this page got silently treated as "a citizen with no profile
+    // yet" and could complete citizen registration using their own
+    // staff login.
+    supabase
+      .from('users')
+      .select('id')
+      .eq('auth_id', session.user.id)
+      .maybeSingle()
+      .then(({ data: staffRow }) => {
+        if (staffRow) {
+          setIsStaffAccount(true);
+          setCitizen(null);
+          setLoading(false);
+          return;
+        }
+        setIsStaffAccount(false);
+        fetchCitizenProfile(session.user.id)
+          .then(setCitizen)
+          .catch((e) => setError(e.message))
+          .finally(() => setLoading(false));
+      });
   }, [session]);
 
   // TEMPORARY TEST BYPASS — added 1-8-2026, remove or re-verify before
@@ -238,11 +262,12 @@ export function useCitizenAuth(appId) {
   return {
     session,
     citizen,
+    isStaffAccount,
     loading,
     otpSent,
     error,
-    isAuthenticated: !!session,
-    needsProfile: !!session && !citizen && !loading,
+    isAuthenticated: !!session && !isStaffAccount,
+    needsProfile: !!session && !citizen && !loading && !isStaffAccount,
     otpBypassActive: OTP_BYPASS_ACTIVE,
     requestOtp,
     verifyOtp,

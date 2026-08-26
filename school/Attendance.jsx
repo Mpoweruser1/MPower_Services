@@ -34,6 +34,7 @@ export default function Attendance() {
   const [loading, setLoading]           = useState(false);
   const [saving, setSaving]             = useState(false);
   const [saved, setSaved]               = useState(false);
+  const [holidayName, setHolidayName]   = useState(null);
 
   useEffect(() => {
     if (tenant?.appId) loadClasses();
@@ -76,6 +77,16 @@ export default function Attendance() {
 
     setStudents(studentData || []);
 
+    // Check whether the selected date is a defined holiday — if so,
+    // default everyone to Holiday instead of Present, closing the gap
+    // between defining a holiday and it actually affecting attendance.
+    const { data: holidayRow } = await supabase
+      .from('school_holidays').select('id, holiday_name')
+      .eq('app_id', tenant.appId).eq('holiday_date', attendanceDate)
+      .maybeSingle();
+    const isHoliday = !!holidayRow;
+    setHolidayName(holidayRow?.holiday_name || null);
+
     // Load existing attendance for this date
     if (studentData?.length > 0) {
       const { data: attData } = await supabase
@@ -86,9 +97,10 @@ export default function Attendance() {
       const attMap = {};
       (attData || []).forEach((a) => { attMap[a.student_id] = a.status; });
 
-      // Default unset students to Present
+      // Default unset students to Present, unless today is a defined
+      // holiday, in which case default to Holiday instead.
       const defaults = {};
-      studentData.forEach((s) => { defaults[s.id] = attMap[s.id] || 'P'; });
+      studentData.forEach((s) => { defaults[s.id] = attMap[s.id] || (isHoliday ? 'V' : 'P'); });
       setAttendance(defaults);
     }
 
@@ -167,6 +179,11 @@ export default function Attendance() {
         <div className="no-print" style={{ marginBottom: 24 }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Attendance · హాజరు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0, letterSpacing: -0.5 }}>Daily Attendance</h1>
+          {holidayName && (
+            <div style={{ marginTop: 10, padding: '8px 14px', background: 'rgba(232,160,32,0.1)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 8, fontSize: 12, color: '#E8A020' }}>
+              📅 {holidayName} — everyone defaulted to Holiday
+            </div>
+          )}
         </div>
 
         {/* Filters */}

@@ -6,15 +6,11 @@ import SchoolNav from '../shared/SchoolNav';
 import PrintHeader from '../shared/PrintHeader';
 import ReportRemark from '../shared/ReportRemark';
 import BugReporter from '../shared/BugReporter';
+import { canAccess } from '../shared/tierAccess';
 
-const TIER_ORDER = ['basic', 'standard', 'advanced', 'specialised'];
 // Verified against StudentAdmission.jsx's own real constants
 const FILTER_CASTE_CATEGORIES = ['OC', 'BC-A', 'BC-B', 'BC-C', 'BC-D', 'BC-E', 'SC', 'ST', 'EWS', 'Other'];
 const FILTER_GENDERS = ['Male', 'Female', 'Other'];
-
-function canAccess(userTier, reportTier) {
-  return TIER_ORDER.indexOf(userTier) >= TIER_ORDER.indexOf(reportTier);
-}
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -355,7 +351,10 @@ export function ReportEngine({ userTier = 'basic' }) {
   }
 
   async function runReport(report, extraFilters) {
-    if (!canAccess(userTier, report.tier)) return;
+    if (!canAccess(userTier, report.tier)) {
+      setError(`This report needs the "${report.tier}" plan or higher — your current plan doesn't include it.`);
+      return;
+    }
     if ((report.id === 'caste_gender_filter' || report.id === 'admissions_village_category_class') && !extraFilters) {
       setFilterPanelFor(report.id);
       setShowFilterPanel(true);
@@ -397,7 +396,7 @@ export function ReportEngine({ userTier = 'basic' }) {
       `}</style>
       <div style={S.inner}>
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Reports · నివేదికలు</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}><span style={{ letterSpacing: '2px', textTransform: 'uppercase' }}>Reports</span> · నివేదికలు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Report Engine</h1>
         </div>
 
@@ -817,7 +816,7 @@ export function IdCardPrinter() {
       `}</style>
       <div style={S.inner}>
         <div className="no-print" style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>ID Cards · ID కార్డులు</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}><span style={{ letterSpacing: '2px', textTransform: 'uppercase' }}>ID Cards</span> · ID కార్డులు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>ID Card Printer</h1>
         </div>
 
@@ -913,7 +912,7 @@ export function UniversalSearch() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
       <div style={S.inner}>
         <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Search · వెతకండి</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}><span style={{ letterSpacing: '2px', textTransform: 'uppercase' }}>Search</span> · వెతకండి</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Universal Search</h1>
         </div>
 
