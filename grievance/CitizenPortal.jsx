@@ -306,22 +306,48 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
     setBusy(true);
     setSaveError('');
     try {
-      const result = await auth.registerProfile({
-        full_name: fullName,
-        father_husband_name: fatherHusbandName || null,
-        address: address || null,
-        village_id: geo.villageId || null,
-        mandal_id: geo.mandalId || null,
-        constituency_id: geo.constituencyId || null,
-        ward_no: wardNo || null,
-        membership_id: membershipId || null,
-        sachivalayam_id: geo.sachivalayamId || null,
-      });
+      // A caught error alone isn't enough — if the network request
+      // never actually completes (hangs with no response at all,
+      // rather than failing quickly), await would wait forever and
+      // no catch or finally block ever runs, since nothing ever
+      // settles. This forces a decision after 15 seconds either way.
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 15000)
+      );
+      const result = await Promise.race([
+        auth.registerProfile({
+          full_name: fullName,
+          father_husband_name: fatherHusbandName || null,
+          address: address || null,
+          village_id: geo.villageId || null,
+          mandal_id: geo.mandalId || null,
+          constituency_id: geo.constituencyId || null,
+          ward_no: wardNo || null,
+          membership_id: membershipId || null,
+          sachivalayam_id: geo.sachivalayamId || null,
+        }),
+        timeout,
+      ]);
       if (!result) {
         setSaveError('Could not save your details. Please check your connection and try again.');
       }
     } catch (err) {
-      setSaveError('Something went wrong while saving. Please try again.');
+      if (err.message === 'timeout') {
+        setSaveError('This is taking longer than expected. Please check your connection and try again — if it keeps happening, wait a few minutes before retrying.');
+      } else if (err.code === '23505') {
+        // A real, confirmed possibility given the timeout fix above:
+        // the original save can still succeed in the background after
+        // the 15-second timeout already gave up and let the citizen
+        // retry. The citizens table has a real unique constraint on
+        // auth_id (confirmed directly, not assumed), so that retry
+        // fails safely here rather than creating a duplicate — but a
+        // generic "try again" would trap them in a loop that can never
+        // succeed, since a profile already exists. This tells them
+        // what's actually true instead.
+        setSaveError('It looks like your details may already be saved from a moment ago. Please go back and check, or continue to the next step.');
+      } else {
+        setSaveError('Something went wrong while saving. Please try again.');
+      }
     } finally {
       setBusy(false);
     }

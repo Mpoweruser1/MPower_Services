@@ -30,6 +30,17 @@ export default function FirstTimeSetup() {
   const { tenant } = useTenant();
   const navigate   = useNavigate();
   const [step, setStep]   = useState(1);
+
+  useEffect(() => {
+    if (step !== 2 || classList !== null || wardList !== null) return;
+    setLoadingDefaults(true);
+    supabase.functions.invoke('get-setup-defaults', { body: {} }).then(({ data, error }) => {
+      setLoadingDefaults(false);
+      if (error || data?.error) return; // Step 2 still renders; list just starts empty
+      if (data.appType === 'school') setClassList(data.classes || []);
+      if (data.appType === 'hospital') setWardList(data.wards || []);
+    });
+  }, [step]);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
@@ -40,22 +51,29 @@ export default function FirstTimeSetup() {
     address: '',
     contact_phone: tenant?.phone || '',
     school_type: '',
+    board_type: 'state_board',
   });
 
   const [schoolConfig, setSchoolConfig] = useState({
     board: 'AP State Board',
     medium: 'Telugu Medium',
-    num_classes: '10',
-    sections_per_class: '2',
     academic_year: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
   });
 
   const [hospitalConfig, setHospitalConfig] = useState({
-    num_beds: '20',
     has_lab: true,
     has_pharmacy: false,
     departments: 'General Medicine, Paediatrics',
   });
+
+  // Classes/wards are already created by the seed_default_client_data
+  // trigger the moment the account was registered — these lists are
+  // fetched fresh and edited in place, not created from scratch.
+  const [classList, setClassList] = useState(null);
+  const [removedClassIds, setRemovedClassIds] = useState([]);
+  const [wardList, setWardList] = useState(null);
+  const [removedWardIds, setRemovedWardIds] = useState([]);
+  const [loadingDefaults, setLoadingDefaults] = useState(false);
 
   const isSchool   = tenant?.appType === 'school';
   const isHospital = tenant?.appType === 'hospital';
@@ -77,20 +95,15 @@ export default function FirstTimeSetup() {
       }
     }
 
-    if (step === 2 && isSchool) {
-      const classes = parseInt(schoolConfig.num_classes);
-      if (isNaN(classes) || classes < 1) newErrors.num_classes = 'Enter at least 1 class';
-      if (classes > 15) newErrors.num_classes = 'Cannot exceed 15 classes';
-
-      const sections = parseInt(schoolConfig.sections_per_class);
-      if (isNaN(sections) || sections < 1) newErrors.sections_per_class = 'Enter at least 1 section';
-      if (sections > 10) newErrors.sections_per_class = 'Cannot exceed 10 sections per class';
+    if (step === 2 && isSchool && classList) {
+      if (classList.length === 0) newErrors.classList = 'At least one class is required';
+      if (classList.some((c) => !c.class_name?.trim())) newErrors.classList = 'Every class needs a name';
     }
 
-    if (step === 2 && isHospital) {
-      const beds = parseInt(hospitalConfig.num_beds);
-      if (isNaN(beds) || beds < 1) newErrors.num_beds = 'Enter at least 1 bed';
-      if (beds > 10000) newErrors.num_beds = 'Number of beds seems too high — please check';
+    if (step === 2 && isHospital && wardList) {
+      if (wardList.length === 0) newErrors.wardList = 'At least one ward is required';
+      if (wardList.some((w) => !w.ward_type?.trim())) newErrors.wardList = 'Every ward needs a name';
+      if (wardList.some((w) => !w.total_beds || parseInt(w.total_beds) < 1)) newErrors.wardList = 'Every ward needs at least 1 bed';
     }
 
     setErrors(newErrors);
@@ -103,45 +116,37 @@ export default function FirstTimeSetup() {
     setSubmitError('');
 
     if (step === 1) {
-      const appUpdate = { org_name: orgInfo.orgName.trim() };
-      if (isSchool) appUpdate.school_type = orgInfo.school_type || null;
-      const { error: appErr } = await supabase.from('apps').update(appUpdate).eq('id', tenant?.appId);
-      if (appErr) { setSubmitError('Failed to save organisation name. Please try again.'); setSaving(false); return; }
+      // Moved off a direct client-side update after finding it had no
+      // .select().single() chained — meaning a stale tenant.appId
+      // right after fresh registration could match zero rows
+      // silently, with no error shown, while the code proceeded as if
+      // organisation details were saved. See save-org-details.ts.
+      const { data: orgResult, error: orgInvokeError } = await supabase.functions.invoke('save-org-details', {
+        body: {
+          orgName: orgInfo.orgName.trim(),
+          schoolType: isSchool ? (orgInfo.school_type || null) : undefined,
+          boardType: isSchool ? (orgInfo.board_type || 'state_board') : undefined,
+        },
+      });
+      if (orgInvokeError || orgResult?.error) {
+        setSubmitError(orgResult?.error || 'Failed to save organisation name. Please try again.');
+        setSaving(false);
+        return;
+      }
 
-      if (tenant?.branchId) {
-        const { error: branchErr } = await supabase.from('branches').update({
-          address:  orgInfo.address.trim(),
-          district: orgInfo.district,
-        }).eq('id', tenant.branchId);
-        if (branchErr) { setSubmitError('Failed to save address/district. Please try again.'); setSaving(false); return; }
-      } else {
-        // No branch exists yet — this is the normal path for every
-        // fresh signup, not an edge case, since Registration.jsx never
-        // creates a branches row. Previously this whole block was
-        // skipped whenever branchId was null, meaning District and
-        // Address were silently discarded for every new account with
-        // no error shown. Creating the branch here instead, and
-        // pointing this user's own row at it so future logins pick it
-        // up via TenantContext.
-        const { data: newBranch, error: branchErr } = await supabase
-          .from('branches')
-          .insert({
-            app_id:   tenant.appId,
-            address:  orgInfo.address.trim(),
-            district: orgInfo.district,
-          })
-          .select()
-          .single();
-
-        if (branchErr) {
-          setSubmitError('Failed to save address/district. Please try again or contact support.');
-          setSaving(false);
-          return;
-        }
-
-        if (newBranch) {
-          await supabase.from('users').update({ branch_id: newBranch.id }).eq('auth_id', tenant?.userId);
-        }
+      // Moved off a direct client-side insert/update after a real,
+      // reported failure right after fresh registration — see
+      // save-branch-details.ts for the full explanation. The server
+      // now determines the correct app_id itself, rather than relying
+      // on tenant.appId or an RLS helper being fully settled at this
+      // exact moment.
+      const { data: branchResult, error: branchInvokeError } = await supabase.functions.invoke('save-branch-details', {
+        body: { address: orgInfo.address.trim(), district: orgInfo.district },
+      });
+      if (branchInvokeError || branchResult?.error) {
+        setSubmitError(branchResult?.error || 'Failed to save address/district. Please try again or contact support.');
+        setSaving(false);
+        return;
       }
 
       if (orgInfo.contact_phone) {
@@ -149,25 +154,26 @@ export default function FirstTimeSetup() {
       }
     }
 
-    if (step === 2 && isSchool) {
-      const classNames = Array.from({ length: parseInt(schoolConfig.num_classes) }, (_, i) => `Class ${i + 1}`);
-      for (const [order, className] of classNames.entries()) {
-        await supabase.from('classes').upsert({
-          app_id:      tenant.appId,
-          branch_id:   tenant.branchId,
-          class_name:  className,
-          class_order: order + 1,
-          medium:      schoolConfig.medium,
-        }, { onConflict: 'app_id,class_name' });
+    if (step === 2 && isSchool && classList) {
+      const { data: classResult, error: classInvokeError } = await supabase.functions.invoke('customize-classes', {
+        body: { classes: classList, removedIds: removedClassIds },
+      });
+      if (classInvokeError || classResult?.error) {
+        setSubmitError(classResult?.error || 'Failed to save your classes. Please try again or contact support.');
+        setSaving(false);
+        return;
       }
     }
 
-    if (step === 2 && isHospital) {
-      await supabase.from('wards').upsert({
-        app_id:     tenant.appId,
-        ward_type:  'General',
-        total_beds: parseInt(hospitalConfig.num_beds),
-      }, { onConflict: 'app_id,ward_type' });
+    if (step === 2 && isHospital && wardList) {
+      const { data: wardResult, error: wardInvokeError } = await supabase.functions.invoke('customize-wards', {
+        body: { wards: wardList, removedIds: removedWardIds },
+      });
+      if (wardInvokeError || wardResult?.error) {
+        setSubmitError(wardResult?.error || 'Failed to save your wards. Please try again or contact support.');
+        setSaving(false);
+        return;
+      }
     }
 
     setSaving(false);
@@ -252,6 +258,20 @@ export default function FirstTimeSetup() {
               </div>
             )}
 
+            {isSchool && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Board</label>
+                <select value={orgInfo.board_type} onChange={(e) => setOrgInfo((o) => ({ ...o, board_type: e.target.value }))}
+                  style={{ ...S.input(false), cursor: 'pointer' }}>
+                  <option value="state_board">State Board (AP SSC / TS SSC)</option>
+                  <option value="cbse">CBSE</option>
+                </select>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
+                  Sets your pass mark and grading rules for report cards \u2014 State Board pass mark is 35%, CBSE is 33%
+                </p>
+              </div>
+            )}
+
             <div>
               <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Contact phone</label>
               <input value={orgInfo.contact_phone}
@@ -285,44 +305,44 @@ export default function FirstTimeSetup() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-              <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
-                  Number of classes <span style={{ color: '#E05A5A' }}>*</span>
-                </label>
-                <input
-                  value={schoolConfig.num_classes}
-                  onChange={(e) => { setSchoolConfig((s) => ({ ...s, num_classes: sanitize.integer(e.target.value) })); setErrors((er) => ({ ...er, num_classes: null })); }}
-                  placeholder="10" inputMode="numeric"
-                  style={S.input(!!errors.num_classes)} />
-                {errors.num_classes && <p style={S.fieldErr}>⚠ {errors.num_classes}</p>}
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>1–15 classes</p>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
-                  Sections per class <span style={{ color: '#E05A5A' }}>*</span>
-                </label>
-                <input
-                  value={schoolConfig.sections_per_class}
-                  onChange={(e) => { setSchoolConfig((s) => ({ ...s, sections_per_class: sanitize.integer(e.target.value) })); setErrors((er) => ({ ...er, sections_per_class: null })); }}
-                  placeholder="2" inputMode="numeric"
-                  style={S.input(!!errors.sections_per_class)} />
-                {errors.sections_per_class && <p style={S.fieldErr}>⚠ {errors.sections_per_class}</p>}
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>1–10 sections</p>
-              </div>
-            </div>
-
             <div>
               <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Academic year</label>
               <input value={schoolConfig.academic_year} onChange={(e) => setSchoolConfig((s) => ({ ...s, academic_year: e.target.value }))}
                 placeholder="2025-2026" style={S.input(false)} />
             </div>
 
-            {schoolConfig.num_classes && !errors.num_classes && (
-              <div style={{ background: '#111113', borderRadius: 8, padding: '10px 12px', marginTop: 14, fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.7 }}>
-                ℹ️ Will create {schoolConfig.num_classes} classes (Class 1 to Class {schoolConfig.num_classes}) with {schoolConfig.sections_per_class} section{parseInt(schoolConfig.sections_per_class) > 1 ? 's' : ''} each.
-              </div>
-            )}
+            <div style={{ marginTop: 18 }}>
+              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
+                Your classes <span style={{ color: '#E05A5A' }}>*</span>
+              </label>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginBottom: 10 }}>
+                Already set up for you — rename, remove, or add classes below.
+              </p>
+              {loadingDefaults && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Loading...</p>}
+              {classList && classList.map((cls, i) => (
+                <div key={cls.id || `new-${i}`} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <input value={cls.class_name} onChange={(e) => {
+                    const updated = [...classList]; updated[i] = { ...cls, class_name: e.target.value }; setClassList(updated);
+                  }} style={{ ...S.input(false), flex: 2 }} />
+                  <select value={cls.medium} onChange={(e) => {
+                    const updated = [...classList]; updated[i] = { ...cls, medium: e.target.value }; setClassList(updated);
+                  }} style={{ ...S.input(false), flex: 1, cursor: 'pointer' }}>
+                    {MEDIUM_OPTIONS.map((m) => <option key={m}>{m}</option>)}
+                  </select>
+                  <button type="button" onClick={() => {
+                    if (cls.id) setRemovedClassIds((ids) => [...ids, cls.id]);
+                    setClassList(classList.filter((_, idx) => idx !== i));
+                  }} style={{ background: 'none', border: 'none', color: 'rgba(224,90,90,0.5)', fontSize: 16, cursor: 'pointer', padding: '0 8px' }}>✕</button>
+                </div>
+              ))}
+              {errors.classList && <p style={S.fieldErr}>⚠ {errors.classList}</p>}
+              {classList && (
+                <button type="button" onClick={() => setClassList([...classList, { class_name: '', medium: schoolConfig.medium }])}
+                  style={{ marginTop: 6, padding: '8px 14px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                  + Add a class
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -333,15 +353,33 @@ export default function FirstTimeSetup() {
 
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
-                Total beds (General ward) <span style={{ color: '#E05A5A' }}>*</span>
+                Your wards <span style={{ color: '#E05A5A' }}>*</span>
               </label>
-              <input
-                value={hospitalConfig.num_beds}
-                onChange={(e) => { setHospitalConfig((h) => ({ ...h, num_beds: sanitize.integer(e.target.value) })); setErrors((er) => ({ ...er, num_beds: null })); }}
-                placeholder="20" inputMode="numeric"
-                style={S.input(!!errors.num_beds)} />
-              {errors.num_beds && <p style={S.fieldErr}>⚠ {errors.num_beds}</p>}
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>Positive number only</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginBottom: 10 }}>
+                Already set up for you — rename, adjust bed counts, remove, or add wards below.
+              </p>
+              {loadingDefaults && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Loading...</p>}
+              {wardList && wardList.map((ward, i) => (
+                <div key={ward.id || `new-${i}`} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <input value={ward.ward_type} onChange={(e) => {
+                    const updated = [...wardList]; updated[i] = { ...ward, ward_type: e.target.value }; setWardList(updated);
+                  }} style={{ ...S.input(false), flex: 2 }} placeholder="Ward name" />
+                  <input value={ward.total_beds} inputMode="numeric" onChange={(e) => {
+                    const updated = [...wardList]; updated[i] = { ...ward, total_beds: sanitize.integer(e.target.value) }; setWardList(updated);
+                  }} style={{ ...S.input(false), flex: 1 }} placeholder="Beds" />
+                  <button type="button" onClick={() => {
+                    if (ward.id) setRemovedWardIds((ids) => [...ids, ward.id]);
+                    setWardList(wardList.filter((_, idx) => idx !== i));
+                  }} style={{ background: 'none', border: 'none', color: 'rgba(224,90,90,0.5)', fontSize: 16, cursor: 'pointer', padding: '0 8px' }}>✕</button>
+                </div>
+              ))}
+              {errors.wardList && <p style={S.fieldErr}>⚠ {errors.wardList}</p>}
+              {wardList && (
+                <button type="button" onClick={() => setWardList([...wardList, { ward_type: '', total_beds: '' }])}
+                  style={{ marginTop: 6, padding: '8px 14px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                  + Add a ward
+                </button>
+              )}
             </div>
 
             <div style={{ marginBottom: 14 }}>
