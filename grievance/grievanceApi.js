@@ -157,32 +157,21 @@ export async function fetchVillages(mandalId) {
   return data;
 }
 
-// Same pattern as createMandal, scoped to a village within its mandal.
-export async function createVillage({ mandalId, name, suggestedBy }) {
+// Moved off a direct client-side insert — the RLS policy governing
+// this required current_app_id(), which can never resolve for a
+// citizen (no users row exists for anonymous sessions), and villages
+// has no app_id column of its own to check directly anyway. See
+// suggest-village.ts: it verifies the mandal genuinely belongs to
+// this appId server-side, before writing anything.
+export async function createVillage({ appId, mandalId, name, suggestedBy }) {
   const trimmed = (name || '').trim();
   if (!trimmed) throw new Error('Village name is required');
 
-  const { data: existing, error: lookupError } = await supabase
-    .from('villages')
-    .select('id, name, user_suggested')
-    .eq('mandal_id', mandalId)
-    .ilike('name', trimmed)
-    .maybeSingle();
-  if (lookupError) throw lookupError;
-  if (existing) return existing;
-
-  const { data, error } = await supabase
-    .from('villages')
-    .insert({
-      mandal_id: mandalId,
-      name: trimmed,
-      user_suggested: true,
-      suggested_by: suggestedBy || null,
-    })
-    .select('id, name, user_suggested')
-    .single();
-  if (error) throw error;
-  return data;
+  const { data, error } = await supabase.functions.invoke('suggest-village', {
+    body: { appId, mandalId, name: trimmed, suggestedBy },
+  });
+  if (error || data?.error) throw new Error(data?.error || 'Failed to save the village.');
+  return data.village;
 }
 
 export async function fetchSachivalayams(villageId) {

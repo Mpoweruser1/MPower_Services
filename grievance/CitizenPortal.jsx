@@ -502,9 +502,17 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
           language={language}
           t={t}
           onCancel={() => setShowForm(false)}
-          onSubmitted={() => {
+          onSubmitted={(savedComplaint) => {
             setShowForm(false);
             loadComplaints();
+            // Previously: the form just closed and returned to the
+            // list with zero confirmation — no case number, no way to
+            // print, nothing acknowledging the submission actually
+            // worked. A citizen had to separately find and click their
+            // new complaint in the list to see any of that. Now it
+            // shows immediately, reusing the same detail view already
+            // used when clicking an existing complaint.
+            if (savedComplaint) setActiveComplaint(savedComplaint);
           }}
         />
       ) : (
@@ -694,7 +702,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
       setStagedFiles([]);
       setUsedVoice(false);
       setShowReview(false);
-      onSubmitted();
+      onSubmitted(complaint);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1031,7 +1039,7 @@ function useGeographyPicker(appId, appSettings) {
     setAddError('');
     setAddingVillage(true);
     try {
-      const created = await createVillage({ mandalId, name, suggestedBy });
+      const created = await createVillage({ appId, mandalId, name, suggestedBy });
       setVillages((prev) => (prev.some((v) => v.id === created.id) ? prev : [...prev, created]));
       setVillageId(created.id);
       return created;
@@ -1105,17 +1113,26 @@ function EditableCombobox({ value, options, onSelect, onCreate, placeholder, cre
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.id === value);
 
-  useEffect(() => { setQuery(''); }, [value]);
-
   const trimmedQuery = query.trim();
   const filtered = trimmedQuery
     ? options.filter((o) => o.name.toLowerCase().includes(trimmedQuery.toLowerCase()))
     : options;
   const hasExactMatch = options.some((o) => o.name.toLowerCase() === trimmedQuery.toLowerCase());
 
+  function selectOption(id) {
+    onSelect(id);
+    setQuery('');
+    setOpen(false);
+  }
+
   async function handleCreate() {
     if (!trimmedQuery || creating) return;
     await onCreate(trimmedQuery);
+    // Reset together with closing, not via a separate effect keyed on
+    // value — that could fire in the gap between the new village
+    // being selected and the dropdown actually closing, briefly
+    // showing an empty input while still open.
+    setQuery('');
     setOpen(false);
   }
 
@@ -1133,8 +1150,9 @@ function EditableCombobox({ value, options, onSelect, onCreate, placeholder, cre
           // real option, honor that as a real selection now instead.
           if (trimmedQuery) {
             const exact = options.find((o) => o.name.toLowerCase() === trimmedQuery.toLowerCase());
-            if (exact && exact.id !== value) onSelect(exact.id);
+            if (exact && exact.id !== value) { selectOption(exact.id); return; }
           }
+          setQuery('');
           setOpen(false);
         }, 150)}
         placeholder={placeholder}
@@ -1145,7 +1163,7 @@ function EditableCombobox({ value, options, onSelect, onCreate, placeholder, cre
           {filtered.map((o) => (
             <div
               key={o.id}
-              onMouseDown={() => { onSelect(o.id); setOpen(false); }}
+              onMouseDown={() => selectOption(o.id)}
               style={{ padding: '8px 11px', cursor: 'pointer', fontSize: 13.5 }}
             >
               {o.name}{o.user_suggested ? ' *' : ''}
