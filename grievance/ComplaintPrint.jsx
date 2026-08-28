@@ -956,10 +956,21 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
   // at once) is what let stale data from one print type silently
   // persist and display under a different one.
   useEffect(() => {
-    if (!appId) return;
+    // Confirmed real bug: this used to gate on appId before checking
+    // anything else, which blocked EVERY citizen from ever loading
+    // their own print page — appId can never resolve for an anonymous
+    // citizen session (no tenant, and the route never passes it as a
+    // prop), so this returned immediately every single time, and
+    // loading stayed true forever. loadSingleComplaint doesn't
+    // actually need appId at all — it looks the complaint up by
+    // case_no alone. Only the batch/statewide staff paths genuinely
+    // need appId, so only those still wait for it.
     if ((printType === 'citizen' || printType === 'staff_single') && urlCaseNo) {
       loadSingleComplaint(urlCaseNo);
-    } else if (printType === 'staff_batch') {
+      return;
+    }
+    if (!appId) return;
+    if (printType === 'staff_batch') {
       loadBatchComplaints();
     } else if (printType === 'staff_statewide') {
       loadStatewideComplaints();
