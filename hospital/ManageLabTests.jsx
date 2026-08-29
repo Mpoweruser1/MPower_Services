@@ -5,14 +5,28 @@ import { useTenant } from '../context/TenantContext';
 import HospitalNav from '../shared/HospitalNav';
 import BugReporter from '../shared/BugReporter';
 
+// sample_type values MUST match master_lab_tests_sample_type_check exactly:
+// ARRAY['blood','urine','swab','other'] — lowercase, fixed set. Confirmed
+// against real schema. Do not change casing here without also changing
+// the DB constraint.
 const COMMON_TESTS = [
-  { test_name: 'Blood Sugar Fasting', normal_range: '70-100', unit: 'mg/dL', sample_type: 'Blood', turnaround_hours: 4 },
-  { test_name: 'Blood Sugar Post Prandial', normal_range: '70-140', unit: 'mg/dL', sample_type: 'Blood', turnaround_hours: 4 },
-  { test_name: 'Complete Blood Count (CBC)', normal_range: '4.5-11.0', unit: 'x10^9/L', sample_type: 'Blood', turnaround_hours: 6 },
-  { test_name: 'Kidney Function Test (KFT)', normal_range: 'See report', unit: 'mg/dL', sample_type: 'Blood', turnaround_hours: 24 },
-  { test_name: 'Lipid Profile', normal_range: 'See report', unit: 'mg/dL', sample_type: 'Blood', turnaround_hours: 24 },
-  { test_name: 'Liver Function Test (LFT)', normal_range: 'See report', unit: 'U/L', sample_type: 'Blood', turnaround_hours: 24 },
-  { test_name: 'Thyroid Profile (T3/T4/TSH)', normal_range: 'See report', unit: '\u00b5IU/mL', sample_type: 'Blood', turnaround_hours: 24 },
+  { test_name: 'Blood Sugar Fasting', normal_range: '70-100', unit: 'mg/dL', sample_type: 'blood', turnaround_hours: 4 },
+  { test_name: 'Blood Sugar Post Prandial', normal_range: '70-140', unit: 'mg/dL', sample_type: 'blood', turnaround_hours: 4 },
+  { test_name: 'Complete Blood Count (CBC)', normal_range: '4.5-11.0', unit: 'x10^9/L', sample_type: 'blood', turnaround_hours: 6 },
+  { test_name: 'Kidney Function Test (KFT)', normal_range: 'See report', unit: 'mg/dL', sample_type: 'blood', turnaround_hours: 24 },
+  { test_name: 'Lipid Profile', normal_range: 'See report', unit: 'mg/dL', sample_type: 'blood', turnaround_hours: 24 },
+  { test_name: 'Liver Function Test (LFT)', normal_range: 'See report', unit: 'U/L', sample_type: 'blood', turnaround_hours: 24 },
+  { test_name: 'Thyroid Profile (T3/T4/TSH)', normal_range: 'See report', unit: '\u00b5IU/mL', sample_type: 'blood', turnaround_hours: 24 },
+];
+
+// Must match master_lab_tests_sample_type_check exactly — this is the
+// only set of values the DB will accept, so the custom-test form below
+// uses this as a dropdown instead of free text.
+const SAMPLE_TYPES = [
+  { value: 'blood', label: 'Blood' },
+  { value: 'urine', label: 'Urine' },
+  { value: 'swab',  label: 'Swab' },
+  { value: 'other', label: 'Other' },
 ];
 
 const S = {
@@ -32,7 +46,7 @@ export default function ManageLabTests() {
   const [submitError, setSubmitError] = useState('');
   const [successMsg, setSuccessMsg]   = useState('');
 
-  const [newTest, setNewTest] = useState({ test_name: '', normal_range: '', unit: '', sample_type: 'Blood', turnaround_hours: '24' });
+  const [newTest, setNewTest] = useState({ test_name: '', normal_range: '', unit: '', sample_type: 'blood', turnaround_hours: '24' });
   const [testErrors, setTestErrors] = useState({});
 
   useEffect(() => {
@@ -88,7 +102,7 @@ export default function ManageLabTests() {
 
     if (error) showError('Failed to add test.');
     else {
-      setNewTest({ test_name: '', normal_range: '', unit: '', sample_type: 'Blood', turnaround_hours: '24' });
+      setNewTest({ test_name: '', normal_range: '', unit: '', sample_type: 'blood', turnaround_hours: '24' });
       setTestErrors({});
       showSuccess('\u2705 Test added');
     }
@@ -175,7 +189,9 @@ export default function ManageLabTests() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
             <div>
               <label style={S.label}>Sample type</label>
-              <input value={newTest.sample_type} onChange={(e) => setNewTest((t) => ({ ...t, sample_type: e.target.value }))} placeholder="e.g. Blood, Urine" style={S.input(false)} />
+              <select value={newTest.sample_type} onChange={(e) => setNewTest((t) => ({ ...t, sample_type: e.target.value }))} style={{ ...S.input(false), cursor: 'pointer' }}>
+                {SAMPLE_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
             </div>
             <div>
               <label style={S.label}>Turnaround (hours)</label>
@@ -198,7 +214,7 @@ export default function ManageLabTests() {
                 <div>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{t.test_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
-                    {t.normal_range}{t.unit ? ` ${t.unit}` : ''} \u00b7 {t.sample_type} \u00b7 {t.turnaround_hours}h turnaround
+                    {t.normal_range}{t.unit ? ` ${t.unit}` : ''} \u00b7 {t.sample_type ? t.sample_type[0].toUpperCase() + t.sample_type.slice(1) : ''} \u00b7 {t.turnaround_hours}h turnaround
                   </p>
                 </div>
                 <button onClick={() => deleteTest(t.id, t.test_name)}

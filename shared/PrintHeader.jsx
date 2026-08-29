@@ -6,6 +6,24 @@ import { useTenant } from '../context/TenantContext';
 export default function PrintHeader({ documentTitle }) {
   const { tenant } = useTenant();
 
+  // Full address line — was previously address + district only,
+  // silently dropping city/pincode even though both existed on the
+  // branches table all along. Now includes everything that's set.
+  const addressLine = [tenant?.address, tenant?.city, tenant?.district, tenant?.pincode]
+    .filter(Boolean).join(', ');
+
+  // Business detail line — phone/GSTIN/PAN/registration number are
+  // genuinely new fields (added specifically so invoices carry the
+  // details a real hospital/school invoice needs, not previously
+  // captured anywhere in the app). Only shown if actually set, so an
+  // org that hasn't filled these in yet doesn't print a row of blanks.
+  const businessDetails = [
+    tenant?.businessPhone ? `Ph: ${tenant.businessPhone}` : null,
+    tenant?.gstin ? `GSTIN: ${tenant.gstin}` : null,
+    tenant?.pan ? `PAN: ${tenant.pan}` : null,
+    tenant?.registrationNo ? `Reg. No: ${tenant.registrationNo}` : null,
+  ].filter(Boolean).join(' · ');
+
   return (
     <div className="print-only" style={{ display: 'none' }}>
       <style>{`
@@ -49,10 +67,11 @@ export default function PrintHeader({ documentTitle }) {
             <div style={{ width: 32, height: 32, borderRadius: 6, background: '#E8A020', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#111113', fontSize: 15, flexShrink: 0 }}>M</div>
             <div>
               <p style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{tenant?.orgName || 'MPower'}</p>
-              {(tenant?.address || tenant?.district) && (
-                <p style={{ margin: '1px 0 0', fontSize: 11, color: '#555' }}>
-                  {[tenant?.address, tenant?.district].filter(Boolean).join(', ')}
-                </p>
+              {addressLine && (
+                <p style={{ margin: '1px 0 0', fontSize: 11, color: '#555' }}>{addressLine}</p>
+              )}
+              {businessDetails && (
+                <p style={{ margin: '1px 0 0', fontSize: 11, color: '#555' }}>{businessDetails}</p>
               )}
               <p style={{ margin: '2px 0 0', fontSize: 12, color: '#444' }}>Powered by MPower · mpowerind.in</p>
             </div>

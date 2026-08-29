@@ -42,6 +42,7 @@ const MORE_ITEMS = [
   { path: '/school/report-card', icon: '📜', label: 'Report card' },
   { path: '/school/ptm', icon: '🗓️', label: 'Parent meetings' },
   { path: '/school/homework', icon: '📔', label: 'Homework diary' },
+  { path: '/school/business-details', icon: '🏫', label: 'Business details' },
 ];
 
 export default function SchoolNav() {

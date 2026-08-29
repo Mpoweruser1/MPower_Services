@@ -66,7 +66,6 @@ export default function ManageStaff() {
     setError('');
     setMessage('');
 
-    const { data: { session } } = await supabase.auth.getSession();
     const { data, error: inviteErr } = await supabase.functions.invoke('invite-staff-member', {
       body: {
         email: form.email.trim(),
@@ -74,13 +73,27 @@ export default function ManageStaff() {
         phone: form.phone.trim() || null,
         role: form.role,
       },
-      headers: { Authorization: `Bearer ${session.access_token}` },
     });
 
     setInviting(false);
 
     if (inviteErr || data?.error) {
-      setError(data?.error || 'Failed to send invite. Please try again.');
+      // supabase-js only populates `data` on a 2xx response. This edge
+      // function deliberately returns non-2xx statuses (400/401/403/502)
+      // with a real error message in the JSON body — that body lives in
+      // inviteErr.context (a raw Response), not in `data`, on failure.
+      // Without reading it, every failure showed the same generic
+      // message no matter what the server actually said.
+      let realMessage = data?.error;
+      if (!realMessage && inviteErr?.context) {
+        try {
+          const body = await inviteErr.context.json();
+          realMessage = body?.error;
+        } catch {
+          // context wasn't valid JSON — fall through to generic message
+        }
+      }
+      setError(realMessage || 'Failed to send invite. Please try again.');
       return;
     }
 

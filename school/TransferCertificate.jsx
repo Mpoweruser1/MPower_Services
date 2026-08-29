@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
+import PrintHeader from '../shared/PrintHeader';
 import BugReporter from '../shared/BugReporter';
 
 const LEAVING_REASONS = [
@@ -178,7 +179,7 @@ export default function TransferCertificate() {
     <div style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @media print { .no-print { display: none !important; } @page { size: A4 portrait; margin: 15mm 18mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 10px; color: #888; } } }
+        @media print { .no-print { display: none !important; } }
       `}</style>
 
       <div style={S.inner}>
@@ -335,9 +336,13 @@ export default function TransferCertificate() {
 
             {/* TC Document */}
             <div style={{ background: '#fff', color: '#000', padding: '28px 32px', borderRadius: 8, fontFamily: 'serif' }}>
-              {/* Header */}
-              <div style={{ textAlign: 'center', marginBottom: 20, borderBottom: '2px solid #000', paddingBottom: 14 }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>{issuedTc.orgName}</h2>
+              {/* Shared header — replaces a hand-rolled header that
+                  duplicated PrintHeader's @page rule and page-number
+                  CSS, and lacked the address/phone/GSTIN details
+                  PrintHeader now includes. */}
+              <PrintHeader documentTitle="Transfer Certificate" />
+
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
                 <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Recognised by Govt. of Andhra Pradesh</p>
                 <h3 style={{ fontSize: 15, fontWeight: 700, margin: '12px 0 0', textTransform: 'uppercase', letterSpacing: 1 }}>
                   Transfer Certificate

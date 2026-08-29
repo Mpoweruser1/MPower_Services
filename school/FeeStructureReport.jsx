@@ -5,10 +5,15 @@
 // verified schema: fee_structure(id, app_id, class_id, fee_type,
 // amount, due_date, academic_year); fee_dues(fee_structure_id,
 // student_id, amount_due, fee_payments(amount)).
+//
+// PDF and Excel export added alongside the existing CSV — see
+// FeeAnalytics.jsx for the rationale.
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
+import PrintHeader from '../shared/PrintHeader';
+import { exportToExcel } from '../shared/exportExcel';
 import TierGate from '../shared/TierGate';
 import BugReporter from '../shared/BugReporter';
 
@@ -45,10 +50,6 @@ function FeeStructureReportContent() {
       .select('fee_structure_id, amount_due, student_id, students(full_name, sid, status), fee_payments(amount)')
       .in('fee_structure_id', structureIds);
 
-    // Filter out withdrawn/inactive students client-side — a
-    // withdrawn student's old due shouldn't inflate expected revenue
-    // or the unpaid-students count, matching the .eq('status','active')
-    // convention every other report this session uses.
     const dues = (allDues || []).filter((d) => d.students?.status === 'active');
 
     const enriched = (structures || []).map((structure) => {
@@ -67,11 +68,11 @@ function FeeStructureReportContent() {
     setLoading(false);
   }
 
+  const exportHeaders = ['Fee type', 'Class', 'Academic year', 'Students', 'Expected', 'Collected', '% collected'];
+  const exportRows = rows.map((r) => [r.fee_type, r.classes?.class_name || 'All classes', r.academic_year, r.studentCount, r.totalExpected, r.totalCollected, `${r.pct}%`]);
+
   function exportCsv() {
-    const csvRows = [
-      ['Fee type', 'Class', 'Academic year', 'Students', 'Expected', 'Collected', '% collected'],
-      ...rows.map((r) => [r.fee_type, r.classes?.class_name || 'All classes', r.academic_year, r.studentCount, r.totalExpected, r.totalCollected, `${r.pct}%`]),
-    ].map((r) => r.join(',')).join('\n');
+    const csvRows = [exportHeaders, ...exportRows].map((r) => r.join(',')).join('\n');
     const blob = new Blob([csvRows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -80,19 +81,29 @@ function FeeStructureReportContent() {
     a.click();
   }
 
+  function exportExcelFile() {
+    exportToExcel(`fee_structure_report_${new Date().toISOString().slice(0, 10)}`, [
+      { name: 'Fee Structure Report', headers: exportHeaders, rows: exportRows },
+    ]);
+  }
+
   if (loading) return <div style={{ ...S.page, textAlign: 'center', paddingTop: 60 }}><p style={{ color: 'rgba(255,255,255,0.3)' }}>Loading...</p></div>;
 
   return (
     <div style={S.page}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @media print { .no-print { display: none !important; } }
+      `}</style>
       <div style={S.inner}>
 
-        <div style={{ marginBottom: 20 }}>
+        <div className="no-print" style={{ marginBottom: 20 }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Reports</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Fee Structure Report</h1>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>Every fee defined, rolled up by term and class \u2014 not just by date</p>
         </div>
 
+        <div className="no-print">
         {rows.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px', background: '#161618', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>No fee structures created yet.</p>
@@ -131,11 +142,45 @@ function FeeStructureReportContent() {
             );
           })
         )}
+        </div>
 
-        <button onClick={exportCsv}
-          style={{ width: '100%', marginTop: 12, padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-          &#128229; Export as CSV
-        </button>
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 12 }}>
+          <button onClick={() => window.print()}
+            style={{ padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+            🖨️ PDF
+          </button>
+          <button onClick={exportExcelFile}
+            style={{ padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+            📊 Excel
+          </button>
+          <button onClick={exportCsv}
+            style={{ padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+            &#128229; CSV
+          </button>
+        </div>
+
+        {/* Print-only formatted table */}
+        <div className="print-only" style={{ display: 'none', background: '#fff', color: '#000', padding: '32px 40px' }}>
+          <PrintHeader documentTitle="Fee Structure Report" />
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead>
+              <tr>{exportHeaders.map((h) => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{r.fee_type}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{r.classes?.class_name || 'All classes'}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{r.academic_year}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{r.studentCount}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(r.totalExpected)}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(r.totalCollected)}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{r.pct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
       </div>
       <SchoolNav />

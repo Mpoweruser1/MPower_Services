@@ -7,11 +7,20 @@
 // The "family pattern" concept — same parent phone, multiple children
 // in default — is a direct, verified translation of CTS's own
 // family-pattern detection into School's actual data model.
+//
+// PDF and Excel export added alongside the existing CSV — PDF follows
+// the same print-only + PrintHeader pattern every other document in
+// this app uses (there's no server-side PDF renderer anywhere here,
+// so "PDF" means the browser's own print-to-PDF via window.print()).
+// Excel uses the shared exportToExcel helper (SheetJS) for a real
+// .xlsx file, not just a renamed CSV.
 import React, { useState, useEffect, useMemo } from 'react';
 import TierGate from '../shared/TierGate';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
+import PrintHeader from '../shared/PrintHeader';
+import { exportToExcel } from '../shared/exportExcel';
 import BugReporter from '../shared/BugReporter';
 
 function daysOverdue(dueDate) {
@@ -113,14 +122,14 @@ function FeeAnalyticsContent() {
   const seriouslyOverdue = enriched.filter((d) => d.balance > 0 && d.overdueDays >= 30)
     .sort((a, b) => b.overdueDays - a.overdueDays);
 
+  const exportRows = enriched.map((d) => [
+    d.student?.full_name || '', d.student?.sid || '', d.student?.classes?.class_name || '',
+    d.fee_type || d.category || '', d.amount_due, d.paid, d.balance, d.overdueDays,
+  ]);
+  const exportHeaders = ['Student', 'SID', 'Class', 'Fee type', 'Amount due', 'Paid', 'Balance', 'Days overdue'];
+
   function exportCsv() {
-    const rows = [
-      ['Student', 'SID', 'Class', 'Fee type', 'Amount due', 'Paid', 'Balance', 'Days overdue'],
-      ...enriched.map((d) => [
-        d.student?.full_name || '', d.student?.sid || '', d.student?.classes?.class_name || '',
-        d.fee_type || d.category || '', d.amount_due, d.paid, d.balance, d.overdueDays,
-      ]),
-    ].map((r) => r.join(',')).join('\n');
+    const rows = [exportHeaders, ...exportRows].map((r) => r.join(',')).join('\n');
     const blob = new Blob([rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -129,19 +138,28 @@ function FeeAnalyticsContent() {
     a.click();
   }
 
+  function exportExcelFile() {
+    exportToExcel(`fee_analytics_${new Date().toISOString().slice(0, 10)}`, [
+      { name: 'Fee Analytics', headers: exportHeaders, rows: exportRows },
+    ]);
+  }
+
   if (loading) return <div style={{ ...S.page, textAlign: 'center', paddingTop: 60 }}><p style={{ color: 'rgba(255,255,255,0.3)' }}>Loading...</p></div>;
 
   return (
     <div style={S.page}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @media print { .no-print { display: none !important; } }
+      `}</style>
       <div style={S.inner}>
 
-        <div style={{ marginBottom: 20 }}>
+        <div className="no-print" style={{ marginBottom: 20 }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Analytics</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Fee Collection Analytics</h1>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16 }}>
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16 }}>
           <div style={{ background: '#111113', borderRadius: 10, padding: 12, textAlign: 'center' }}>
             <p style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#fff' }}>{currency(totalDue)}</p>
             <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '3px 0 0' }}>Total due</p>
@@ -160,7 +178,7 @@ function FeeAnalyticsContent() {
           </div>
         </div>
 
-        <div style={{ ...S.card, marginBottom: 16 }}>
+        <div className="no-print" style={{ ...S.card, marginBottom: 16 }}>
           <button onClick={() => setShowPatterns(!showPatterns)}
             style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>
@@ -209,7 +227,8 @@ function FeeAnalyticsContent() {
           )}
         </div>
 
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 10 }}>By class</p>
+        <p className="no-print" style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 10 }}>By class</p>
+        <div className="no-print">
         {classes.map((c) => {
           const rollup = byClass[c.id] || { due: 0, paid: 0, outstanding: 0, dues: [] };
           const isExpanded = expandedClass === c.id;
@@ -241,11 +260,54 @@ function FeeAnalyticsContent() {
             </div>
           );
         })}
+        </div>
 
-        <button onClick={exportCsv}
-          style={{ width: '100%', marginTop: 12, padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-          &#128229; Export as CSV
-        </button>
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 12 }}>
+          <button onClick={() => window.print()}
+            style={{ padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+            🖨️ PDF
+          </button>
+          <button onClick={exportExcelFile}
+            style={{ padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+            📊 Excel
+          </button>
+          <button onClick={exportCsv}
+            style={{ padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+            &#128229; CSV
+          </button>
+        </div>
+
+        {/* Print-only formatted table — hidden on screen, shown only
+            when printing/saving as PDF. Same data as the CSV/Excel
+            export, laid out as a real printable report. */}
+        <div className="print-only" style={{ display: 'none', background: '#fff', color: '#000', padding: '32px 40px' }}>
+          <PrintHeader documentTitle="Fee Collection Analytics" />
+          <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 20, fontSize: 13, textAlign: 'center' }}>
+            <div><strong>{currency(totalDue)}</strong><br />Total due</div>
+            <div><strong>{currency(totalPaid)}</strong><br />Collected</div>
+            <div><strong>{currency(totalOutstanding)}</strong><br />Outstanding</div>
+            <div><strong>{efficiency}%</strong><br />Efficiency</div>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead>
+              <tr>{exportHeaders.map((h) => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {enriched.map((d) => (
+                <tr key={d.id}>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.full_name}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.sid}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.classes?.class_name}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.fee_type || d.category}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(d.amount_due)}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(d.paid)}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(d.balance)}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.overdueDays}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
       </div>
       <SchoolNav />

@@ -1,8 +1,9 @@
 // school/Certificates.jsx — FINAL (Supabase wired)
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
+import PrintHeader from '../shared/PrintHeader';
 import BugReporter from '../shared/BugReporter';
 
 const CERT_TYPES = [
@@ -124,7 +125,7 @@ export default function Certificates() {
     <div style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @media print { .no-print { display: none !important; } @page { size: A4 portrait; margin: 15mm 18mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 10px; color: #888; } } }
+        @media print { .no-print { display: none !important; } }
       `}</style>
 
       <div style={S.inner}>
@@ -229,8 +230,17 @@ export default function Certificates() {
             </div>
 
             <div style={{ background: '#fff', color: '#000', padding: '32px 40px', borderRadius: 8, fontFamily: 'serif' }}>
-              <div style={{ textAlign: 'center', marginBottom: 24, borderBottom: '2px solid #000', paddingBottom: 16 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>{issuedCert.orgName}</h2>
+              {/* Shared header — was previously a hand-rolled header
+                  duplicating @page rules and page-number CSS already
+                  defined in PrintHeader.jsx, and missing the address/
+                  phone/GSTIN details PrintHeader now includes. Using
+                  the same component every printed document uses keeps
+                  this certificate consistent with everything else and
+                  automatically up to date if the header format ever
+                  changes again. */}
+              <PrintHeader documentTitle={issuedCert.certTypeLabel} />
+
+              <div style={{ textAlign: 'center', marginBottom: 24 }}>
                 <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Recognised by Govt. of Andhra Pradesh</p>
                 <h3 style={{ fontSize: 16, fontWeight: 700, margin: '14px 0 0', textTransform: 'uppercase', letterSpacing: 2 }}>
                   {issuedCert.certTypeLabel}

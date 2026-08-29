@@ -20,6 +20,7 @@ const MORE_ITEMS = [
   { path: '/hospital/wards',         icon: '🛏️', label: 'Manage wards' },
   { path: '/hospital/doctors',       icon: '🩺', label: 'Manage doctors' },
   { path: '/hospital/staff',         icon: '👥', label: 'Manage staff' },
+  { path: '/hospital/business-details', icon: '🏥', label: 'Business details' },
   { path: '/hospital/billing-analytics', icon: '📊', label: 'Billing analytics' },
   { path: '/hospital/appointment-analytics', icon: '📈', label: 'Appointment analytics' },
   { path: '/hospital/lab-tests',     icon: '🔬', label: 'Manage lab tests' },

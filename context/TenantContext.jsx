@@ -82,12 +82,15 @@ export function TenantProvider({ children }) {
         .eq('app_id', data.app_id)
         .maybeSingle();
 
-      // Branch address/district — for the org-identity banner shown
-      // across School/Hospital. Only queried if a branch actually
-      // exists yet (a very fresh signup, before FirstTimeSetup's
-      // branch-creation step runs, won't have one).
+      // Branch address/district/business details — for the org-identity
+      // banner and invoice header shown across School/Hospital. Only
+      // queried if a branch actually exists yet (a very fresh signup,
+      // before FirstTimeSetup's branch-creation step runs, won't have
+      // one). city/pincode existed on this table all along but were
+      // never actually selected here until now; phone/gstin/pan/
+      // registration_no are new columns for real invoice compliance.
       const { data: branchRow } = data.branch_id
-        ? await supabase.from('branches').select('address, district').eq('id', data.branch_id).maybeSingle()
+        ? await supabase.from('branches').select('address, city, district, pincode, phone, gstin, pan, registration_no').eq('id', data.branch_id).maybeSingle()
         : { data: null };
 
       setTenant({
@@ -110,7 +113,13 @@ export function TenantProvider({ children }) {
         boardType:     appRow?.board_type || 'state_board',
         tier:          appRow?.subscription_tier || 'basic',
         address:       branchRow?.address || null,
+        city:          branchRow?.city || null,
         district:      branchRow?.district || null,
+        pincode:       branchRow?.pincode || null,
+        businessPhone: branchRow?.phone || null,
+        gstin:         branchRow?.gstin || null,
+        pan:           branchRow?.pan || null,
+        registrationNo: branchRow?.registration_no || null,
         // Client status
         clientStatus:  clientRow?.status || 'trial',
         trialEndsAt:   clientRow?.trial_ended_at || null,

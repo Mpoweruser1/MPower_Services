@@ -141,7 +141,16 @@ export default function FirstTimeSetup() {
       // on tenant.appId or an RLS helper being fully settled at this
       // exact moment.
       const { data: branchResult, error: branchInvokeError } = await supabase.functions.invoke('save-branch-details', {
-        body: { address: orgInfo.address.trim(), district: orgInfo.district },
+        body: {
+          // branches.branch_name is NOT NULL — this was never being sent,
+          // which is exactly what caused the 500 ("null value in column
+          // branch_name"). Defaulting to the org name since most schools/
+          // hospitals start with a single branch and there's no dedicated
+          // branch-naming step in this setup flow.
+          branchName: orgInfo.orgName.trim() || 'Main Branch',
+          address: orgInfo.address.trim(),
+          district: orgInfo.district,
+        },
       });
       if (branchInvokeError || branchResult?.error) {
         setSubmitError(branchResult?.error || 'Failed to save address/district. Please try again or contact support.');

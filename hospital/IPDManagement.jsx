@@ -134,19 +134,54 @@ export default function IPDManagement() {
     if (alreadyAdmitted) { setAdmitError('This patient is already admitted. Discharge first before re-admitting.'); return; }
 
     setAdmitting(true);
+
+    // ipd_admissions_admitting_doctor_id_fkey requires this column to hold a
+    // doctors.id, NOT a users.id. tenant.userRowId is the signed-in user's
+    // users.id — correct for columns like created_by (FK to users.id) but
+    // wrong here. doctors.staff_id is what links a users row to its doctors
+    // profile, so look that up first. Not every account admitting a patient
+    // has a doctors profile (a nurse or receptionist may do this), and the
+    // column is nullable, so fall back to null rather than fail the whole
+    // admission when no profile exists.
+    const { data: doctorRow } = await supabase
+      .from('doctors')
+      .select('id')
+      .eq('staff_id', tenant.userRowId)
+      .maybeSingle();
+
     const { error } = await supabase.from('ipd_admissions').insert({
-      app_id:              tenant.appId,
+      // NOTE: no app_id here — ipd_admissions has no app_id column.
+      // Tenant scoping for this table works indirectly through
+      // patient_id -> patients.app_id (see the tenant_isolation_ipd
+      // RLS policy), unlike most other hospital tables which do carry
+      // app_id directly. Sending it here caused every single admission
+      // to fail with "Could not find the 'app_id' column of
+      // 'ipd_admissions' in the schema cache."
       patient_id:          admitPatient.id,
       ward_id:             admitWardId,
       bed_no:              admitBedNo.trim(),
       admission_date:      new Date().toISOString().slice(0, 10),
-      admitting_doctor_id: tenant.userRowId,
+      admitting_doctor_id: doctorRow?.id || null,
       diagnosis:           admitDiagnosis.trim() || 'Pending',
     });
 
     if (error) console.error('Admission failed:', error);
 
-    if (error) { setAdmitError('Failed to admit patient. Bed may already be occupied.'); setAdmitting(false); return; }
+    if (error) {
+      // There is no unique constraint on (ward_id, bed_no) in the schema —
+      // "bed already occupied" can only ever come from the client-side
+      // validateBedNo() check above, which already passed by this point.
+      // A DB-level failure here is something else (most commonly a foreign
+      // key violation), so say so rather than blaming the bed.
+      const isForeignKeyError = error.code === '23503';
+      setAdmitError(
+        isForeignKeyError
+          ? 'Failed to admit patient — a linked record (doctor, patient, or ward) could not be found. Please refresh and try again.'
+          : `Failed to admit patient. ${error.message || 'Please try again.'}`
+      );
+      setAdmitting(false);
+      return;
+    }
 
     setAdmitPatient(null);
     setAdmitWardId('');

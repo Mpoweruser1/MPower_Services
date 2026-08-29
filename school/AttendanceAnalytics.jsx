@@ -10,11 +10,17 @@
 // year" — there's no academic_year boundary tracked on attendance
 // records in this schema, so a precise year-to-date figure isn't
 // something this can honestly compute yet.
+//
+// PDF and Excel export added alongside the existing CSV — see
+// FeeAnalytics.jsx for the rationale (browser print-to-PDF via
+// PrintHeader, real .xlsx via the shared exportToExcel helper).
 import React, { useState, useEffect, useMemo } from 'react';
 import TierGate from '../shared/TierGate';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
+import PrintHeader from '../shared/PrintHeader';
+import { exportToExcel } from '../shared/exportExcel';
 import BugReporter from '../shared/BugReporter';
 
 const WINDOW_DAYS = 90;
@@ -126,14 +132,14 @@ function AttendanceAnalyticsContent() {
     return map;
   }, [perStudent]);
 
+  const exportHeaders = ['Student', 'SID', 'Class', 'Days tracked', 'Days absent', 'Absent rate', 'Current streak', 'Chronic'];
+  const exportRows = perStudent.map((s) => [
+    s.student?.full_name || '', s.student?.sid || '', s.student?.classes?.class_name || '',
+    s.totalDays, s.absentDays, `${Math.round(s.absentRate * 100)}%`, s.streak, s.isChronic ? 'Yes' : 'No',
+  ]);
+
   function exportCsv() {
-    const rows = [
-      ['Student', 'SID', 'Class', 'Days tracked', 'Days absent', 'Absent rate', 'Current streak', 'Chronic'],
-      ...perStudent.map((s) => [
-        s.student?.full_name || '', s.student?.sid || '', s.student?.classes?.class_name || '',
-        s.totalDays, s.absentDays, `${Math.round(s.absentRate * 100)}%`, s.streak, s.isChronic ? 'Yes' : 'No',
-      ]),
-    ].map((r) => r.join(',')).join('\n');
+    const rows = [exportHeaders, ...exportRows].map((r) => r.join(',')).join('\n');
     const blob = new Blob([rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -142,20 +148,29 @@ function AttendanceAnalyticsContent() {
     a.click();
   }
 
+  function exportExcelFile() {
+    exportToExcel(`attendance_analytics_${new Date().toISOString().slice(0, 10)}`, [
+      { name: 'Attendance Analytics', headers: exportHeaders, rows: exportRows },
+    ]);
+  }
+
   if (loading) return <div style={{ ...S.page, textAlign: 'center', paddingTop: 60 }}><p style={{ color: 'rgba(255,255,255,0.3)' }}>Loading...</p></div>;
 
   return (
     <div style={S.page}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @media print { .no-print { display: none !important; } }
+      `}</style>
       <div style={S.inner}>
 
-        <div style={{ marginBottom: 6 }}>
+        <div className="no-print" style={{ marginBottom: 6 }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Analytics</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Attendance Analytics</h1>
         </div>
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>Last {WINDOW_DAYS} days &middot; chronic absence = missing 10%+ of tracked days</p>
+        <p className="no-print" style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginBottom: 16 }}>Last {WINDOW_DAYS} days &middot; chronic absence = missing 10%+ of tracked days</p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 16 }}>
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 16 }}>
           <div style={{ background: '#111113', borderRadius: 10, padding: 12, textAlign: 'center' }}>
             <p style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#6AAA90' }}>{overallRate}%</p>
             <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '3px 0 0' }}>Overall attendance</p>
@@ -170,7 +185,7 @@ function AttendanceAnalyticsContent() {
           </div>
         </div>
 
-        <div style={{ ...S.card, marginBottom: 16 }}>
+        <div className="no-print" style={{ ...S.card, marginBottom: 16 }}>
           <button onClick={() => setShowPatterns(!showPatterns)}
             style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>
@@ -232,7 +247,8 @@ function AttendanceAnalyticsContent() {
           )}
         </div>
 
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 10 }}>By class</p>
+        <p className="no-print" style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 10 }}>By class</p>
+        <div className="no-print">
         {classes.map((c) => {
           const classStudents = byClass[c.id] || [];
           const isExpanded = expandedClass === c.id;
@@ -266,11 +282,47 @@ function AttendanceAnalyticsContent() {
             </div>
           );
         })}
+        </div>
 
-        <button onClick={exportCsv}
-          style={{ width: '100%', marginTop: 12, padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-          &#128229; Export as CSV
-        </button>
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 12 }}>
+          <button onClick={() => window.print()}
+            style={{ padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+            🖨️ PDF
+          </button>
+          <button onClick={exportExcelFile}
+            style={{ padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+            📊 Excel
+          </button>
+          <button onClick={exportCsv}
+            style={{ padding: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+            &#128229; CSV
+          </button>
+        </div>
+
+        {/* Print-only formatted table */}
+        <div className="print-only" style={{ display: 'none', background: '#fff', color: '#000', padding: '32px 40px' }}>
+          <PrintHeader documentTitle="Attendance Analytics" />
+          <p style={{ fontSize: 12, marginBottom: 16 }}>Last {WINDOW_DAYS} days · Overall attendance: <strong>{overallRate}%</strong> · Chronically absent: <strong>{chronicStudents.length}</strong></p>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <thead>
+              <tr>{exportHeaders.map((h) => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {perStudent.map((s) => (
+                <tr key={s.studentId}>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.student?.full_name}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.student?.sid}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.student?.classes?.class_name}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.totalDays}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.absentDays}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{Math.round(s.absentRate * 100)}%</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.streak}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.isChronic ? 'Yes' : 'No'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
       </div>
       <SchoolNav />
