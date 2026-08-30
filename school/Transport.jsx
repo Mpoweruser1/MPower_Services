@@ -63,12 +63,23 @@ export default function Transport() {
   }
 
   async function markStatus(routeId, status) {
+    // transport_routes has no status_updated_at column — confirmed via
+    // real schema (only last_gps_update exists, for GPS pings
+    // specifically, not general status changes). Every status update
+    // has been failing because of this outright, predating even the
+    // earlier fix that made this failure visible instead of silent.
     const { error } = await supabase
       .from('transport_routes')
-      .update({ status, status_updated_at: new Date().toISOString() })
+      .update({ status })
       .eq('id', routeId);
 
-    if (error) return;
+    // Previously: if (error) return; — a failed status update showed
+    // absolutely nothing to the user, no message, no console log.
+    if (error) {
+      console.error('Route status update failed:', error);
+      setSubmitError(error.message || 'Failed to update route status. Please try again.');
+      return;
+    }
 
     // If bus not running — mark all students on this route absent
     if (status === 'absent') {
@@ -135,7 +146,8 @@ export default function Transport() {
     });
 
     if (error) {
-      setSubmitError('Failed to add route. Please try again.');
+      console.error('Route creation failed:', error);
+      setSubmitError(error.message || 'Failed to add route. Please try again.');
       setSaving(false);
       return;
     }

@@ -112,7 +112,8 @@ export default function ManageDoctors() {
     });
 
     if (error) {
-      showError('Failed to create doctor profile. Please try again.');
+      console.error('Doctor profile creation failed:', error);
+      showError(error.message || 'Failed to create doctor profile. Please try again.');
       setSaving(false);
       return;
     }

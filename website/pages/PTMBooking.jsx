@@ -41,7 +41,7 @@ export default function PTMBooking() {
 
   async function loadSlots() {
     const { data } = await supabase
-      .from('ptm_slots').select('id, slot_time, status')
+      .from('ptm_slots_public').select('id, slot_time, status')
       .eq('session_id', sessionId).eq('status', 'open').order('slot_time');
     setSlots(data || []);
   }
@@ -59,20 +59,23 @@ export default function PTMBooking() {
 
   async function bookSlot(slotId) {
     setError('');
-    const { data, error: bookErr } = await supabase
+    const { error: bookErr, count } = await supabase
       .from('ptm_slots')
-      .update({ student_id: selectedStudent.id, status: 'booked', booked_at: new Date().toISOString() })
+      .update({ student_id: selectedStudent.id, status: 'booked', booked_at: new Date().toISOString() }, { count: 'exact' })
       .eq('id', slotId)
-      .eq('status', 'open') // only succeeds if still open — avoids double-booking
-      .select()
-      .maybeSingle();
+      .eq('status', 'open'); // only succeeds if still open — avoids double-booking
 
-    if (bookErr || !data) {
+    if (bookErr || !count) {
       setError('That slot was just taken by someone else — please pick another.');
       loadSlots();
       return;
     }
-    setBooked(data);
+    // Confirmation built from the slot already held locally — it was
+    // loaded before booking, so there's no need to read it back from
+    // the server, avoiding any dependency on anonymous SELECT access
+    // to the real table.
+    const bookedSlot = slots.find((s) => s.id === slotId);
+    setBooked(bookedSlot);
   }
 
   if (loading) return <div style={S.page}><p style={{ textAlign: 'center', padding: 60, color: 'rgba(255,255,255,0.3)' }}>Loading...</p></div>;

@@ -101,7 +101,8 @@ export default function PatientRegistration() {
       .single();
 
     if (insertErr) {
-      setSubmitError('Failed to register patient. Please try again.');
+      console.error('Patient registration failed:', insertErr);
+      setSubmitError(insertErr.message || 'Failed to register patient. Please try again.');
       setSaving(false);
       return;
     }

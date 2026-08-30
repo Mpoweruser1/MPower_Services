@@ -76,6 +76,7 @@ export default function PatientDetail({ patientId }) {
   const [editingField, setEditingField] = useState(null); // 'phone' | 'blood_group' | 'allergies' | null
   const [fieldDraft, setFieldDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState('');
 
   React.useEffect(() => {
     if (!id) return;
@@ -96,22 +97,31 @@ export default function PatientDetail({ patientId }) {
   function startEdit(field) {
     setEditingField(field);
     setFieldDraft(patient[field] || '');
+    setEditError('');
   }
 
   async function saveDirectEdit() {
     if (!editingField) return;
     setSaving(true);
+    setEditError('');
     const { error } = await supabase
       .from('patients')
       .update({ [editingField]: fieldDraft.trim() })
       .eq('id', id);
 
-    if (!error) {
-      setPatient((p) => ({ ...p, [editingField]: fieldDraft.trim() }));
-      logActivity(tenant, 'patient_field_direct_edit', 'info', {
-        patientId: id, field: editingField,
-      });
+    // Previously: no error branch at all — a failed save just closed
+    // the edit box in silence, looking identical to a successful one.
+    if (error) {
+      console.error('Direct field edit failed:', error);
+      setSaving(false);
+      setEditError(error.message || 'Failed to save. Please try again.');
+      return; // keep the edit box open so nothing typed is lost
     }
+
+    setPatient((p) => ({ ...p, [editingField]: fieldDraft.trim() }));
+    logActivity(tenant, 'patient_field_direct_edit', 'info', {
+      patientId: id, field: editingField,
+    });
     setSaving(false);
     setEditingField(null);
   }
@@ -172,6 +182,11 @@ export default function PatientDetail({ patientId }) {
         {/* Directly editable — safety/time critical */}
         <div style={{ ...S.card, background: 'rgba(224,90,90,0.06)', border: '1px solid rgba(224,90,90,0.2)' }}>
           <p style={{ fontSize: 11, color: '#E05A5A', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 10px' }}>Editable directly</p>
+          {editError && (
+            <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: '#E05A5A' }}>
+              ⚠ {editError}
+            </div>
+          )}
 
           <div style={S.row}>
             <span style={S.label}>Phone</span>

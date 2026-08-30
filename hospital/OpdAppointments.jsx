@@ -81,7 +81,7 @@ export default function OpdAppointments() {
       created_by: tenant.userRowId,
     }).select().single();
 
-    if (error) { setMessage('Failed to create appointment day.'); return; }
+    if (error) { console.error('Appointment day creation failed:', error); setMessage(error.message || 'Failed to create appointment day.'); return; }
 
     const [h, m] = form.start_time.split(':').map(Number);
     const rows = Array.from({ length: count }, (_, i) => {
@@ -90,7 +90,19 @@ export default function OpdAppointments() {
       slotDate.setMinutes(totalMinutes);
       return { appointment_day_id: day.id, slot_time: slotDate.toISOString(), status: 'open' };
     });
-    await supabase.from('opd_appointment_slots').insert(rows);
+    const { error: slotsErr } = await supabase.from('opd_appointment_slots').insert(rows);
+
+    // Previously not checked — same bug shape as PTM slot generation:
+    // the day itself was created either way, so the success message
+    // showed "created with N slots" even when zero slots actually
+    // existed to book into.
+    if (slotsErr) {
+      console.error('OPD slot generation failed:', slotsErr);
+      setMessage(`Clinic day created, but generating slots failed: ${slotsErr.message}. Delete this day and try again.`);
+      setShowCreate(false);
+      loadDays();
+      return;
+    }
 
     setShowCreate(false);
     setMessage(`✅ Clinic day created with ${count} slots.`);
@@ -99,9 +111,19 @@ export default function OpdAppointments() {
 
   async function completeCheckIn(dayId, slotId) {
     if (!checkInPatient) { setMessage('Select or register the patient first.'); return; }
-    await supabase.from('opd_appointment_slots')
+    const { error } = await supabase.from('opd_appointment_slots')
       .update({ status: 'completed', patient_id: checkInPatient.id })
       .eq('id', slotId);
+
+    // Previously not checked — a failed check-in still showed
+    // "✅ Checked in", so a patient could be told they're checked in
+    // while the slot never actually linked to their record.
+    if (error) {
+      console.error('Check-in failed:', error);
+      setMessage(error.message || 'Failed to check in. Please try again.');
+      return;
+    }
+
     setCheckingInSlot(null);
     setCheckInPatient(null);
     setMessage(`✅ Checked in — linked to ${checkInPatient.full_name}`);

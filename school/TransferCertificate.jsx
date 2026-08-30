@@ -129,35 +129,48 @@ export default function TransferCertificate() {
     }
 
     // Generate TC number
+    // transfer_certificates has no app_id column — tenant scoping goes
+    // through student_id -> students.app_id, same indirect pattern
+    // already confirmed on ipd_admissions/opd_visits earlier this
+    // session. The old .eq('app_id', ...) here referenced a column
+    // that doesn't exist and would have failed this query outright.
     const year  = new Date().getFullYear();
     const { count } = await supabase
       .from('transfer_certificates')
-      .select('id', { count: 'exact', head: true })
-      .eq('app_id', tenant.appId);
+      .select('id, students!inner(app_id)', { count: 'exact', head: true })
+      .eq('students.app_id', tenant.appId);
 
     const tcNo = `TC/${year}/${String((count || 0) + 1).padStart(4, '0')}`;
     const finalReason = reason === 'Other' ? reasonOther.trim() : reason;
 
+    // Field names below are corrected to match the real schema:
+    // reason_leaving -> reason, date_of_leaving -> issue_date (which
+    // is NOT NULL — it was never actually being set before), conduct
+    // -> conduct_grade, issued_at dropped (created_at already
+    // defaults to now()), app_id dropped (no such column). remarks
+    // and attendance_pct have no dedicated columns — both now go into
+    // the fields jsonb column, which exists specifically for this.
     const { data: tc, error: tcErr } = await supabase
       .from('transfer_certificates')
       .insert({
-        app_id:          tenant.appId,
         student_id:      student.id,
         tc_no:           tcNo,
-        reason_leaving:  finalReason,
-        date_of_leaving: leavingDate,
-        conduct,
-        remarks:         remarks.trim() || null,
+        reason:          finalReason,
+        issue_date:      leavingDate,
+        conduct_grade:   conduct,
         override_reason: overrideReason.trim() || null,
         issued_by:       tenant.userRowId,
-        issued_at:       new Date().toISOString(),
-        attendance_pct:  attendancePct,
+        fields: {
+          remarks: remarks.trim() || null,
+          attendance_pct: attendancePct,
+        },
       })
       .select()
       .single();
 
     if (tcErr) {
-      setError('Failed to issue TC. Please try again.');
+      console.error('TC issue failed:', tcErr);
+      setError(tcErr.message || 'Failed to issue TC. Please try again.');
       setIssuing(false);
       return;
     }
@@ -353,7 +366,7 @@ export default function TransferCertificate() {
               {/* TC Number and Date */}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, fontSize: 12 }}>
                 <span><strong>TC No:</strong> {issuedTc.tc_no}</span>
-                <span><strong>Date:</strong> {new Date(issuedTc.issued_at).toLocaleDateString('en-IN')}</span>
+                <span><strong>Date:</strong> {new Date(issuedTc.created_at).toLocaleDateString('en-IN')}</span>
               </div>
 
               {/* Student details */}
@@ -367,11 +380,11 @@ export default function TransferCertificate() {
                 ['APAAR ID', issuedTc.student.apaar_id || 'Not generated'],
                 ['Date of admission', dobInWords(issuedTc.student.admission_date)],
                 ['Class studying', `${issuedTc.student.classes?.class_name}${issuedTc.student.section ? `-${issuedTc.student.section}` : ''}`],
-                ['Date of leaving', dobInWords(issuedTc.date_of_leaving)],
+                ['Date of leaving', dobInWords(issuedTc.issue_date)],
                 ['Reason for leaving', issuedTc.reason],
-                ['Conduct', issuedTc.conduct],
-                ['Attendance percentage', issuedTc.attendance_pct !== null ? `${issuedTc.attendance_pct}%` : '—'],
-                ['Remarks', issuedTc.remarks || '—'],
+                ['Conduct', issuedTc.conduct_grade],
+                ['Attendance percentage', issuedTc.fields?.attendance_pct != null ? `${issuedTc.fields.attendance_pct}%` : '—'],
+                ['Remarks', issuedTc.fields?.remarks || '—'],
               ].map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', borderBottom: '1px dashed #ccc', padding: '6px 0', fontSize: 12 }}>
                   <span style={{ width: '45%', color: '#555' }}>{label}</span>
@@ -394,7 +407,7 @@ export default function TransferCertificate() {
 
               {/* Audit stamp */}
               <div style={{ marginTop: 20, padding: '8px 12px', background: '#f5f5f5', borderRadius: 4, fontSize: 12, color: '#888', fontFamily: 'monospace' }}>
-                TC No: {issuedTc.tc_no} · Issued: {new Date(issuedTc.issued_at).toLocaleString('en-IN')} · By: {issuedTc.principalName} · MPower
+                TC No: {issuedTc.tc_no} · Issued: {new Date(issuedTc.created_at).toLocaleString('en-IN')} · By: {issuedTc.principalName} · MPower
               </div>
             </div>
           </div>

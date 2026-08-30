@@ -82,31 +82,44 @@ export default function Certificates() {
     setIssuing(true);
 
     // Generate certificate number
+    // certificates has no app_id column — same indirect-scoping
+    // pattern already confirmed on transfer_certificates and
+    // ipd_admissions/opd_visits: tenant scope goes through
+    // student_id -> students.app_id. The old .eq('app_id', ...) here
+    // referenced a column that doesn't exist and would fail outright.
     const year = new Date().getFullYear();
     const { count } = await supabase
       .from('certificates')
-      .select('id', { count: 'exact', head: true })
-      .eq('app_id', tenant.appId)
+      .select('id, students!inner(app_id)', { count: 'exact', head: true })
+      .eq('students.app_id', tenant.appId)
       .eq('cert_type', certType);
 
     const certNo = `${certType.toUpperCase().slice(0, 3)}/${year}/${String((count || 0) + 1).padStart(4, '0')}`;
 
+    // Real columns are id, student_id, cert_type, cert_no, issue_date
+    // (a date, NOT NULL — was never set before, sent as issued_at
+    // instead), issued_by, created_at. There is no app_id column and
+    // no column at all to store body_text — unlike
+    // transfer_certificates, this table has no jsonb catch-all
+    // either. The generated wording is kept client-side only; see
+    // bodyTextForDisplay below.
+    const bodyTextForDisplay = certBody(certType, student, tenant.orgName);
+
     const { data: cert, error: certErr } = await supabase
       .from('certificates')
       .insert({
-        app_id:      tenant.appId,
         student_id:  student.id,
         cert_type:   certType,
         cert_no:     certNo,
+        issue_date:  new Date().toISOString().slice(0, 10),
         issued_by:   tenant.userRowId,
-        issued_at:   new Date().toISOString(),
-        body_text:   certBody(certType, student, tenant.orgName),
       })
       .select()
       .single();
 
     if (certErr) {
-      setError('Failed to issue certificate. Please try again.');
+      console.error('Certificate issue failed:', certErr);
+      setError(certErr.message || 'Failed to issue certificate. Please try again.');
       setIssuing(false);
       return;
     }
@@ -114,6 +127,7 @@ export default function Certificates() {
     setIssuedCert({
       ...cert,
       student,
+      body_text: bodyTextForDisplay,
       certTypeLabel: CERT_TYPES.find((c) => c.code === certType)?.label,
       orgName: tenant.orgName,
       principalName: tenant.fullName,
@@ -253,7 +267,7 @@ export default function Certificates() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 40 }}>
                 <span>Cert No: <strong>{issuedCert.cert_no}</strong></span>
-                <span>Date: <strong>{new Date(issuedCert.issued_at).toLocaleDateString('en-IN')}</strong></span>
+                <span>Date: <strong>{new Date(issuedCert.issue_date).toLocaleDateString('en-IN')}</strong></span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -266,7 +280,7 @@ export default function Certificates() {
               </div>
 
               <div style={{ marginTop: 20, padding: '6px 10px', background: '#f5f5f5', borderRadius: 4, fontSize: 12, color: '#888', fontFamily: 'monospace' }}>
-                Cert No: {issuedCert.cert_no} · Issued: {new Date(issuedCert.issued_at).toLocaleString('en-IN')} · MPower
+                Cert No: {issuedCert.cert_no} · Issued: {new Date(issuedCert.issue_date).toLocaleString('en-IN')} · MPower
               </div>
             </div>
           </div>

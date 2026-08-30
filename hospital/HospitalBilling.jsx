@@ -168,7 +168,7 @@ export default function HospitalBilling() {
 
     if (invErr) {
       console.error('Invoice generation failed:', invErr);
-      setSubmitError('Failed to generate invoice. Please try again.');
+      setSubmitError(invErr.message || 'Failed to generate invoice. Please try again.');
       setSaving(false);
       return;
     }

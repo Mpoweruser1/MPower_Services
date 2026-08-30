@@ -77,7 +77,7 @@ export default function ManageWards() {
       total_beds: beds,
     });
 
-    if (error) { showError(`Failed to add ${wardType} ward.`); }
+    if (error) { console.error('Ward quick-add failed:', error); showError(error.message || `Failed to add ${wardType} ward.`); }
     else { showSuccess(`✅ ${wardType} ward added — ${beds} beds`); }
 
     setSaving(false);
@@ -112,8 +112,9 @@ export default function ManageWards() {
     });
 
     if (error) {
+      console.error('Custom ward add failed:', error);
       if (error.code === '23505') showError('This ward type already exists.');
-      else showError('Failed to add ward.');
+      else showError(error.message || 'Failed to add ward.');
       setSaving(false);
       return;
     }
@@ -132,7 +133,7 @@ export default function ManageWards() {
     if (isNaN(beds) || beds < 1) { showError('Enter a valid bed count.'); return; }
 
     const { error } = await supabase.from('wards').update({ total_beds: beds }).eq('id', id);
-    if (error) { showError('Failed to update bed count.'); return; }
+    if (error) { console.error('Bed count update failed:', error); showError(error.message || 'Failed to update bed count.'); return; }
     showSuccess('✅ Bed count updated');
     loadWards();
   }
@@ -153,7 +154,15 @@ export default function ManageWards() {
 
     if (!window.confirm(`Delete "${wardType}" ward? This cannot be undone.`)) return;
 
-    await supabase.from('wards').delete().eq('id', id);
+    const { error } = await supabase.from('wards').delete().eq('id', id);
+    // Previously not checked at all — a failed delete (e.g. blocked by
+    // RLS or a foreign key it didn't anticipate) would show nothing,
+    // leaving the ward still in the list with no explanation.
+    if (error) {
+      console.error('Ward delete failed:', error);
+      showError(error.message || 'Failed to delete ward. Please try again.');
+      return;
+    }
     loadWards();
   }
 

@@ -17,6 +17,10 @@ import PortalDashboard from './website/pages/PortalDashboard';
 import ClientPortal from './website/pages/ClientPortal';
 import FirstTimeSetup from './website/pages/FirstTimeSetup';
 import PayFee from './website/pages/PayFee';
+import OpdAppointmentBooking from './website/pages/OpdAppointmentBooking';
+import PTMBooking from './website/pages/PTMBooking';
+import ParentPortal from './website/pages/ParentPortal';
+import HomeworkView from './website/pages/HomeworkView';
 import PrivacyPolicy from './website/pages/PrivacyPolicy';
 import TermsOfService from './website/pages/TermsOfService';
 import RefundPolicy from './website/pages/RefundPolicy';
@@ -33,6 +37,24 @@ import ActivitiesCoaching from './school/ActivitiesCoaching';
 import StudentAdmission from './school/StudentAdmission';
 import ManageClasses from './school/ManageClasses';
 import { ReportEngine, IdCardPrinter, UniversalSearch } from './school/ReportsSearchIdCards';
+import StudentDetail from './school/StudentDetail';
+import Timetable from './school/Timetable';
+import PromoteStudents from './school/PromoteStudents';
+import ManageStaff from './school/ManageStaff';
+import ManageSubjects from './school/ManageSubjects';
+import ManageFeeStructure from './school/ManageFeeStructure';
+import FeeStructureReport from './school/FeeStructureReport';
+import HolidayManagement from './school/HolidayManagement';
+import BirthdayWishes from './school/BirthdayWishes';
+import ActivityFinance from './school/ActivityFinance';
+import HomeworkTracking from './school/HomeworkTracking';
+import PTMScheduling from './school/PTMScheduling';
+import MarksEntry from './school/MarksEntry';
+import ReportCard from './school/ReportCard';
+import AcademicAnalytics from './school/AcademicAnalytics';
+import AttendanceAnalytics from './school/AttendanceAnalytics';
+import FeeAnalytics from './school/FeeAnalytics';
+import HostelWelfareReport from './school/HostelWelfareReport';
 
 // Hospital
 import HospitalDashboard from './hospital/HospitalDashboard';
@@ -41,9 +63,19 @@ import OpdVisit from './hospital/OpdVisit';
 import LabReports from './hospital/LabReports';
 import HospitalBilling from './hospital/HospitalBilling';
 import IPDManagement from './hospital/IPDManagement';
+import PatientDetail from './hospital/PatientDetail';
+import ManageWards from './hospital/ManageWards';
+import ManageDoctors from './hospital/ManageDoctors';
+import ManageHospitalStaff from './hospital/ManageHospitalStaff';
+import BillingAnalytics from './hospital/BillingAnalytics';
+import AppointmentAnalytics from './hospital/AppointmentAnalytics';
+import ManageLabTests from './hospital/ManageLabTests';
+import OpdAppointments from './hospital/OpdAppointments';
+import { HospitalReports } from './hospital/HospitalReports';
 
 // Grievance
 import CtsLanding from './grievance/CtsLanding';
+import GrievanceStateSelect from './website/pages/GrievanceStateSelect';
 import CitizenPortal from './grievance/CitizenPortal';
 import StaffDashboard from './grievance/StaffDashboard';
 import ReportsDashboard from './grievance/ReportsDashboard';
@@ -173,8 +205,38 @@ function AppRoutes() {
       {/* ── Payment — public ── */}
       <Route path="/pay/:token"      element={<PayFee />} />
 
+      {/* MAJOR FINDING: neither of these had a route at all. Both are
+          real, working public booking pages — the exact URLs
+          OpdAppointments.jsx and PTMScheduling.jsx build and send to
+          patients/parents via WhatsApp (/opd-appointment/{day.id} and
+          /ptm/{session.id}). Every citizen who tapped either link has
+          been bounced to Home this entire time. The RLS WITH CHECK
+          fixes made earlier on both these screens' booking policies
+          were correct, but neither screen was ever actually reachable
+          until this route was added. */}
+      <Route path="/opd-appointment/:dayId" element={<OpdAppointmentBooking />} />
+      <Route path="/ptm/:sessionId"          element={<PTMBooking />} />
+
+      {/* These two were fully built but had no route registered at
+          all — ParentPortal.jsx (phone+OTP parent access) and
+          HomeworkView.jsx (the public page behind the shareUrl that
+          HomeworkTracking.jsx sends parents via WhatsApp). Same bug
+          class as the 27 missing routes found earlier this session,
+          just discovered later since neither file had been seen
+          until now. */}
+      <Route path="/parent-portal"   element={<ParentPortal />} />
+      <Route path="/homework/:classId" element={<HomeworkView />} />
+
 
 {/* ── Grievance — public (citizens, no login needed) ── */}
+{/* Was missing entirely — GrievanceStateSelect.jsx exists, fully
+    built, and correctly navigates to /grievance/:stateSlug on
+    selection, but nothing ever routed /grievance itself to it. This
+    is why the CTS product card on Home and both "Get started with
+    CTS" buttons on Products silently failed: they link to bare
+    /grievance, which fell through to the catch-all route and
+    bounced back to Home with no visible error. */}
+<Route path="/grievance" element={<GrievanceStateSelect />} />
 <Route path="/grievance/:stateSlug" element={<CtsLanding />} />
 <Route path="/grievance/:stateSlug/citizen"
   element={<CitizenPortalWrapper />} />
@@ -231,6 +293,47 @@ function AppRoutes() {
         element={<RequireAuth><ManageClasses /></RequireAuth>} />
       <Route path="/school/business-details"
         element={<RequireAuth><BusinessDetails NavComponent={SchoolNav} /></RequireAuth>} />
+      {/* These 18 routes were completely missing — every one is a real, working
+          screen linked from SchoolNav's "More" menu, but with no <Route>
+          registered they all fell through to the catch-all "*" route and
+          silently bounced the user back to the public Home page. Same root
+          cause as the Hospital "More" menu bug, just far more routes affected. */}
+      <Route path="/school/student"
+        element={<RequireAuth><StudentDetail /></RequireAuth>} />
+      <Route path="/school/timetable"
+        element={<RequireAuth><Timetable /></RequireAuth>} />
+      <Route path="/school/promote-students"
+        element={<RequireAuth><PromoteStudents /></RequireAuth>} />
+      <Route path="/school/staff"
+        element={<RequireAuth><ManageStaff /></RequireAuth>} />
+      <Route path="/school/subjects"
+        element={<RequireAuth><ManageSubjects /></RequireAuth>} />
+      <Route path="/school/fee-structure"
+        element={<RequireAuth><ManageFeeStructure /></RequireAuth>} />
+      <Route path="/school/fee-structure-report"
+        element={<RequireAuth><FeeStructureReport /></RequireAuth>} />
+      <Route path="/school/holidays"
+        element={<RequireAuth><HolidayManagement /></RequireAuth>} />
+      <Route path="/school/birthdays"
+        element={<RequireAuth><BirthdayWishes /></RequireAuth>} />
+      <Route path="/school/activity-finance"
+        element={<RequireAuth><ActivityFinance /></RequireAuth>} />
+      <Route path="/school/homework"
+        element={<RequireAuth><HomeworkTracking /></RequireAuth>} />
+      <Route path="/school/ptm"
+        element={<RequireAuth><PTMScheduling /></RequireAuth>} />
+      <Route path="/school/marks-entry"
+        element={<RequireAuth><MarksEntry /></RequireAuth>} />
+      <Route path="/school/report-card"
+        element={<RequireAuth><ReportCard /></RequireAuth>} />
+      <Route path="/school/academic-analytics"
+        element={<RequireAuth><AcademicAnalytics /></RequireAuth>} />
+      <Route path="/school/attendance-analytics"
+        element={<RequireAuth><AttendanceAnalytics /></RequireAuth>} />
+      <Route path="/school/fee-analytics"
+        element={<RequireAuth><FeeAnalytics /></RequireAuth>} />
+      <Route path="/school/hostel-welfare-report"
+        element={<RequireAuth><HostelWelfareReport /></RequireAuth>} />
 
       {/* ── Hospital ── */}
       <Route path="/hospital/dashboard"
@@ -247,6 +350,29 @@ function AppRoutes() {
         element={<RequireAuth><VisitProvider><IPDManagement /></VisitProvider></RequireAuth>} />
       <Route path="/hospital/business-details"
         element={<RequireAuth><BusinessDetails NavComponent={HospitalNav} /></RequireAuth>} />
+      {/* These 9 routes were completely missing — every one of them is a real,
+          working screen (linked from HospitalNav's "More" menu), but with no
+          <Route> registered they fell through to the catch-all "*" route and
+          silently bounced the user back to the public Home page. This is the
+          confirmed root cause of "any More option kicks me out of the app." */}
+      <Route path="/hospital/patients/find"
+        element={<RequireAuth><PatientDetail /></RequireAuth>} />
+      <Route path="/hospital/wards"
+        element={<RequireAuth><ManageWards /></RequireAuth>} />
+      <Route path="/hospital/doctors"
+        element={<RequireAuth><ManageDoctors /></RequireAuth>} />
+      <Route path="/hospital/staff"
+        element={<RequireAuth><ManageHospitalStaff /></RequireAuth>} />
+      <Route path="/hospital/billing-analytics"
+        element={<RequireAuth><BillingAnalytics /></RequireAuth>} />
+      <Route path="/hospital/appointment-analytics"
+        element={<RequireAuth><AppointmentAnalytics /></RequireAuth>} />
+      <Route path="/hospital/lab-tests"
+        element={<RequireAuth><ManageLabTests /></RequireAuth>} />
+      <Route path="/hospital/appointments"
+        element={<RequireAuth><VisitProvider><OpdAppointments /></VisitProvider></RequireAuth>} />
+      <Route path="/hospital/reports"
+        element={<RequireAuth><HospitalReports userTier={tenant?.tier} /></RequireAuth>} />
 
       {/* ── Grievance — staff (auth required) ── */}
       <Route path="/grievance/staff"

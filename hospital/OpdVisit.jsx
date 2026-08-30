@@ -160,18 +160,39 @@ export default function OpdVisit() {
       diagnosis:  form.diagnosis.trim(),
     }).select().single();
 
-    if (visitErr) { setSubmitError('Failed to save visit. Please try again.'); setSaving(false); return; }
+    if (visitErr) {
+      console.error('OPD visit save failed:', visitErr);
+      setSubmitError(visitErr.message || 'Failed to save visit. Please try again.');
+      setSaving(false);
+      return;
+    }
 
+    let rxError = null;
     if (validMeds.length > 0) {
-      await supabase.from('prescriptions').insert({
+      const { error: rxErr } = await supabase.from('prescriptions').insert({
         patient_id:   selectedPatient.id,
         opd_visit_id: visitRow.id,
         doctor_id:    form.doctor_id || null,
         medicines:    validMeds,
       });
+      // Previously not checked at all — a failed prescription insert
+      // would silently proceed as if everything saved, showing the
+      // patient a "visit saved" screen with medicines that were never
+      // actually recorded. The visit itself is already saved at this
+      // point, so this doesn't block moving forward — the warning is
+      // carried into the saved-view state below so it's actually
+      // visible, instead of being set on submitError right before the
+      // screen switches away from where that banner is rendered.
+      if (rxErr) {
+        console.error('Prescription save failed:', rxErr);
+        rxError = rxErr.message || 'Unknown error';
+      }
     }
 
-    if (selectedPatient.phone && validMeds.length > 0) {
+    // Skip the "your prescription is ready" WhatsApp message if the
+    // prescription actually failed to save — sending it anyway would
+    // tell the patient medicines are recorded when they aren't.
+    if (selectedPatient.phone && validMeds.length > 0 && !rxError) {
       await supabase.functions.invoke('send-whatsapp', {
         body: { type: 'opd_prescription', patientId: selectedPatient.id, visitDate: form.visit_date, diagnosis: form.diagnosis },
       });
@@ -179,7 +200,7 @@ export default function OpdVisit() {
 
     clearDraft();
     reset();
-    setSaved({ visitRow, patient: selectedPatient, form, prescription: validMeds });
+    setSaved({ visitRow, patient: selectedPatient, form, prescription: validMeds, rxError });
     setSaving(false);
   }
 
@@ -365,6 +386,11 @@ export default function OpdVisit() {
           </>
         ) : (
           <>
+            {saved.rxError && (
+              <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A' }}>
+                ⚠️ Visit saved, but the prescription failed to save: {saved.rxError}. Please re-enter the medicines separately.
+              </div>
+            )}
             <VitalsEntry patientId={saved.patient.id} contextType="opd" contextId={saved.visitRow.id} />
             <NextActions
               title="OPD visit saved — what next?"

@@ -1,6 +1,6 @@
 // hospital/IPDManagement.jsx — FINAL
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import { useVisit } from '../context/VisitContext';
@@ -24,6 +24,7 @@ const S = {
 };
 
 export default function IPDManagement() {
+  const navigate = useNavigate();
   const { tenant }                                       = useTenant();
   const { activePatient, setActivePatient, clearPatient } = useVisit();
 
@@ -199,10 +200,24 @@ export default function IPDManagement() {
     if (dischargeSummary.trim().length < 10) { setDischargeSummaryError('Discharge summary is too short — please provide more detail.'); return; }
 
     setDischarging(true);
-    await supabase.from('ipd_admissions').update({
+    const { error: dischargeErr } = await supabase.from('ipd_admissions').update({
       discharge_date: new Date().toISOString().slice(0, 10),
       discharge_summary: dischargeSummary,
     }).eq('id', dischargingAdm.id);
+
+    // Previously not checked at all — a failed update would still
+    // show "discharge complete", send the patient a WhatsApp message
+    // saying their discharge summary is ready, and free up the bed in
+    // the UI, all while the patient remained admitted in the database.
+    // Since nothing has actually succeeded yet if this fails, this
+    // stops here rather than partially proceeding — the modal stays
+    // open with the summary text intact so nothing typed is lost.
+    if (dischargeErr) {
+      console.error('Discharge failed:', dischargeErr);
+      setDischargeSummaryError(dischargeErr.message || 'Failed to complete discharge. Please try again.');
+      setDischarging(false);
+      return;
+    }
 
     if (dischargingAdm.patientPhone) {
       await supabase.functions.invoke('send-whatsapp', {
@@ -333,7 +348,12 @@ export default function IPDManagement() {
                         style={{ flex: 1, padding: '8px 0', border: '1px solid rgba(232,160,32,0.3)', color: '#E8A020', background: 'rgba(232,160,32,0.06)', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                         Discharge →
                       </button>
-                      <button onClick={() => window.location.href = '/hospital/billing'}
+                      {/* Was window.location.href — a full page reload, which
+                          silently logs the user out since persistSession:false
+                          means the session lives only in memory. Reported bug:
+                          "generate bill kicks me out of the system." Fixed to
+                          use React Router's in-app navigation instead. */}
+                      <button onClick={() => navigate('/hospital/billing')}
                         style={{ flex: 1, padding: '8px 0', border: 'none', background: '#6AAA90', color: '#111113', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                         Generate bill
                       </button>
