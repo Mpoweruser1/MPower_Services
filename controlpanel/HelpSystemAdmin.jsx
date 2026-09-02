@@ -30,6 +30,7 @@ const S = {
 export default function HelpSystemAdmin() {
   const { tenant, loading: tenantLoading } = useTenant();
   const [videos, setVideos] = useState([]);
+  const [actionError, setActionError] = useState('');
   const [fieldHelps, setFieldHelps] = useState([]);
   const [analytics, setAnalytics] = useState([]);
   const [tab, setTab] = useState('videos');
@@ -53,12 +54,27 @@ export default function HelpSystemAdmin() {
   }
 
   async function toggleActive(id, current) {
-    await supabase.from('help_content').update({ is_active: !current }).eq('id', id);
+    setActionError('');
+    const { error } = await supabase.from('help_content').update({ is_active: !current }).eq('id', id);
+    if (error) {
+      console.error('Toggle active failed:', error);
+      setActionError(error.message || 'Failed to update. Please try again.');
+      return;
+    }
     setVideos((prev) => prev.map((v) => v.id === id ? { ...v, is_active: !current } : v));
   }
 
   async function updateVideoId(id, videoId) {
-    await supabase.from('help_content').update({ video_id: videoId, is_active: true, updated_at: new Date().toISOString() }).eq('id', id);
+    setActionError('');
+    const { error } = await supabase.from('help_content').update({ video_id: videoId, is_active: true, updated_at: new Date().toISOString() }).eq('id', id);
+    // Previously this alert fired unconditionally — an admin could be
+    // told "all clients will see the new video immediately" even when
+    // the write actually failed and nothing changed.
+    if (error) {
+      console.error('Video update failed:', error);
+      setActionError(error.message || 'Failed to update video. Please try again.');
+      return;
+    }
     setVideos((prev) => prev.map((v) => v.id === id ? { ...v, video_id: videoId, is_active: true } : v));
     alert('Video updated. All clients will see the new video immediately.');
   }
@@ -84,7 +100,7 @@ export default function HelpSystemAdmin() {
   if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading…</p></div></div>;
 
   if (!tenant || !['developer', 'support'].includes(tenant.role)) {
-    return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Control Panel access only.</p></div></div>;
+    return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Control Panel access only.</p></div><ControlPanelNav /></div>;
   }
 
   const filteredVideos = moduleFilter ? videos.filter((v) => v.app_type === moduleFilter) : videos;
@@ -102,6 +118,12 @@ export default function HelpSystemAdmin() {
       </nav>
 
       <div style={S.inner}>
+
+        {actionError && (
+          <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#E05A5A' }}>
+            ⚠ {actionError}
+          </div>
+        )}
 
         {loading ? (
           <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading help system...</p>

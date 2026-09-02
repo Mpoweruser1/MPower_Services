@@ -168,7 +168,7 @@ export default function HospitalBilling() {
 
     if (invErr) {
       console.error('Invoice generation failed:', invErr);
-      setSubmitError(invErr.message || 'Failed to generate invoice. Please try again.');
+      setSubmitError('Failed to generate invoice. Please try again.');
       setSaving(false);
       return;
     }
@@ -255,7 +255,7 @@ export default function HospitalBilling() {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 8 }}>
-                    <select value={item.service_type} onChange={(e) => updateItem(idx, 'service_type', e.target.value)} style={S.select}>
+                    <select id={`billing-service-type-${idx}`} name={`billing-service-type-${idx}`} aria-label={`Service type for line item ${idx + 1}`} value={item.service_type} onChange={(e) => updateItem(idx, 'service_type', e.target.value)} style={S.select}>
                       {SERVICE_TYPES.map((t) => <option key={t}>{t}</option>)}
                     </select>
 
@@ -275,7 +275,7 @@ export default function HospitalBilling() {
                       {itemErrors[idx]?.unit_price && <p style={S.fieldErr}>⚠ {itemErrors[idx].unit_price}</p>}
                     </div>
 
-                    <select value={item.gst_rate} onChange={(e) => updateItem(idx, 'gst_rate', e.target.value)} style={S.select}>
+                    <select id={`billing-gst-rate-${idx}`} name={`billing-gst-rate-${idx}`} aria-label={`GST rate for line item ${idx + 1}`} value={item.gst_rate} onChange={(e) => updateItem(idx, 'gst_rate', e.target.value)} style={S.select}>
                       {GST_RATES.map((r) => <option key={r} value={r}>GST {r}%</option>)}
                     </select>
                   </div>
@@ -296,8 +296,8 @@ export default function HospitalBilling() {
 
               <div style={S.row2}>
                 <div>
-                  <label style={S.label}>Payment mode</label>
-                  <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} style={S.select}>
+                  <label htmlFor="billing-payment-mode" style={S.label}>Payment mode</label>
+                  <select id="billing-payment-mode" name="billing-payment-mode" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} style={S.select}>
                     {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
                   </select>
                 </div>

@@ -101,8 +101,7 @@ export default function PatientRegistration() {
       .single();
 
     if (insertErr) {
-      console.error('Patient registration failed:', insertErr);
-      setSubmitError(insertErr.message || 'Failed to register patient. Please try again.');
+      setSubmitError('Failed to register patient. Please try again.');
       setSaving(false);
       return;
     }
@@ -268,7 +267,7 @@ export default function PatientRegistration() {
               )}
 
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', padding: '12px 14px', borderRadius: 8, background: form.abha_consent ? 'rgba(106,170,144,0.08)' : '#111113', border: `1px solid ${form.abha_consent ? 'rgba(106,170,144,0.2)' : 'rgba(255,255,255,0.06)'}` }}>
-                <input type="checkbox" checked={form.abha_consent} onChange={(e) => update('abha_consent', e.target.checked)} style={{ marginTop: 2, accentColor: '#6AAA90', width: 16, height: 16 }} />
+                <input type="checkbox" id="abha-consent" name="abha-consent" checked={form.abha_consent} onChange={(e) => update('abha_consent', e.target.checked)} style={{ marginTop: 2, accentColor: '#6AAA90', width: 16, height: 16 }} />
                 <div>
                   <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.75)' }}>Patient consent for ABHA Health ID obtained</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>ABHA Health ID కోసం రోగి అనుమతి తీసుకోబడింది</p>

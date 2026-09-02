@@ -39,6 +39,7 @@ export default function SupportTickets() {
   const [replyText, setReplyText]   = useState('');
   const [messages, setMessages]     = useState([]);
   const [loadingMsg, setLoadingMsg] = useState(false);
+  const [actionError, setActionError] = useState('');
   const [sending, setSending]       = useState(false);
 
   useEffect(() => { loadTickets(); }, []);
@@ -69,19 +70,36 @@ export default function SupportTickets() {
   async function sendReply() {
     if (!replyText.trim() || !replyingTo) return;
     setSending(true);
-    const { data: msg } = await supabase.from('ticket_messages').insert({
+    setActionError('');
+    const { data: msg, error } = await supabase.from('ticket_messages').insert({
       ticket_id:  replyingTo.id,
       sender_type: 'support',
       sender_id:   tenant.userRowId,
       message:     replyText.trim(),
     }).select().single();
-    if (msg) setMessages((prev) => [...prev, msg]);
+    // Previously: error wasn't even captured, and replyText cleared
+    // regardless of outcome — a failed reply looked identical to a
+    // sent one, and the agent lost what they'd typed with no way to
+    // know it never reached the client.
+    if (error) {
+      console.error('Sending reply failed:', error);
+      setActionError(error.message || 'Failed to send reply. Please try again.');
+      setSending(false);
+      return;
+    }
+    setMessages((prev) => [...prev, msg]);
     setReplyText('');
     setSending(false);
   }
 
   async function resolveTicket(ticketId) {
-    await supabase.from('support_tickets').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', ticketId);
+    setActionError('');
+    const { error } = await supabase.from('support_tickets').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', ticketId);
+    if (error) {
+      console.error('Resolving ticket failed:', error);
+      setActionError(error.message || 'Failed to resolve ticket. Please try again.');
+      return;
+    }
     setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, status: 'resolved' } : t));
     if (replyingTo?.id === ticketId) setReplyingTo((t) => ({ ...t, status: 'resolved' }));
   }
@@ -121,6 +139,12 @@ export default function SupportTickets() {
       </nav>
 
       <div style={S.inner}>
+
+        {actionError && (
+          <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#E05A5A' }}>
+            ⚠ {actionError}
+          </div>
+        )}
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 20 }}>

@@ -11,6 +11,8 @@ import DischargeSummaryDocument from '../shared/DischargeSummaryDocument';
 import HospitalNav from '../shared/HospitalNav';
 import NextActions from '../shared/NextActions';
 import BugReporter from '../shared/BugReporter';
+import { buildWardWithBeds, validateBedNo as validateBedNoLogic } from '../shared/bedLogic';
+import { validateDischargeSummary, computeLengthOfStay } from '../shared/dischargeLogic';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -73,14 +75,9 @@ export default function IPDManagement() {
       .is('discharge_date', null)
       .in('ward_id', (wardData || []).map((w) => w.id));
 
-    const wardsWithBeds = (wardData || []).map((ward) => {
-      const occupiedBeds = (admData || []).filter((a) => a.ward_id === ward.id).map((a) => a.bed_no);
-      const beds = Array.from({ length: ward.total_beds || 0 }, (_, i) => {
-        const bedNo = `${(ward.ward_type || 'W').slice(0, 1).toUpperCase()}${ward.id.slice(0, 4).toUpperCase()}-${i + 1}`;
-        return { bedNo, occupied: occupiedBeds.includes(bedNo) };
-      });
-      return { ...ward, beds, occupied: occupiedBeds.length, available: (ward.total_beds || 0) - occupiedBeds.length };
-    });
+    // buildWardWithBeds is the tested version of this exact
+    // computation — see shared/bedLogic.js and its test suite.
+    const wardsWithBeds = (wardData || []).map((ward) => buildWardWithBeds(ward, admData || []));
 
     setWards(wardsWithBeds);
     setAdmissions((admData || []).map((a) => ({
@@ -98,16 +95,10 @@ export default function IPDManagement() {
     setLoading(false);
   }
 
+  // The only real safeguard against double-booking a physical bed —
+  // see shared/bedLogic.js's isBedOccupied and its test suite.
   function validateBedNo(value, wardId) {
-    if (!value.trim()) return 'Bed number is required';
-    if (value.trim().length < 1) return 'Bed number too short';
-    // Check if bed is already occupied
-    const ward = wards.find((w) => w.id === wardId);
-    if (ward) {
-      const alreadyOccupied = admissions.some((a) => a.wardId === wardId && a.bedNo === value.trim());
-      if (alreadyOccupied) return 'This bed is already occupied — please choose another';
-    }
-    return null;
+    return validateBedNoLogic(value, wardId, wards, admissions);
   }
 
   async function selectPatientForAdmission(patient) {
@@ -196,8 +187,10 @@ export default function IPDManagement() {
 
   async function discharge() {
     setDischargeSummaryError('');
-    if (!dischargeSummary.trim()) { setDischargeSummaryError('Discharge summary is required.'); return; }
-    if (dischargeSummary.trim().length < 10) { setDischargeSummaryError('Discharge summary is too short — please provide more detail.'); return; }
+    // Same validation now used in the test suite — see
+    // shared/dischargeLogic.js.
+    const validationError = validateDischargeSummary(dischargeSummary);
+    if (validationError) { setDischargeSummaryError(validationError); return; }
 
     setDischarging(true);
     const { error: dischargeErr } = await supabase.from('ipd_admissions').update({
@@ -225,7 +218,17 @@ export default function IPDManagement() {
       });
     }
 
-    setCompletedDischarge({ ...dischargingAdm, summary: dischargeSummary, dischargedAt: new Date().toLocaleString('en-IN') });
+    const dischargeDate = new Date().toISOString().slice(0, 10);
+    // computeLengthOfStay was genuinely missing before — see
+    // shared/dischargeLogic.js. Passed through to
+    // DischargeSummaryDocument so it can actually show it, not just
+    // computed and dropped.
+    setCompletedDischarge({
+      ...dischargingAdm,
+      summary: dischargeSummary,
+      dischargedAt: new Date().toLocaleString('en-IN'),
+      lengthOfStayDays: computeLengthOfStay(dischargingAdm.admittedOn, dischargeDate),
+    });
     setDischargingAdm(null);
     setDischargeSummary('');
     setDischargeSummaryError('');

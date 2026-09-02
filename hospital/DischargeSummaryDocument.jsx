@@ -61,6 +61,7 @@ export default function DischargeSummaryDocument({ admission, onClose }) {
             <p style={{ margin: '3px 0 0', color: '#fff' }}>{admission.wardName} Ward · Bed {admission.bedNo}</p>
             <p style={{ margin: '2px 0 0', color: 'rgba(255,255,255,0.5)' }}>
               {admission.admittedOn} → {new Date().toISOString().slice(0, 10)}
+              {admission.lengthOfStayDays != null && ` · ${admission.lengthOfStayDays} day${admission.lengthOfStayDays === 1 ? '' : 's'}`}
             </p>
           </div>
         </div>
@@ -106,11 +107,6 @@ export default function DischargeSummaryDocument({ admission, onClose }) {
         <div style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
           <span>Discharged: {admission.dischargedAt}</span>
           <span>{tenant?.orgName}</span>
-        </div>
-
-        <div style={{ marginTop: 40, paddingTop: 20, textAlign: 'right' }}>
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.3)', width: 200, marginLeft: 'auto', marginBottom: 4 }} />
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Attending Doctor's Signature</p>
         </div>
 
       </div>

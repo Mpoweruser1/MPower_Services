@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
 import BugReporter from '../shared/BugReporter';
+import { findDuplicateFeeStructure, buildDueRows } from '../shared/feeStructureLogic';
 
 function currency(n) { return `\u20b9${Number(n || 0).toLocaleString('en-IN')}`; }
 
@@ -58,17 +59,10 @@ export default function ManageFeeStructure() {
       return;
     }
 
-    // Guard against accidentally creating the same fee twice — the
-    // database constraint on fee_dues prevents duplicate dues per
-    // student for the SAME fee_structure_id, but each click here
-    // creates a NEW fee_structure row, so that constraint alone
-    // wouldn't catch someone re-entering the identical fee next month
-    // thinking it's new.
-    const existing = structures.find((s) =>
-      s.fee_type.trim().toLowerCase() === form.fee_type.trim().toLowerCase() &&
-      (s.class_id || null) === (form.class_id || null) &&
-      s.academic_year === form.academic_year
-    );
+    // Guard against accidentally creating the same fee twice — now the
+    // tested version from shared/feeStructureLogic.js, including the
+    // null/undefined class_id equivalence a naive === check would miss.
+    const existing = findDuplicateFeeStructure(structures, form);
     if (existing && !window.confirm(`"${form.fee_type}" already exists for ${existing.classes?.class_name || 'all classes'} in ${form.academic_year}. Create another one anyway?`)) {
       return;
     }
@@ -109,14 +103,8 @@ export default function ManageFeeStructure() {
       return;
     }
 
-    const dueRows = students.map((s) => ({
-      student_id: s.id,
-      fee_structure_id: structure.id,
-      fee_type: form.fee_type.trim(),
-      amount_due: Number(form.amount),
-      due_date: form.due_date || null,
-      status: 'pending',
-    }));
+    // Now the tested version from shared/feeStructureLogic.js.
+    const dueRows = buildDueRows(students, structure.id, form);
 
     // Upsert, not insert — the new unique constraint on
     // (student_id, fee_structure_id) means a genuine re-run for the

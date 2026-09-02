@@ -38,10 +38,10 @@ export default function FeedbackOverview() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading…</p></div></div>;
+  if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading…</p></div><ControlPanelNav /></div>;
 
   if (!tenant || !['developer', 'support'].includes(tenant.role)) {
-    return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Control Panel access only.</p></div></div>;
+    return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Control Panel access only.</p></div><ControlPanelNav /></div>;
   }
 
   const filtered = feedback.filter((f) => {

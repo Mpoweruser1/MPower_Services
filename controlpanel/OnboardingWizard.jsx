@@ -41,10 +41,12 @@ export default function OnboardingWizard({ clientId }) {
   }
 
   async function saveStepProgress(stepNumber, stepName, snapshot) {
-    await supabase.from('setup_wizard_progress').upsert(
+    const { error } = await supabase.from('setup_wizard_progress').upsert(
       { client_id: clientId, step_number: stepNumber, step_name: stepName, status: 'done', completed_at: new Date().toISOString(), data_snapshot: snapshot },
       { onConflict: 'client_id,step_number' }
     );
+    if (error) console.error('Step progress save failed (non-blocking):', error);
+    return error;
   }
 
   async function next() {
@@ -72,18 +74,55 @@ export default function OnboardingWizard({ clientId }) {
     const { data: verifyData, error } = await supabase.functions.invoke('verify-otp', { body: { phone: ackPhone, otp, purpose: 'go_live_ack' } });
     if (error || !verifyData?.verified) { alert('OTP verification failed.'); return; }
 
+    setSaving(true);
     const ackNo = `ACK-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 90000) + 10000)}`;
-    await supabase.from('client_onboarding').upsert(
+
+    // Previously: none of these four writes were checked for errors —
+    // including the one that actually activates the client
+    // (crm_clients.status = 'active'). A silent failure here meant the
+    // wizard still showed a success screen with a real acknowledgment
+    // number, telling the admin the client was live when they might
+    // not actually be — after a legally-binding OTP-verified signature
+    // had already been collected. Every step is now checked; if any
+    // fails, this stops and says exactly which part didn't complete,
+    // rather than showing a blanket success.
+    const { error: onboardingErr } = await supabase.from('client_onboarding').upsert(
       { client_id: clientId, golive_at: new Date().toISOString(), ack_signed: true, ack_signed_by: orgInfo.contactPerson, ack_signed_at: new Date().toISOString(), ack_otp_verified: true },
       { onConflict: 'client_id' }
     );
-    await supabase.from('client_acknowledgements').insert({
+    if (onboardingErr) {
+      console.error('client_onboarding upsert failed:', onboardingErr);
+      alert(`Signature recorded, but saving onboarding status failed: ${onboardingErr.message}. Do not tell the client they are live yet — contact engineering.`);
+      setSaving(false);
+      return;
+    }
+
+    const { error: ackErr } = await supabase.from('client_acknowledgements').insert({
       client_id: clientId, ack_number: ackNo, ack_type: 'golive',
       signed_by_name: orgInfo.contactPerson, signed_by_phone: ackPhone,
       otp_verified: true, signed_at: new Date().toISOString(),
     });
-    await supabase.from('crm_clients').update({ status: 'active', trial_ended_at: new Date().toISOString() }).eq('id', clientId);
-    await supabase.functions.invoke('send-whatsapp', { body: { clientId, type: 'golive_welcome', ackNumber: ackNo } });
+    if (ackErr) {
+      console.error('client_acknowledgements insert failed:', ackErr);
+      alert(`Onboarding status saved, but the signed acknowledgment record failed to save: ${ackErr.message}. Do not tell the client they are live yet — contact engineering.`);
+      setSaving(false);
+      return;
+    }
+
+    const { error: activateErr } = await supabase.from('crm_clients').update({ status: 'active', trial_ended_at: new Date().toISOString() }).eq('id', clientId);
+    if (activateErr) {
+      console.error('Client activation failed:', activateErr);
+      alert(`Acknowledgment saved, but activating the client account failed: ${activateErr.message}. The client is NOT live yet — contact engineering before telling them otherwise.`);
+      setSaving(false);
+      return;
+    }
+
+    // WhatsApp welcome message failing shouldn't block go-live itself —
+    // the client is genuinely active at this point regardless.
+    const { error: waErr } = await supabase.functions.invoke('send-whatsapp', { body: { clientId, type: 'golive_welcome', ackNumber: ackNo } });
+    if (waErr) console.error('Go-live WhatsApp message failed (non-blocking):', waErr);
+
+    setSaving(false);
     setAckNumber(ackNo);
     setAckComplete(true);
   }
@@ -93,6 +132,7 @@ export default function OnboardingWizard({ clientId }) {
       <div style={{ ...S.inner, textAlign: 'center', marginTop: 60 }}>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>No client selected. Open this wizard from a client's record.</p>
       </div>
+      <ControlPanelNav />
     </div>
   );
 

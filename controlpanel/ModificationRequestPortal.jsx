@@ -435,7 +435,8 @@ export default function ModificationRequestPortal() {
       .single();
 
     if (error) {
-      alert('Failed to submit request. Please try again.');
+      console.error('Modification request submission failed:', error);
+      alert(`Failed to submit request: ${error.message || 'please try again.'}`);
       setSubmitting(false);
       return;
     }
@@ -459,14 +460,24 @@ export default function ModificationRequestPortal() {
   }
 
   async function handlePaySuccess(reqId, paymentId) {
-    // Update DB — mark as in_development + save payment id
-    await supabase.from('modification_requests')
+    // Update DB — mark as in_development + save payment id.
+    // Previously not checked at all — since this runs right after a
+    // real Razorpay payment has already succeeded, a silent failure
+    // here meant the client had genuinely paid but the system showed
+    // no record of it at all, with no alert to anyone.
+    const { error: payUpdateErr } = await supabase.from('modification_requests')
       .update({
         status:     'in_development',
         paid_at:    new Date().toISOString(),
         payment_id: paymentId,
       })
       .eq('id', reqId);
+
+    if (payUpdateErr) {
+      console.error('CRITICAL: payment succeeded but status update failed:', payUpdateErr, { reqId, paymentId });
+      alert(`Payment was successful (ID: ${paymentId}), but updating the request status failed: ${payUpdateErr.message}. This MUST be fixed manually — contact engineering with this payment ID immediately.`);
+      return;
+    }
 
     // WhatsApp confirmation to client
     await supabase.functions.invoke('send-whatsapp', {
@@ -484,7 +495,7 @@ export default function ModificationRequestPortal() {
   // Count pending-action items — quotes needing payment
   const actionNeeded = requests.filter((r) => r.status === 'quote_sent' && r.quote_amount && !r.paid_at).length;
 
-  if (isDevOrSupport && loadingClients) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading clients...</p></div></div>;
+  if (isDevOrSupport && loadingClients) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading clients...</p></div><ControlPanelNav /></div>;
 
   if (isDevOrSupport && !selectedClient) {
     return (

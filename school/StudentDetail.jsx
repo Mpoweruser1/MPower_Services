@@ -78,6 +78,7 @@ export default function StudentDetail({ studentId }) {
   const [editingField, setEditingField] = useState(null); // 'parent_phone' | 'blood_group' | null
   const [fieldDraft, setFieldDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState('');
 
   React.useEffect(() => {
     if (!id) return;
@@ -98,22 +99,31 @@ export default function StudentDetail({ studentId }) {
   function startEdit(field) {
     setEditingField(field);
     setFieldDraft(student[field] || '');
+    setEditError('');
   }
 
   async function saveDirectEdit() {
     if (!editingField) return;
     setSaving(true);
+    setEditError('');
     const { error } = await supabase
       .from('students')
       .update({ [editingField]: fieldDraft.trim() })
       .eq('id', id);
 
-    if (!error) {
-      setStudent((s) => ({ ...s, [editingField]: fieldDraft.trim() }));
-      logActivity(tenant, 'student_field_direct_edit', 'info', {
-        studentId: id, field: editingField,
-      });
+    // Previously: no error branch at all — a failed save just closed
+    // the edit box in silence, looking identical to a successful one.
+    if (error) {
+      console.error('Direct field edit failed:', error);
+      setSaving(false);
+      setEditError(error.message || 'Failed to save. Please try again.');
+      return; // keep the edit box open so nothing typed is lost
     }
+
+    setStudent((s) => ({ ...s, [editingField]: fieldDraft.trim() }));
+    logActivity(tenant, 'student_field_direct_edit', 'info', {
+      studentId: id, field: editingField,
+    });
     setSaving(false);
     setEditingField(null);
   }
@@ -137,8 +147,11 @@ export default function StudentDetail({ studentId }) {
     return (
       <div style={S.page}>
         <div style={S.inner}>
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>
+            {loading ? 'Loading...' : 'Student not found. It may have been removed, or the link is out of date.'}
+          </p>
         </div>
+        <SchoolNav />
       </div>
     );
   }
@@ -175,6 +188,11 @@ export default function StudentDetail({ studentId }) {
         {/* Directly editable — safety/time critical */}
         <div style={{ ...S.card, background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.2)' }}>
           <p style={{ fontSize: 11, color: '#E8A020', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 10px' }}>Editable directly</p>
+          {editError && (
+            <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: '#E05A5A' }}>
+              ⚠ {editError}
+            </div>
+          )}
 
           <div style={S.row}>
             <span style={S.label}>Parent phone</span>

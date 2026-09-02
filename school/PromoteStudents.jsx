@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
 import BugReporter from '../shared/BugReporter';
+import { isFailLike, computeDecision, nextAcademicYear } from '../shared/promotionLogic';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -32,18 +33,8 @@ const DECISION_CONFIG = {
   graduated: { label: 'Graduate', color: '#E8A020' },
 };
 
-function isFailLike(passFail) {
-  if (!passFail) return false;
-  const v = passFail.trim().toLowerCase();
-  return v === 'f' || v.includes('fail');
-}
-
-function nextAcademicYear(current) {
-  const match = current?.match(/(\d{4})/);
-  if (!match) return '';
-  const startYear = parseInt(match[1]);
-  return `${startYear + 1}-${String(startYear + 2).slice(-2)}`;
-}
+// isFailLike and nextAcademicYear now imported from
+// shared/promotionLogic.js — see its test suite for coverage.
 
 export default function PromoteStudents() {
   const { tenant } = useTenant();
@@ -141,19 +132,10 @@ export default function PromoteStudents() {
       const isHighest = cls && cls.class_order === highestOrder;
       const nextClass = (classRows || []).find((c) => c.class_order === (cls?.class_order ?? -999) + 1);
 
-      let decision;
-      let reason = '';
-      if (isHighest) {
-        decision = 'graduated';
-      } else if (marks.length === 0) {
-        decision = 'promoted';
-        reason = 'No exam marks recorded for this exam — review before confirming.';
-      } else if (failCount > 0) {
-        decision = 'retained';
-        reason = `Failed ${failCount} of ${marks.length} subject${marks.length > 1 ? 's' : ''}.`;
-      } else {
-        decision = 'promoted';
-      }
+      // The actual promotion rule now lives in shared/promotionLogic.js
+      // — tested independently, including the deliberate "highest
+      // class always graduates, even with failing marks" rule.
+      const { decision, reason } = computeDecision({ isHighest, marksCount: marks.length, failCount });
 
       return {
         student: s,
@@ -196,16 +178,25 @@ export default function PromoteStudents() {
       .single();
 
     if (batchErr) {
-      setError('Failed to create promotion batch. Please try again.');
+      console.error('Promotion batch creation failed:', batchErr);
+      setError(batchErr.message || 'Failed to create promotion batch. Please try again.');
       setExecuting(false);
       return;
     }
 
+    // Previously, nothing in this loop checked for errors at all — a
+    // failed update would leave promotion_records saying a student
+    // was promoted while their actual class_id never changed, with no
+    // way to tell afterward. Now every write is checked, and any
+    // failure is collected so the person running this sees exactly
+    // which students (if any) didn't go through, instead of a blanket
+    // "done" that may not be true.
+    const failures = [];
     for (const row of students) {
       const toClassId = row.decision === 'promoted' ? row.nextClass?.id : null;
       const toSection = row.decision === 'promoted' ? row.student.section : null;
 
-      await supabase.from('promotion_records').insert({
+      const { error: recErr } = await supabase.from('promotion_records').insert({
         batch_id: batch.id,
         student_id: row.student.id,
         from_class_id: row.currentClass?.id || null,
@@ -218,15 +209,32 @@ export default function PromoteStudents() {
         reason: row.reason || null,
       });
 
+      if (recErr) {
+        console.error(`Promotion record failed for ${row.student.full_name}:`, recErr);
+        failures.push(`${row.student.full_name} (record not logged: ${recErr.message})`);
+        continue; // don't attempt the student update if the record itself failed
+      }
+
       if (row.decision === 'promoted' && toClassId) {
-        await supabase.from('students').update({ class_id: toClassId }).eq('id', row.student.id);
+        const { error: updErr } = await supabase.from('students').update({ class_id: toClassId }).eq('id', row.student.id);
+        if (updErr) {
+          console.error(`Class update failed for ${row.student.full_name}:`, updErr);
+          failures.push(`${row.student.full_name} (class not updated: ${updErr.message})`);
+        }
       } else if (row.decision === 'graduated') {
-        await supabase.from('students').update({ status: 'graduated' }).eq('id', row.student.id);
+        const { error: updErr } = await supabase.from('students').update({ status: 'graduated' }).eq('id', row.student.id);
+        if (updErr) {
+          console.error(`Graduation update failed for ${row.student.full_name}:`, updErr);
+          failures.push(`${row.student.full_name} (status not updated: ${updErr.message})`);
+        }
       }
       // 'retained' students: no data change, just the logged record above
     }
 
     setExecuting(false);
+    if (failures.length > 0) {
+      setError(`Promotion completed with ${failures.length} problem(s) — review before treating this batch as fully done:\n${failures.join('\n')}`);
+    }
     setStep('history');
   }
 
@@ -250,20 +258,39 @@ export default function PromoteStudents() {
     if (!isPrincipal) return;
     if (!window.confirm('Undo this promotion batch? Every student in it will be restored to their previous class and status.')) return;
 
+    setError('');
     const { data: records } = await supabase.from('promotion_records').select('*').eq('batch_id', batchId);
 
+    // Same missing-error-check issue as the promotion loop above — a
+    // failed restore would previously leave a student on their
+    // promoted class/status while the batch itself gets marked
+    // "reverted", silently contradicting each other.
+    const failures = [];
     for (const r of records || []) {
-      await supabase.from('students').update({
+      const { error: undoErr } = await supabase.from('students').update({
         class_id: r.from_class_id,
         status: r.from_status,
       }).eq('id', r.student_id);
+      if (undoErr) {
+        console.error(`Undo failed for student ${r.student_id}:`, undoErr);
+        failures.push(`Student ID ${r.student_id}: ${undoErr.message}`);
+      }
     }
 
-    await supabase.from('promotion_batches').update({
+    const { error: batchUpdateErr } = await supabase.from('promotion_batches').update({
       status: 'reverted',
       reverted_by: tenant.userRowId,
       reverted_at: new Date().toISOString(),
     }).eq('id', batchId);
+
+    if (batchUpdateErr) {
+      console.error('Marking batch reverted failed:', batchUpdateErr);
+      failures.push(`Batch status update: ${batchUpdateErr.message}`);
+    }
+
+    if (failures.length > 0) {
+      setError(`Undo completed with ${failures.length} problem(s):\n${failures.join('\n')}`);
+    }
 
     loadBatches();
   }

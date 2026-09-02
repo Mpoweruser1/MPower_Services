@@ -145,8 +145,11 @@ export default function PatientDetail({ patientId }) {
     return (
       <div style={S.page}>
         <div style={S.inner}>
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>
+            {loading ? 'Loading...' : 'Patient not found. It may have been removed, or the link is out of date.'}
+          </p>
         </div>
+        <HospitalNav />
       </div>
     );
   }

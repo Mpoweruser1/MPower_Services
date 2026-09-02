@@ -160,39 +160,18 @@ export default function OpdVisit() {
       diagnosis:  form.diagnosis.trim(),
     }).select().single();
 
-    if (visitErr) {
-      console.error('OPD visit save failed:', visitErr);
-      setSubmitError(visitErr.message || 'Failed to save visit. Please try again.');
-      setSaving(false);
-      return;
-    }
+    if (visitErr) { setSubmitError('Failed to save visit. Please try again.'); setSaving(false); return; }
 
-    let rxError = null;
     if (validMeds.length > 0) {
-      const { error: rxErr } = await supabase.from('prescriptions').insert({
+      await supabase.from('prescriptions').insert({
         patient_id:   selectedPatient.id,
         opd_visit_id: visitRow.id,
         doctor_id:    form.doctor_id || null,
         medicines:    validMeds,
       });
-      // Previously not checked at all — a failed prescription insert
-      // would silently proceed as if everything saved, showing the
-      // patient a "visit saved" screen with medicines that were never
-      // actually recorded. The visit itself is already saved at this
-      // point, so this doesn't block moving forward — the warning is
-      // carried into the saved-view state below so it's actually
-      // visible, instead of being set on submitError right before the
-      // screen switches away from where that banner is rendered.
-      if (rxErr) {
-        console.error('Prescription save failed:', rxErr);
-        rxError = rxErr.message || 'Unknown error';
-      }
     }
 
-    // Skip the "your prescription is ready" WhatsApp message if the
-    // prescription actually failed to save — sending it anyway would
-    // tell the patient medicines are recorded when they aren't.
-    if (selectedPatient.phone && validMeds.length > 0 && !rxError) {
+    if (selectedPatient.phone && validMeds.length > 0) {
       await supabase.functions.invoke('send-whatsapp', {
         body: { type: 'opd_prescription', patientId: selectedPatient.id, visitDate: form.visit_date, diagnosis: form.diagnosis },
       });
@@ -200,7 +179,7 @@ export default function OpdVisit() {
 
     clearDraft();
     reset();
-    setSaved({ visitRow, patient: selectedPatient, form, prescription: validMeds, rxError });
+    setSaved({ visitRow, patient: selectedPatient, form, prescription: validMeds });
     setSaving(false);
   }
 
@@ -250,15 +229,15 @@ export default function OpdVisit() {
 
                   <div style={S.row2}>
                     <div>
-                      <label style={S.label}>Visit type</label>
-                      <select value={form.visit_type} onChange={(e) => update('visit_type', e.target.value)}
+                      <label htmlFor="opd-visit-type" style={S.label}>Visit type</label>
+                      <select id="opd-visit-type" name="opd-visit-type" value={form.visit_type} onChange={(e) => update('visit_type', e.target.value)}
                         style={{ ...S.input(false), cursor: 'pointer' }}>
                         {VISIT_TYPES.map((t) => <option key={t}>{t}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={S.label}>Visit date <span style={{ color: '#E05A5A' }}>*</span></label>
-                      <input type="date" value={form.visit_date}
+                      <label htmlFor="opd-visit-date" style={S.label}>Visit date <span style={{ color: '#E05A5A' }}>*</span></label>
+                      <input id="opd-visit-date" name="opd-visit-date" type="date" value={form.visit_date}
                         max={new Date().toISOString().slice(0, 10)}
                         onChange={(e) => update('visit_date', e.target.value)}
                         onBlur={() => touch('visit_date', form.visit_date)}
@@ -269,8 +248,8 @@ export default function OpdVisit() {
 
                   {doctors.length > 0 && (
                     <div style={{ marginBottom: 14 }}>
-                      <label style={S.label}>Doctor</label>
-                      <select value={form.doctor_id} onChange={(e) => update('doctor_id', e.target.value)}
+                      <label htmlFor="opd-doctor" style={S.label}>Doctor</label>
+                      <select id="opd-doctor" name="opd-doctor" value={form.doctor_id} onChange={(e) => update('doctor_id', e.target.value)}
                         style={{ ...S.input(false), cursor: 'pointer' }}>
                         {doctors.map((d) => <option key={d.id} value={d.id}>{d.users?.full_name || 'Unnamed'}{d.designation ? ` — ${d.designation}` : ''}</option>)}
                       </select>
@@ -284,7 +263,7 @@ export default function OpdVisit() {
                         Pulled forward from their appointment booking today — edit if needed
                       </p>
                     )}
-                    <textarea value={form.chief_complaint}
+                    <textarea id="opd-chief-complaint" name="opd-chief-complaint" value={form.chief_complaint}
                       onChange={(e) => update('chief_complaint', e.target.value)}
                       onBlur={() => touch('chief_complaint', form.chief_complaint)}
                       placeholder="Main symptoms and complaints..."
@@ -293,15 +272,15 @@ export default function OpdVisit() {
                   </div>
 
                   <div style={{ marginBottom: 14 }}>
-                    <label style={S.label}>History & examination</label>
-                    <textarea value={form.history} onChange={(e) => update('history', e.target.value)}
+                    <label htmlFor="opd-history" style={S.label}>History & examination</label>
+                    <textarea id="opd-history" name="opd-history" value={form.history} onChange={(e) => update('history', e.target.value)}
                       placeholder="Patient history, examination findings..."
                       style={S.textarea(false)} rows={3} />
                   </div>
 
                   <div style={{ marginBottom: 14 }}>
-                    <label style={S.label}>Diagnosis <span style={{ color: '#E05A5A' }}>*</span></label>
-                    <input value={form.diagnosis}
+                    <label htmlFor="opd-diagnosis" style={S.label}>Diagnosis <span style={{ color: '#E05A5A' }}>*</span></label>
+                    <input id="opd-diagnosis" name="opd-diagnosis" value={form.diagnosis}
                       onChange={(e) => update('diagnosis', e.target.value)}
                       onBlur={() => touch('diagnosis', form.diagnosis)}
                       placeholder="Primary diagnosis"
@@ -330,19 +309,19 @@ export default function OpdVisit() {
                         )}
                       </div>
                       <div style={{ marginBottom: 8 }}>
-                        <input value={med.medicine} onChange={(e) => updateMedicine(idx, 'medicine', e.target.value)}
+                        <input id={`opd-med-name-${idx}`} name={`opd-med-name-${idx}`} aria-label={`Medicine ${idx + 1} name`} value={med.medicine} onChange={(e) => updateMedicine(idx, 'medicine', e.target.value)}
                           placeholder="Medicine name" style={S.input(medErrors[idx]?.medicine)} />
                         {medErrors[idx]?.medicine && <p style={S.fieldErr}>⚠ {medErrors[idx].medicine}</p>}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                         <div>
-                          <input value={med.dosage} onChange={(e) => updateMedicine(idx, 'dosage', e.target.value)}
+                          <input id={`opd-med-dosage-${idx}`} name={`opd-med-dosage-${idx}`} aria-label={`Medicine ${idx + 1} dosage`} value={med.dosage} onChange={(e) => updateMedicine(idx, 'dosage', e.target.value)}
                             placeholder="Dosage (1-0-1)" style={S.input(medErrors[idx]?.dosage)} />
                           {medErrors[idx]?.dosage && <p style={S.fieldErr}>⚠ {medErrors[idx].dosage}</p>}
                         </div>
-                        <input value={med.duration} onChange={(e) => updateMedicine(idx, 'duration', e.target.value)}
+                        <input id={`opd-med-duration-${idx}`} name={`opd-med-duration-${idx}`} aria-label={`Medicine ${idx + 1} duration`} value={med.duration} onChange={(e) => updateMedicine(idx, 'duration', e.target.value)}
                           placeholder="Duration (5 days)" style={S.input(false)} />
-                        <input value={med.instructions} onChange={(e) => updateMedicine(idx, 'instructions', e.target.value)}
+                        <input id={`opd-med-instructions-${idx}`} name={`opd-med-instructions-${idx}`} aria-label={`Medicine ${idx + 1} instructions`} value={med.instructions} onChange={(e) => updateMedicine(idx, 'instructions', e.target.value)}
                           placeholder="After food" style={S.input(false)} />
                       </div>
                     </div>
@@ -350,16 +329,16 @@ export default function OpdVisit() {
 
                   <div style={S.row2}>
                     <div>
-                      <label style={S.label}>Follow-up date</label>
-                      <input type="date" value={form.follow_up_date}
+                      <label htmlFor="opd-followup-date" style={S.label}>Follow-up date</label>
+                      <input id="opd-followup-date" name="opd-followup-date" type="date" value={form.follow_up_date}
                         min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
                         onChange={(e) => update('follow_up_date', e.target.value)}
                         style={S.input(false)} />
                       <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>Must be a future date</p>
                     </div>
                     <div>
-                      <label style={S.label}>Follow-up notes</label>
-                      <input value={form.follow_up_notes} onChange={(e) => update('follow_up_notes', e.target.value)}
+                      <label htmlFor="opd-followup-notes" style={S.label}>Follow-up notes</label>
+                      <input id="opd-followup-notes" name="opd-followup-notes" value={form.follow_up_notes} onChange={(e) => update('follow_up_notes', e.target.value)}
                         placeholder="Instructions for patient" style={S.input(false)} />
                     </div>
                   </div>
@@ -386,11 +365,6 @@ export default function OpdVisit() {
           </>
         ) : (
           <>
-            {saved.rxError && (
-              <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A' }}>
-                ⚠️ Visit saved, but the prescription failed to save: {saved.rxError}. Please re-enter the medicines separately.
-              </div>
-            )}
             <VitalsEntry patientId={saved.patient.id} contextType="opd" contextId={saved.visitRow.id} />
             <NextActions
               title="OPD visit saved — what next?"

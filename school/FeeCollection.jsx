@@ -355,8 +355,8 @@ export default function FeeCollection() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
                       <div>
-                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>Payment mode</label>
-                        <select value={paymentMode} onChange={(e) => { setPaymentMode(e.target.value); setTxnError(''); }}
+                        <label htmlFor="fee-payment-mode" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>Payment mode</label>
+                        <select id="fee-payment-mode" name="fee-payment-mode" value={paymentMode} onChange={(e) => { setPaymentMode(e.target.value); setTxnError(''); }}
                           style={S.select}>
                           {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
                         </select>

@@ -9,6 +9,7 @@ import { useTenant } from '../context/TenantContext';
 import HospitalNav from '../shared/HospitalNav';
 import TierGate from '../shared/TierGate';
 import BugReporter from '../shared/BugReporter';
+import { countNoShowsByDoctor } from '../shared/appointmentLogic';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -47,12 +48,8 @@ function AppointmentAnalyticsContent() {
     setLoading(false);
   }
 
-  const byDoctor = {};
-  slots.forEach((s) => {
-    const name = s.doctor?.doctors?.users?.full_name || 'Unknown';
-    if (!byDoctor[name]) byDoctor[name] = 0;
-    byDoctor[name]++;
-  });
+  // Now the tested version from shared/appointmentLogic.js.
+  const byDoctor = countNoShowsByDoctor(slots, (s) => s.doctor?.doctors?.users?.full_name);
 
   function exportCsv() {
     const rows = [

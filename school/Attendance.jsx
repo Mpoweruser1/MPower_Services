@@ -190,20 +190,20 @@ export default function Attendance() {
         <div className="no-print" style={S.card}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             <div>
-              <label style={S.label}>Class</label>
-              <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={{ ...S.select, width: '100%' }}>
+              <label htmlFor="attendance-class" style={S.label}>Class</label>
+              <select id="attendance-class" name="attendance-class" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={{ ...S.select, width: '100%' }}>
                 {classes.map((c) => <option key={c.id} value={c.id}>{c.class_name}</option>)}
               </select>
             </div>
             <div>
-              <label style={S.label}>Section</label>
-              <select value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)} style={{ ...S.select, width: '100%' }}>
+              <label htmlFor="attendance-section" style={S.label}>Section</label>
+              <select id="attendance-section" name="attendance-section" value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)} style={{ ...S.select, width: '100%' }}>
                 {sections.map((s) => <option key={s} value={s}>Section {s}</option>)}
               </select>
             </div>
             <div>
-              <label style={S.label}>Date</label>
-              <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)}
+              <label htmlFor="attendance-date" style={S.label}>Date</label>
+              <input id="attendance-date" name="attendance-date" type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)}
                 style={{ ...S.select, width: '100%', boxSizing: 'border-box' }} />
             </div>
           </div>

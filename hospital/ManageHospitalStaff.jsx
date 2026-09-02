@@ -38,9 +38,18 @@ export default function ManageHospitalStaff() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
-      .from('users').select('id, full_name, email, phone, role')
+    // email removed — users has no email column at all (confirmed
+    // real schema). This query has been failing outright every time,
+    // and since the error was never captured or checked, "Current
+    // Staff" has silently shown empty for every hospital using this
+    // screen, with no indication anything was wrong.
+    const { data, error } = await supabase
+      .from('users').select('id, full_name, phone, alternate_phone, role')
       .eq('app_id', tenant.appId).order('full_name');
+    if (error) {
+      console.error('Loading staff list failed:', error);
+      setMessage(error.message || 'Failed to load staff list.');
+    }
     setStaff(data || []);
     setLoading(false);
   }
@@ -118,7 +127,7 @@ export default function ManageHospitalStaff() {
               <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <div>
                   <p style={{ margin: 0, fontSize: 13, color: '#fff' }}>{s.full_name}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{ROLE_LABELS[s.role] || s.role} · {s.phone || s.email}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{ROLE_LABELS[s.role] || s.role} · {s.phone || s.alternate_phone || '—'}</p>
                 </div>
               </div>
             ))}

@@ -31,6 +31,7 @@ export default function Transport() {
   const [showAddRoute, setShowAddRoute] = useState(false);
   const [saving, setSaving]       = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [message, setMessage] = useState('');
 
   const [newRoute, setNewRoute] = useState({
     route_no: '', driver_name: '', driver_phone: '', vehicle_no: '',
@@ -43,6 +44,7 @@ export default function Transport() {
 
   async function loadAll() {
     setLoading(true);
+    setSubmitError('');
     const today = new Date().toISOString().slice(0, 10);
 
     const [routesRes, maintenanceRes] = await Promise.allSettled([
@@ -56,6 +58,22 @@ export default function Transport() {
         .eq('app_id', tenant.appId)
         .order('due_date'),
     ]);
+
+    // Previously: Promise.allSettled only checks whether the promise
+    // itself rejected — but a Supabase query never rejects on a query
+    // error, it resolves with { data: null, error: {...} }. So a
+    // genuinely failed query (bad column, RLS issue, whatever) was
+    // silently treated as "fulfilled" and fell back to an empty list
+    // with zero indication anything went wrong. A real failure and
+    // "you just have no routes yet" looked identical.
+    if (routesRes.status === 'rejected' || routesRes.value?.error) {
+      const err = routesRes.status === 'rejected' ? routesRes.reason : routesRes.value.error;
+      console.error('Loading transport routes failed:', err);
+      setSubmitError(err?.message || 'Failed to load transport routes.');
+    }
+    if (maintenanceRes.status === 'rejected' || maintenanceRes.value?.error) {
+      console.error('Loading transport maintenance failed:', maintenanceRes.status === 'rejected' ? maintenanceRes.reason : maintenanceRes.value.error);
+    }
 
     setRoutes(routesRes.status === 'fulfilled' ? (routesRes.value.data || []) : []);
     setMaintenance(maintenanceRes.status === 'fulfilled' ? (maintenanceRes.value.data || []) : []);
@@ -152,10 +170,13 @@ export default function Transport() {
       return;
     }
 
+    // Previously: form just reset and closed with zero confirmation —
+    // a successful add looked identical to nothing happening at all.
     setNewRoute({ route_no: '', driver_name: '', driver_phone: '', vehicle_no: '' });
     setRouteErrors({});
     setShowAddRoute(false);
     setSaving(false);
+    setMessage(`✅ Route ${newRoute.route_no.trim()} added.`);
     loadAll();
   }
 
@@ -190,6 +211,17 @@ export default function Transport() {
             </p>
           )}
         </div>
+
+        {message && (
+          <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#6AAA90' }}>
+            {message}
+          </div>
+        )}
+        {submitError && !showAddRoute && (
+          <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#E05A5A' }}>
+            ⚠ {submitError}
+          </div>
+        )}
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>

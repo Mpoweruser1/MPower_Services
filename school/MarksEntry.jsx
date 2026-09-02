@@ -178,19 +178,19 @@ export default function MarksEntry() {
           <div style={{ ...S.card, border: '1px solid rgba(232,160,32,0.3)' }}>
             <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>Create exam</p>
             <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Exam name</label>
-              <input value={newExam.exam_name} onChange={(e) => setNewExam((f) => ({ ...f, exam_name: e.target.value }))} placeholder="e.g. Term 1 Examination" style={S.input} />
+              <label htmlFor="exam-name" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Exam name</label>
+              <input id="exam-name" name="exam-name" value={newExam.exam_name} onChange={(e) => setNewExam((f) => ({ ...f, exam_name: e.target.value }))} placeholder="e.g. Term 1 Examination" style={S.input} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Class</label>
-                <select value={newExam.class_id} onChange={(e) => setNewExam((f) => ({ ...f, class_id: e.target.value }))} style={S.select}>
+                <label htmlFor="exam-class" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Class</label>
+                <select id="exam-class" name="exam-class" value={newExam.class_id} onChange={(e) => setNewExam((f) => ({ ...f, class_id: e.target.value }))} style={S.select}>
                   {classes.map((c) => <option key={c.id} value={c.id}>{c.class_name}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Date</label>
-                <input type="date" value={newExam.start_date} onChange={(e) => setNewExam((f) => ({ ...f, start_date: e.target.value }))} style={S.input} />
+                <label htmlFor="exam-date" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Date</label>
+                <input id="exam-date" name="exam-date" type="date" value={newExam.start_date} onChange={(e) => setNewExam((f) => ({ ...f, start_date: e.target.value }))} style={S.input} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -206,14 +206,14 @@ export default function MarksEntry() {
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Exam</label>
-                <select value={selectedExam} onChange={(e) => setSelectedExam(e.target.value)} style={S.select}>
+                <label htmlFor="marks-exam-select" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Exam</label>
+                <select id="marks-exam-select" name="marks-exam-select" value={selectedExam} onChange={(e) => setSelectedExam(e.target.value)} style={S.select}>
                   {exams.map((e) => <option key={e.id} value={e.id}>{e.exam_name} · {e.classes?.class_name}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Subject</label>
-                <select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)} style={S.select}>
+                <label htmlFor="marks-subject-select" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Subject</label>
+                <select id="marks-subject-select" name="marks-subject-select" value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)} style={S.select}>
                   {subjects.map((s) => <option key={s.id} value={s.id}>{s.subject_name}</option>)}
                 </select>
               </div>
@@ -238,8 +238,8 @@ export default function MarksEntry() {
                       return (
                         <tr key={s.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                           <td style={{ padding: '8px 4px', color: '#fff' }}>{s.full_name}</td>
-                          <td style={{ padding: '6px 4px', width: 60 }}><input value={m.theory} onChange={(e) => updateMark(s.id, 'theory', e.target.value)} style={{ ...S.input, textAlign: 'center', padding: '6px 4px' }} /></td>
-                          <td style={{ padding: '6px 4px', width: 60 }}><input value={m.internal} onChange={(e) => updateMark(s.id, 'internal', e.target.value)} style={{ ...S.input, textAlign: 'center', padding: '6px 4px' }} /></td>
+                          <td style={{ padding: '6px 4px', width: 60 }}><input id={`marks-theory-${s.id}`} name={`marks-theory-${s.id}`} aria-label={`Theory marks for ${s.full_name}`} value={m.theory} onChange={(e) => updateMark(s.id, 'theory', e.target.value)} style={{ ...S.input, textAlign: 'center', padding: '6px 4px' }} /></td>
+                          <td style={{ padding: '6px 4px', width: 60 }}><input id={`marks-internal-${s.id}`} name={`marks-internal-${s.id}`} aria-label={`Internal marks for ${s.full_name}`} value={m.internal} onChange={(e) => updateMark(s.id, 'internal', e.target.value)} style={{ ...S.input, textAlign: 'center', padding: '6px 4px' }} /></td>
                           <td style={{ padding: '6px 4px', textAlign: 'center', color: '#5A9ADF', fontWeight: 600 }}>{total || '—'}</td>
                           <td style={{ padding: '6px 4px', textAlign: 'center', color: total >= passThresholdFor(tenant.boardType) ? '#6AAA90' : '#E05A5A', fontWeight: 600 }}>{total ? gradeFor(total, tenant.boardType) : '—'}</td>
                         </tr>

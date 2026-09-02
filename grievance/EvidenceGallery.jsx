@@ -68,7 +68,8 @@ export default function EvidenceGallery({ complaintId, uploaderCitizenId, upload
 
       loadPhotos();
     } catch (err) {
-      setError('Upload failed. Please try again.');
+      console.error('Evidence upload failed:', err);
+      setError(err.message || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
     }
