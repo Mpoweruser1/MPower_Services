@@ -361,21 +361,21 @@ export default function Hostel() {
 
             <div style={{ display: 'grid', gap: 12 }}>
               <div>
-                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Student *</label>
-                <select value={newOuting.student_id} onChange={(e) => setNewOuting((o) => ({ ...o, student_id: e.target.value }))}
+                <label htmlFor="outing-student" style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Student *</label>
+                <select id="outing-student" name="outing-student" value={newOuting.student_id} onChange={(e) => setNewOuting((o) => ({ ...o, student_id: e.target.value }))}
                   style={{ ...S.input, cursor: 'pointer' }}>
                   <option value="">-- Select student --</option>
                   {hostelStudents.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.sid})</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Reason *</label>
-                <input value={newOuting.reason} onChange={(e) => setNewOuting((o) => ({ ...o, reason: e.target.value }))}
+                <label htmlFor="outing-reason" style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Reason *</label>
+                <input id="outing-reason" name="outing-reason" value={newOuting.reason} onChange={(e) => setNewOuting((o) => ({ ...o, reason: e.target.value }))}
                   placeholder="e.g. Family visit, medical appointment" style={S.input} />
               </div>
               <div>
-                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Expected return *</label>
-                <input type="datetime-local" value={newOuting.return_expected}
+                <label htmlFor="outing-return-expected" style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Expected return *</label>
+                <input id="outing-return-expected" name="outing-return-expected" type="datetime-local" value={newOuting.return_expected}
                   min={new Date().toISOString().slice(0, 16)}
                   onChange={(e) => setNewOuting((o) => ({ ...o, return_expected: e.target.value }))}
                   style={S.input} />
@@ -406,21 +406,21 @@ export default function Hostel() {
 
             <div style={{ display: 'grid', gap: 12 }}>
               <div>
-                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Student *</label>
-                <select value={newMedical.student_id} onChange={(e) => setNewMedical((m) => ({ ...m, student_id: e.target.value }))}
+                <label htmlFor="medical-student" style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Student *</label>
+                <select id="medical-student" name="medical-student" value={newMedical.student_id} onChange={(e) => setNewMedical((m) => ({ ...m, student_id: e.target.value }))}
                   style={{ ...S.input, cursor: 'pointer' }}>
                   <option value="">-- Select student --</option>
                   {hostelStudents.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.sid})</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Issue / complaint *</label>
-                <input value={newMedical.issue} onChange={(e) => setNewMedical((m) => ({ ...m, issue: e.target.value }))}
+                <label htmlFor="medical-issue" style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Issue / complaint *</label>
+                <input id="medical-issue" name="medical-issue" value={newMedical.issue} onChange={(e) => setNewMedical((m) => ({ ...m, issue: e.target.value }))}
                   placeholder="e.g. Fever, stomach pain, injury" style={S.input} />
               </div>
               <div>
-                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Action taken *</label>
-                <textarea value={newMedical.action_taken} onChange={(e) => setNewMedical((m) => ({ ...m, action_taken: e.target.value }))}
+                <label htmlFor="medical-action-taken" style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Action taken *</label>
+                <textarea id="medical-action-taken" name="medical-action-taken" value={newMedical.action_taken} onChange={(e) => setNewMedical((m) => ({ ...m, action_taken: e.target.value }))}
                   placeholder="Medicine given, doctor consulted, parent called..." rows={3}
                   style={S.textarea} />
               </div>

@@ -76,12 +76,20 @@ export default function TopNav({ screen }) {
       if (k.startsWith('draft_') || k.startsWith('mpower_')) localStorage.removeItem(k);
     });
     // Must run BEFORE signOut() — the edge function identifies the
-    // caller from their own still-valid access token. Wrapped so a
-    // failed release (e.g. offline) never blocks sign-out itself;
-    // worst case the row just goes stale on its own after 30 minutes.
+    // caller from their own still-valid access token. The try/catch
+    // alone only handles this call REJECTING (e.g. offline) — it does
+    // nothing if the call just hangs and never resolves, which would
+    // silently freeze the entire sign-out with zero feedback, since
+    // signOut() below is never reached. Same real bug shape, and same
+    // fix, as CitizenPortal.jsx's earlier "stuck Saving..." issue —
+    // a hard timeout guarantees this step can never block sign-out
+    // for more than 5 seconds, working or not.
     try {
-      await supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } });
-    } catch { /* non-blocking */ }
+      await Promise.race([
+        supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+      ]);
+    } catch { /* non-blocking — release failing or timing out should never prevent sign-out */ }
     sessionStorage.removeItem('mpower_session_token');
     await supabase.auth.signOut();
     // signOut triggers onAuthStateChange → session becomes null → RequireAuth redirects to /login

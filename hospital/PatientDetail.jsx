@@ -53,7 +53,7 @@ function PatientSearch({ appId, onSelect }) {
       <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
         Find patient
       </label>
-      <input value={query} onChange={(e) => search(e.target.value)} placeholder="Name, UID or phone..." style={{ ...S.input, width: '100%' }} autoFocus />
+      <input id="patient-search-query" name="patient-search-query" value={query} onChange={(e) => search(e.target.value)} placeholder="Name, UID or phone..." style={{ ...S.input, width: '100%' }} autoFocus />
       {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>Searching...</p>}
       {results.map((p) => (
         <div key={p.id} onClick={() => onSelect(p.id)}
@@ -195,7 +195,7 @@ export default function PatientDetail({ patientId }) {
             <span style={S.label}>Phone</span>
             {editingField === 'phone' ? (
               <div style={{ display: 'flex', gap: 6 }}>
-                <input value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={S.input} autoFocus />
+                <input id="patient-edit-phone" name="patient-edit-phone" aria-label="Phone" value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={S.input} autoFocus />
                 <button onClick={saveDirectEdit} disabled={saving} style={{ padding: '0 12px', background: '#E05A5A', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   {saving ? '...' : 'Save'}
                 </button>
@@ -211,7 +211,7 @@ export default function PatientDetail({ patientId }) {
             <span style={S.label}>Blood group</span>
             {editingField === 'blood_group' ? (
               <div style={{ display: 'flex', gap: 6 }}>
-                <input value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={{ ...S.input, width: 90 }} autoFocus />
+                <input id="patient-edit-blood-group" name="patient-edit-blood-group" aria-label="Blood group" value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={{ ...S.input, width: 90 }} autoFocus />
                 <button onClick={saveDirectEdit} disabled={saving} style={{ padding: '0 12px', background: '#E05A5A', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   {saving ? '...' : 'Save'}
                 </button>
@@ -227,7 +227,7 @@ export default function PatientDetail({ patientId }) {
             <span style={S.label}>Allergies</span>
             {editingField === 'allergies' ? (
               <div style={{ display: 'flex', gap: 6 }}>
-                <input value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={S.input} autoFocus />
+                <input id="patient-edit-allergies" name="patient-edit-allergies" aria-label="Allergies" value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={S.input} autoFocus />
                 <button onClick={saveDirectEdit} disabled={saving} style={{ padding: '0 12px', background: '#E05A5A', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   {saving ? '...' : 'Save'}
                 </button>

@@ -78,12 +78,25 @@ export default function TransferCertificate() {
     setError('');
 
     // Check fee dues
+    // Previously read amount_paid directly from fee_dues — but that
+    // column is never actually updated by any real payment anywhere
+    // in the app (FeeCollection.jsx only ever inserts into
+    // fee_payments). This meant TC always saw every due as fully
+    // unpaid, forever, regardless of what the family actually paid —
+    // the root cause behind the reported "shows ₹10,000 pending" and
+    // "TC blocked" confusion. Now sums the real fee_payments rows per
+    // due, matching the correct pattern already used in
+    // FeeStructureReport.jsx and the Dashboard defaulters count.
     const { data: dues } = await supabase
       .from('fee_dues')
-      .select('amount_due, amount_paid')
+      .select('fee_type, amount_due, fee_payments(amount)')
       .eq('student_id', s.id);
 
-    const pendingDues = (dues || []).filter((d) => Number(d.amount_due) > Number(d.amount_paid));
+    const duesWithRealPaid = (dues || []).map((d) => ({
+      ...d,
+      paid: (d.fee_payments || []).reduce((sum, p) => sum + Number(p.amount), 0),
+    }));
+    const pendingDues = duesWithRealPaid.filter((d) => d.paid < Number(d.amount_due));
     setFeeDues(pendingDues);
 
     // Get attendance percentage
@@ -94,7 +107,7 @@ export default function TransferCertificate() {
   }
 
   const hasPendingDues = feeDues.length > 0;
-  const totalPending   = feeDues.reduce((s, d) => s + Number(d.amount_due) - Number(d.amount_paid), 0);
+  const totalPending   = feeDues.reduce((s, d) => s + Number(d.amount_due) - Number(d.paid), 0);
   const isBlocked      = hasPendingDues && !overrideReason.trim();
 
   function validate() {
@@ -208,8 +221,9 @@ export default function TransferCertificate() {
             {/* Student search */}
             {!student ? (
               <div style={S.card}>
-                <label style={S.label}>Search student · విద్యార్థిని వెతకండి</label>
+                <label htmlFor="tc-search-student" style={S.label}>Search student · విద్యార్థిని వెతకండి</label>
                 <input
+                  id="tc-search-student" name="tc-search-student"
                   value={searchQuery}
                   onChange={(e) => searchStudents(e.target.value)}
                   placeholder="Name or SID..."
@@ -259,7 +273,17 @@ export default function TransferCertificate() {
                     <p style={{ margin: 0, fontSize: 13, color: '#E05A5A', fontWeight: 500 }}>
                       ⚠️ Fee dues pending — ₹{totalPending.toLocaleString('en-IN')}
                     </p>
-                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+                    {/* Previously only showed a lump total — with no
+                        way to tell which specific fee(s) were unpaid.
+                        Now lists each one by name and remaining amount. */}
+                    <div style={{ margin: '6px 0 0' }}>
+                      {feeDues.map((d, i) => (
+                        <p key={i} style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                          &bull; {d.fee_type}: ₹{(Number(d.amount_due) - Number(d.paid)).toLocaleString('en-IN')} remaining of ₹{Number(d.amount_due).toLocaleString('en-IN')}
+                        </p>
+                      ))}
+                    </div>
+                    <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
                       TC is blocked until dues are cleared. Provide override reason if exception needed.
                     </p>
                   </div>
@@ -271,16 +295,16 @@ export default function TransferCertificate() {
 
                   <div style={S.row2}>
                     <div>
-                      <label style={S.label}>Reason for leaving *</label>
-                      <select value={reason} onChange={(e) => { setReason(e.target.value); setError(''); }}
+                      <label htmlFor="tc-reason" style={S.label}>Reason for leaving *</label>
+                      <select id="tc-reason" name="tc-reason" value={reason} onChange={(e) => { setReason(e.target.value); setError(''); }}
                         style={{ ...S.input(!!error && !reason), cursor: 'pointer' }}>
                         <option value="">-- Select --</option>
                         {LEAVING_REASONS.map((r) => <option key={r}>{r}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={S.label}>Date of leaving *</label>
-                      <input type="date" value={leavingDate}
+                      <label htmlFor="tc-leaving-date" style={S.label}>Date of leaving *</label>
+                      <input id="tc-leaving-date" name="tc-leaving-date" type="date" value={leavingDate}
                         max={new Date().toISOString().slice(0, 10)}
                         onChange={(e) => { setLeavingDate(e.target.value); setError(''); }}
                         style={S.input(!!error && !leavingDate)} />
@@ -289,31 +313,31 @@ export default function TransferCertificate() {
 
                   {reason === 'Other' && (
                     <div style={{ marginBottom: 14 }}>
-                      <label style={S.label}>Specify reason *</label>
-                      <input value={reasonOther} onChange={(e) => setReasonOther(e.target.value)}
+                      <label htmlFor="tc-reason-other" style={S.label}>Specify reason *</label>
+                      <input id="tc-reason-other" name="tc-reason-other" value={reasonOther} onChange={(e) => setReasonOther(e.target.value)}
                         placeholder="Please specify" style={S.input(false)} />
                     </div>
                   )}
 
                   <div style={S.row2}>
                     <div>
-                      <label style={S.label}>Conduct</label>
-                      <select value={conduct} onChange={(e) => setConduct(e.target.value)}
+                      <label htmlFor="tc-conduct" style={S.label}>Conduct</label>
+                      <select id="tc-conduct" name="tc-conduct" value={conduct} onChange={(e) => setConduct(e.target.value)}
                         style={{ ...S.input(false), cursor: 'pointer' }}>
                         {CONDUCT_OPTIONS.map((c) => <option key={c}>{c}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={S.label}>Remarks (optional)</label>
-                      <input value={remarks} onChange={(e) => setRemarks(e.target.value)}
+                      <label htmlFor="tc-remarks" style={S.label}>Remarks (optional)</label>
+                      <input id="tc-remarks" name="tc-remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)}
                         placeholder="Any additional remarks" style={S.input(false)} />
                     </div>
                   </div>
 
                   {(showOverride || hasPendingDues) && (
                     <div style={{ marginBottom: 14 }}>
-                      <label style={S.label}>Override reason (required to issue TC with pending dues) *</label>
-                      <input value={overrideReason} onChange={(e) => { setOverrideReason(e.target.value); setError(''); }}
+                      <label htmlFor="tc-override-reason" style={S.label}>Override reason (required to issue TC with pending dues) *</label>
+                      <input id="tc-override-reason" name="tc-override-reason" value={overrideReason} onChange={(e) => { setOverrideReason(e.target.value); setError(''); }}
                         placeholder="e.g. Parent request, fees to be collected separately"
                         style={S.input(hasPendingDues && !overrideReason.trim())} />
                     </div>

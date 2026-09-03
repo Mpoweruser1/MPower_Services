@@ -138,23 +138,71 @@ export default function Registration() {
 
     setSaving(true);
 
-    // 1 — Check if email already registered
-    
-
     // 2 — Create auth user
-    const { data: authData, error: authErr } = await supabase.auth.signUp({
+    let { data: authData, error: authErr } = await supabase.auth.signUp({
       email: form.email.trim(),
       password: form.password,
     });
 
-    if (authErr || !authData.user) {
-      if (authErr?.message?.includes('already registered')) {
-        setSubmitError('This email is already registered. Please sign in instead.');
-      } else {
-        setSubmitError(authErr?.message || 'Failed to create account. Please try again.');
-      }
+    // signUp() can succeed (create the account, authData.user is
+    // truthy) but return NO active session — this happens when
+    // "Confirm email" is enabled in Supabase Auth, since the person
+    // hasn't clicked the confirmation link yet. If that's the case,
+    // every subsequent step (creating apps/users/crm_clients rows)
+    // would fail on RLS, since auth.uid() reads from the session,
+    // and there isn't one — exactly the "new row violates RLS" error
+    // this was causing, with no clear explanation of why.
+    if (!authErr && authData?.user && !authData?.session) {
+      setSubmitError('Account created! Please check your email and click the confirmation link, then come back and register again to finish setting up your school/hospital.');
       setSaving(false);
       return;
+    }
+
+    if (authErr || !authData.user) {
+      if (authErr?.message?.includes('already registered')) {
+        // This can genuinely mean "you already have a working account,
+        // please sign in" — OR it can mean this exact email is a ghost
+        // left behind by an earlier registration attempt that created
+        // the login successfully but then failed on a later step
+        // (creating the actual school/hospital record), since there's
+        // no way for a public signup page to safely delete a login it
+        // already created. Before dead-ending the person, check which
+        // situation this actually is by trying to sign in with what
+        // they just typed — if it works AND they have no completed
+        // registration yet, resume it instead of blocking them.
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email: form.email.trim(), password: form.password,
+        });
+
+        if (signInErr || !signInData?.user) {
+          setSubmitError('This email is already registered. Please sign in instead — if you\u2019ve forgotten your password, use "Forgot password" on the sign-in page.');
+          setSaving(false);
+          return;
+        }
+
+        const { data: existingUserRow } = await supabase
+          .from('users').select('id').eq('auth_id', signInData.user.id).maybeSingle();
+
+        if (existingUserRow) {
+          // A real, completed registration already exists for this
+          // email — this is a genuine "please sign in" case, not a
+          // ghost account.
+          await supabase.auth.signOut();
+          setSubmitError('This email is already registered and set up. Please sign in instead.');
+          setSaving(false);
+          return;
+        }
+
+        // Genuine ghost account confirmed — the login exists but
+        // nothing was ever actually built for it. Reuse this session
+        // and continue the rest of registration below exactly as if
+        // signUp had just succeeded.
+        authData = signInData;
+      } else {
+        setSubmitError(authErr?.message || 'Failed to create account. Please try again.');
+        setSaving(false);
+        return;
+      }
     }
 
     // 3 — Create app
@@ -169,7 +217,8 @@ export default function Registration() {
       .single();
 
     if (appErr) {
-      setSubmitError('Failed to set up your account. Please contact support.');
+      console.error('App creation failed:', appErr);
+      setSubmitError(appErr.message || 'Failed to set up your account. Please contact support.');
       setSaving(false);
       return;
     }
@@ -178,7 +227,12 @@ export default function Registration() {
     const ownerRole = form.appType === 'hospital'  ? 'doctor'
                     : 'principal';
 
-    await supabase.from('users').insert({
+    // Previously: no error captured at all. If this failed after the
+    // app row above already succeeded, the person would be told
+    // "account created" but have no actual users row linking them to
+    // it — meaning they could never log in again, with zero
+    // indication anything went wrong.
+    const { error: userErr } = await supabase.from('users').insert({
       auth_id:   authData.user.id,
       app_id:    appRow.id,
       full_name: form.contactPerson.trim(),
@@ -186,8 +240,19 @@ export default function Registration() {
       phone:     form.phone.trim(),
     });
 
+    if (userErr) {
+      console.error('User row creation failed:', userErr, { appId: appRow.id });
+      setSubmitError(`Account partially created but failed at a critical step: ${userErr.message}. Please contact support with this reference: ${appRow.id}`);
+      setSaving(false);
+      return;
+    }
+
     // 5 — Create CRM client
-    const { data: client } = await supabase
+    // Previously: error not captured — a failure here wouldn't block
+    // the person from logging in (their app + user rows already
+    // exist), but would leave them with no CRM/onboarding/trial
+    // record at all, invisible to your own team.
+    const { data: client, error: clientErr } = await supabase
       .from('crm_clients')
       .insert({
         app_id:         appRow.id,
@@ -205,11 +270,22 @@ export default function Registration() {
       .select()
       .single();
 
+    if (clientErr) {
+      console.error('CRM client creation failed (non-blocking, but real):', clientErr, { appId: appRow.id });
+      // Deliberately does not block the person's signup — their
+      // account genuinely works at this point — but this needs to be
+      // visible to your team, not just to the browser console of
+      // whoever happened to sign up.
+    }
+
     if (client) {
-      await supabase.from('client_onboarding').insert({ client_id: client.id });
-      await supabase.functions.invoke('send-whatsapp', {
+      const { error: onboardingErr } = await supabase.from('client_onboarding').insert({ client_id: client.id });
+      if (onboardingErr) console.error('client_onboarding insert failed (non-blocking):', onboardingErr);
+
+      const { error: waErr } = await supabase.functions.invoke('send-whatsapp', {
         body: { clientId: client.id, type: 'golive_welcome' },
       });
+      if (waErr) console.error('Welcome WhatsApp message failed (non-blocking):', waErr);
     }
 
     clearDraft();

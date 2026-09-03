@@ -53,30 +53,30 @@ export default function VitalsEntry({ patientId, contextType, contextId, onSaved
       <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>Vitals (optional)</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
         <div>
-          <label style={S.label}>BP systolic</label>
-          <input value={vitals.bp_systolic} onChange={(e) => update('bp_systolic', e.target.value)} placeholder="120" inputMode="numeric" style={S.input(false)} />
+          <label htmlFor={`vitals-bp-systolic-${contextId}`} style={S.label}>BP systolic</label>
+          <input id={`vitals-bp-systolic-${contextId}`} name={`vitals-bp-systolic-${contextId}`} value={vitals.bp_systolic} onChange={(e) => update('bp_systolic', e.target.value)} placeholder="120" inputMode="numeric" style={S.input(false)} />
         </div>
         <div>
-          <label style={S.label}>BP diastolic</label>
-          <input value={vitals.bp_diastolic} onChange={(e) => update('bp_diastolic', e.target.value)} placeholder="80" inputMode="numeric" style={S.input(false)} />
+          <label htmlFor={`vitals-bp-diastolic-${contextId}`} style={S.label}>BP diastolic</label>
+          <input id={`vitals-bp-diastolic-${contextId}`} name={`vitals-bp-diastolic-${contextId}`} value={vitals.bp_diastolic} onChange={(e) => update('bp_diastolic', e.target.value)} placeholder="80" inputMode="numeric" style={S.input(false)} />
         </div>
         <div>
-          <label style={S.label}>Pulse (bpm)</label>
-          <input value={vitals.pulse} onChange={(e) => update('pulse', e.target.value)} placeholder="72" inputMode="numeric" style={S.input(false)} />
+          <label htmlFor={`vitals-pulse-${contextId}`} style={S.label}>Pulse (bpm)</label>
+          <input id={`vitals-pulse-${contextId}`} name={`vitals-pulse-${contextId}`} value={vitals.pulse} onChange={(e) => update('pulse', e.target.value)} placeholder="72" inputMode="numeric" style={S.input(false)} />
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
         <div>
-          <label style={S.label}>Temp (°F)</label>
-          <input value={vitals.temperature_f} onChange={(e) => update('temperature_f', e.target.value)} placeholder="98.6" inputMode="decimal" style={S.input(false)} />
+          <label htmlFor={`vitals-temp-${contextId}`} style={S.label}>Temp (°F)</label>
+          <input id={`vitals-temp-${contextId}`} name={`vitals-temp-${contextId}`} value={vitals.temperature_f} onChange={(e) => update('temperature_f', e.target.value)} placeholder="98.6" inputMode="decimal" style={S.input(false)} />
         </div>
         <div>
-          <label style={S.label}>Weight (kg)</label>
-          <input value={vitals.weight_kg} onChange={(e) => update('weight_kg', e.target.value)} placeholder="65" inputMode="decimal" style={S.input(false)} />
+          <label htmlFor={`vitals-weight-${contextId}`} style={S.label}>Weight (kg)</label>
+          <input id={`vitals-weight-${contextId}`} name={`vitals-weight-${contextId}`} value={vitals.weight_kg} onChange={(e) => update('weight_kg', e.target.value)} placeholder="65" inputMode="decimal" style={S.input(false)} />
         </div>
         <div>
-          <label style={S.label}>Height (cm)</label>
-          <input value={vitals.height_cm} onChange={(e) => update('height_cm', e.target.value)} placeholder="165" inputMode="decimal" style={S.input(false)} />
+          <label htmlFor={`vitals-height-${contextId}`} style={S.label}>Height (cm)</label>
+          <input id={`vitals-height-${contextId}`} name={`vitals-height-${contextId}`} value={vitals.height_cm} onChange={(e) => update('height_cm', e.target.value)} placeholder="165" inputMode="decimal" style={S.input(false)} />
         </div>
       </div>
       <button onClick={save} disabled={saving}

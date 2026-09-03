@@ -67,14 +67,17 @@ export default function FeedbackDashboard() {
   }, [entries]);
 
   if (tenantLoading) {
-    return <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8', fontFamily: 'Inter, sans-serif' }}>Loading…</div>;
+    return <><div style={{ padding: 40, textAlign: 'center', color: '#94a3b8', fontFamily: 'Inter, sans-serif' }}>Loading…</div><GrievanceNav /></>;
   }
 
   if (!tenant || !['grievance_admin', 'developer', 'support'].includes(tenant.role)) {
     return (
-      <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontFamily: 'Inter, sans-serif' }}>
-        Access restricted to grievance admins only.
-      </div>
+      <>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontFamily: 'Inter, sans-serif' }}>
+          Access restricted to grievance admins only.
+        </div>
+        <GrievanceNav />
+      </>
     );
   }
 

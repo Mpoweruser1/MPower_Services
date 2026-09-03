@@ -184,8 +184,16 @@ export default function ClientPortal() {
                 Idle timeout: 30 minutes. You are automatically logged out after 30 minutes of inactivity for security.
               </p>
               <button onClick={async () => {
+                // Same real bug and fix as TopNav.jsx's handleLogout —
+                // an unprotected await with no timeout would silently
+                // freeze the whole sign-out if this edge function ever
+                // hangs, since supabase.auth.signOut() below would
+                // never be reached.
                 try {
-                  await supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } });
+                  await Promise.race([
+                    supabase.functions.invoke('check-and-claim-session', { body: { action: 'release' } }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+                  ]);
                 } catch { /* non-blocking */ }
                 sessionStorage.removeItem('mpower_session_token');
                 await supabase.auth.signOut();

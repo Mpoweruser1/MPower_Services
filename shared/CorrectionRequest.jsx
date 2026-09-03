@@ -51,7 +51,8 @@ export const STUDENT_FIELDS = [
   { key: 'gender',         label: 'Gender', type: 'select', options: GENDERS },
   { key: 'class_id',       label: 'Class / Section', type: 'reference', loadOptions: loadClassOptions },
   { key: 'caste_category', label: 'Caste category', type: 'select', options: CASTE_CATEGORIES },
-  { key: 'parent_name',    label: 'Parent name' },
+  { key: 'father_name',    label: "Father's name" },
+  { key: 'mother_name',    label: "Mother's name" },
   { key: 'parent_phone',   label: 'Parent phone' },
   { key: 'admission_no',   label: 'Admission number' },
   // Real village data now exists (villages table, proper FK on

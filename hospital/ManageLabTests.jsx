@@ -171,31 +171,31 @@ export default function ManageLabTests() {
         <div style={S.card}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Add custom test</p>
           <div style={{ marginBottom: 10 }}>
-            <label style={S.label}>Test name *</label>
-            <input value={newTest.test_name} onChange={(e) => { setNewTest((t) => ({ ...t, test_name: e.target.value })); setTestErrors({}); }}
+            <label htmlFor="lab-test-name" style={S.label}>Test name *</label>
+            <input id="lab-test-name" name="lab-test-name" value={newTest.test_name} onChange={(e) => { setNewTest((t) => ({ ...t, test_name: e.target.value })); setTestErrors({}); }}
               placeholder="e.g. Vitamin D, HbA1c" style={S.input(!!testErrors.test_name)} />
             {testErrors.test_name && <p style={S.fieldErr}>\u26a0 {testErrors.test_name}</p>}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
-              <label style={S.label}>Normal range</label>
-              <input value={newTest.normal_range} onChange={(e) => setNewTest((t) => ({ ...t, normal_range: e.target.value }))} placeholder="e.g. 70-100" style={S.input(false)} />
+              <label htmlFor="lab-test-normal-range" style={S.label}>Normal range</label>
+              <input id="lab-test-normal-range" name="lab-test-normal-range" value={newTest.normal_range} onChange={(e) => setNewTest((t) => ({ ...t, normal_range: e.target.value }))} placeholder="e.g. 70-100" style={S.input(false)} />
             </div>
             <div>
-              <label style={S.label}>Unit</label>
-              <input value={newTest.unit} onChange={(e) => setNewTest((t) => ({ ...t, unit: e.target.value }))} placeholder="e.g. mg/dL" style={S.input(false)} />
+              <label htmlFor="lab-test-unit" style={S.label}>Unit</label>
+              <input id="lab-test-unit" name="lab-test-unit" value={newTest.unit} onChange={(e) => setNewTest((t) => ({ ...t, unit: e.target.value }))} placeholder="e.g. mg/dL" style={S.input(false)} />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
             <div>
-              <label style={S.label}>Sample type</label>
-              <select value={newTest.sample_type} onChange={(e) => setNewTest((t) => ({ ...t, sample_type: e.target.value }))} style={{ ...S.input(false), cursor: 'pointer' }}>
+              <label htmlFor="lab-test-sample-type" style={S.label}>Sample type</label>
+              <select id="lab-test-sample-type" name="lab-test-sample-type" value={newTest.sample_type} onChange={(e) => setNewTest((t) => ({ ...t, sample_type: e.target.value }))} style={{ ...S.input(false), cursor: 'pointer' }}>
                 {SAMPLE_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </div>
             <div>
-              <label style={S.label}>Turnaround (hours)</label>
-              <input value={newTest.turnaround_hours} onChange={(e) => setNewTest((t) => ({ ...t, turnaround_hours: e.target.value.replace(/[^0-9]/g, '') }))} placeholder="24" style={S.input(false)} />
+              <label htmlFor="lab-test-turnaround" style={S.label}>Turnaround (hours)</label>
+              <input id="lab-test-turnaround" name="lab-test-turnaround" value={newTest.turnaround_hours} onChange={(e) => setNewTest((t) => ({ ...t, turnaround_hours: e.target.value.replace(/[^0-9]/g, '') }))} placeholder="24" style={S.input(false)} />
             </div>
           </div>
           <button onClick={addCustomTest} disabled={saving}

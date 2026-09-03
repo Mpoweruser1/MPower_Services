@@ -22,9 +22,9 @@ import SchoolNav from '../shared/SchoolNav';
 import PrintHeader from '../shared/PrintHeader';
 import { exportToExcel } from '../shared/exportExcel';
 import BugReporter from '../shared/BugReporter';
+import { computeAttendanceStats } from '../shared/attendanceLogic';
 
 const WINDOW_DAYS = 90;
-const CHRONIC_THRESHOLD = 0.10; // verified real standard, not invented
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -81,26 +81,14 @@ function AttendanceAnalyticsContent() {
       byStudent[r.student_id].push(r);
     });
 
-    return Object.entries(byStudent).map(([studentId, recs]) => {
-      const sorted = recs.sort((a, b) => new Date(b.date) - new Date(a.date));
-      const totalDays = sorted.length;
-      const absentDays = sorted.filter((r) => r.status === 'A').length;
-      const absentRate = totalDays > 0 ? absentDays / totalDays : 0;
-
-      // Consecutive absence streak — count backward from the most
-      // recent record while status stays 'A'.
-      let streak = 0;
-      for (const r of sorted) {
-        if (r.status === 'A') streak++;
-        else break;
-      }
-
-      return {
-        studentId, student: studentMap[studentId],
-        totalDays, absentDays, absentRate, streak,
-        isChronic: absentRate >= CHRONIC_THRESHOLD && totalDays >= 10,
-      };
-    });
+    // Now the tested version from shared/attendanceLogic.js — see its
+    // test suite for coverage, including the exact 10% threshold and
+    // the min-tracked-days guard that stops a brand-new student from
+    // being flagged chronic after missing one day out of two.
+    return Object.entries(byStudent).map(([studentId, recs]) => ({
+      studentId, student: studentMap[studentId],
+      ...computeAttendanceStats(recs),
+    }));
   }, [records, students]);
 
   const overallRate = useMemo(() => {

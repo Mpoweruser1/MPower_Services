@@ -103,7 +103,7 @@ export default function LabReports() {
     const { error } = await supabase.from('lab_tests').insert(rows);
     if (error) {
       console.error('Lab test order failed:', error);
-      setSubmitError('Failed to order tests.');
+      setSubmitError(error.message || 'Failed to order tests.');
       setSaving(false);
       return;
     }
@@ -140,7 +140,11 @@ export default function LabReports() {
       result_ready_at: new Date().toISOString(),
     }).eq('id', test.id);
 
-    if (error) { setResultValueError('Failed to save result.'); return; }
+    if (error) {
+      console.error('Lab result save failed:', error);
+      setResultValueError(error.message || 'Failed to save result.');
+      return;
+    }
 
     if (selectedPatient?.phone) {
       await supabase.functions.invoke('send-whatsapp', {
@@ -288,10 +292,11 @@ export default function LabReports() {
                   {enteringResult?.id === test.id ? (
                     <div>
                       <div style={{ marginBottom: 10 }}>
-                        <label style={S.label}>
+                        <label htmlFor={`lab-result-value-${test.id}`} style={S.label}>
                           Result value {test.unit ? `(${test.unit})` : ''} <span style={{ color: '#E05A5A' }}>*</span>
                         </label>
                         <input
+                          id={`lab-result-value-${test.id}`} name={`lab-result-value-${test.id}`}
                           value={resultValue}
                           onChange={(e) => { setResultValue(e.target.value); setResultValueError(''); }}
                           placeholder={test.normal_range ? `Normal: ${test.normal_range}` : 'Enter result'}
@@ -304,8 +309,8 @@ export default function LabReports() {
                         </p>
                       </div>
                       <div style={{ marginBottom: 12 }}>
-                        <label style={S.label}>Notes / remarks (optional)</label>
-                        <input value={resultNotes} onChange={(e) => setResultNotes(e.target.value)}
+                        <label htmlFor={`lab-result-notes-${test.id}`} style={S.label}>Notes / remarks (optional)</label>
+                        <input id={`lab-result-notes-${test.id}`} name={`lab-result-notes-${test.id}`} value={resultNotes} onChange={(e) => setResultNotes(e.target.value)}
                           placeholder="Any observations..." style={S.input(false)} />
                       </div>
                       <div style={{ display: 'flex', gap: 8 }}>

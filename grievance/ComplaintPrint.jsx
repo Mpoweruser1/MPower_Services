@@ -1267,30 +1267,30 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
           </div>
         </div>
       {isStaff && !urlCaseNo && (
-      <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>
-          Case Number / Complaint ID
-           </label>
-            <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ ...S.card, marginBottom: 14 }}>
+          <label style={S.label}>
+            Case Number / Complaint ID
+          </label>
+          <div style={{ display: 'flex', gap: 8 }}>
             <input
               value={manualCaseNo}
-                onChange={e => setManualCaseNo(e.target.value)}
+              onChange={e => setManualCaseNo(e.target.value)}
               placeholder="GR/2026/000001"
-            style={{ flex: 1, padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13 }}
-              />
-              <button
-                onClick={() => {
-                  if (!manualCaseNo.trim()) return;
-                  navigate(`/grievance/print?case=${encodeURIComponent(manualCaseNo)}`, { replace: true });
-                  loadSingleComplaint(manualCaseNo.trim());
-                }}
-                style={{ padding: '8px 16px', background: '#185FA5', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-              >
-                  Load
-              </button>
-            </div>
+              style={S.input}
+            />
+            <button
+              onClick={() => {
+                if (!manualCaseNo.trim()) return;
+                navigate(`/grievance/print?case=${encodeURIComponent(manualCaseNo)}`, { replace: true });
+                loadSingleComplaint(manualCaseNo.trim());
+              }}
+              style={{ padding: '9px 18px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+            >
+              Load
+            </button>
+          </div>
         </div>
-)}
+      )}
         {/* Config panel */}
         <div style={S.card}>
           <p style={{ ...S.label, marginBottom: 12 }}>Configuration / సెట్టింగ్స్</p>

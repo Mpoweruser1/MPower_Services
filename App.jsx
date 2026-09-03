@@ -79,6 +79,7 @@ import GrievanceStateSelect from './website/pages/GrievanceStateSelect';
 import CitizenPortal from './grievance/CitizenPortal';
 import StaffDashboard from './grievance/StaffDashboard';
 import ReportsDashboard from './grievance/ReportsDashboard';
+import FeedbackDashboard from './grievance/FeedbackDashboard';
 import AdminVerificationQueue from './grievance/AdminVerificationQueue';
 import RequestStaffAccess from './grievance/RequestStaffAccess';
 import ComplaintPrint from './grievance/ComplaintPrint';
@@ -246,6 +247,16 @@ function AppRoutes() {
   element={<AdminVerificationQueue />} />
 <Route path="/grievance/:stateSlug/reports"
   element={<ReportsDashboard />} />
+{/* Was completely missing — GrievanceNav.jsx has a real, working
+    "Feedback" link (staffOnly: true) pointing to exactly this path,
+    used across every CTS staff screen (StaffDashboard,
+    AdminVerificationQueue, ReportsDashboard, etc. all render
+    GrievanceNav). Every staff member who clicked "Feedback" has been
+    bounced to Home this whole time — same bug class as the OPD/PTM
+    booking links, just discovered via direct user report this time
+    instead of a code audit. */}
+<Route path="/grievance/:stateSlug/feedback"
+  element={<FeedbackDashboard />} />
 <Route path="/grievance/:stateSlug/request-access"
   element={<RequestStaffAccess />} />
 <Route path="/grievance/print"

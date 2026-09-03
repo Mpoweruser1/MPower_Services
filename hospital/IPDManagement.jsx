@@ -387,8 +387,8 @@ export default function IPDManagement() {
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
-                  <label style={S.label}>Ward <span style={{ color: '#E05A5A' }}>*</span></label>
-                  <select value={admitWardId}
+                  <label htmlFor="ipd-admit-ward" style={S.label}>Ward <span style={{ color: '#E05A5A' }}>*</span></label>
+                  <select id="ipd-admit-ward" name="ipd-admit-ward" value={admitWardId}
                     onChange={(e) => { setAdmitWardId(e.target.value); setAdmitBedNo(''); setAdmitBedError(''); }}
                     style={{ ...S.input(false), cursor: 'pointer' }}>
                     <option value="">-- Select ward --</option>
@@ -406,8 +406,8 @@ export default function IPDManagement() {
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
-                  <label style={S.label}>Bed number <span style={{ color: '#E05A5A' }}>*</span></label>
-                  <input value={admitBedNo}
+                  <label htmlFor="ipd-admit-bed" style={S.label}>Bed number <span style={{ color: '#E05A5A' }}>*</span></label>
+                  <input id="ipd-admit-bed" name="ipd-admit-bed" value={admitBedNo}
                     onChange={(e) => { setAdmitBedNo(e.target.value); setAdmitBedError(''); }}
                     onBlur={() => {
                       if (admitBedNo && admitWardId) {
@@ -434,11 +434,11 @@ export default function IPDManagement() {
                 </div>
 
                 <div style={{ marginBottom: 16 }}>
-                  <label style={S.label}>Initial diagnosis</label>
+                  <label htmlFor="ipd-admit-diagnosis" style={S.label}>Initial diagnosis</label>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: -4, marginBottom: 6 }}>
                     {admitDiagnosis ? 'Pulled forward from their most recent OPD visit — edit if needed' : ''}
                   </p>
-                  <input value={admitDiagnosis} onChange={(e) => setAdmitDiagnosis(e.target.value)}
+                  <input id="ipd-admit-diagnosis" name="ipd-admit-diagnosis" value={admitDiagnosis} onChange={(e) => setAdmitDiagnosis(e.target.value)}
                     placeholder="e.g. Acute fever, fracture, post-operative care"
                     style={S.input(false)} />
                 </div>
@@ -461,10 +461,11 @@ export default function IPDManagement() {
             <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600, color: '#fff' }}>Discharge — {dischargingAdm.patientName}</p>
             <p style={{ margin: '0 0 16px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Bed {dischargingAdm.bedNo} · {dischargingAdm.wardName} · Admitted {dischargingAdm.admittedOn}</p>
 
-            <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
+            <label htmlFor="ipd-discharge-summary" style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
               Discharge summary <span style={{ color: '#E05A5A' }}>*</span>
             </label>
             <textarea
+              id="ipd-discharge-summary" name="ipd-discharge-summary"
               value={dischargeSummary}
               onChange={(e) => { setDischargeSummary(e.target.value); setDischargeSummaryError(''); }}
               rows={4}

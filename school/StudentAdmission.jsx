@@ -16,11 +16,21 @@ import BugReporter from '../shared/BugReporter';
 // ─────────────────────────────────────────────────────────────
 // Validation rules
 // ─────────────────────────────────────────────────────────────
+// Previously a single combined "parent_name" field, saved to a
+// parent_name column — but Transfer Certificates and other official
+// documents read from separate father_name/mother_name columns
+// (confirmed real, distinct columns), which this never wrote to at
+// all. TCs have shown a blank "Father's name: —" for every student
+// admitted through this form, regardless of what was actually typed
+// in. Split into two real fields matching what the certificate
+// actually displays, and matching the standard AP/TS TC format,
+// which requires Father's Name specifically. Mother's name stays
+// optional, same as before.
 const RULES = {
   full_name:    [validators.required, validators.nameField, validators.minLength(2)],
   dob:          [validators.required, validators.pastDate, validators.maxAge(25)],
   gender:       [validators.required],
-  parent_name:  [validators.required, validators.nameField],
+  father_name:  [validators.required, validators.nameField],
   parent_phone: [validators.required, validators.phone],
   admission_no: [validators.required, validators.admissionNo],
   class_id:     [validators.required],
@@ -41,7 +51,7 @@ const EMPTY_FORM = {
   admission_no: '', admission_date: new Date().toISOString().slice(0, 10),
   class_id: '', section: '', medium: 'Telugu Medium',
   caste_category: '', blood_group: '', religion: '', annual_income: '',
-  parent_name: '', parent_phone: '',
+  father_name: '', mother_name: '', parent_phone: '',
   address: '', apaar_id: '',
   student_type: 'day_scholar',
 };
@@ -124,7 +134,8 @@ export default function StudentAdmission() {
         blood_group:    form.blood_group || null,
         religion:       form.religion || null,
         annual_income:  form.annual_income ? Number(form.annual_income) : null,
-        parent_name:    form.parent_name.trim(),
+        father_name:    form.father_name.trim(),
+        mother_name:    form.mother_name.trim() || null,
         parent_phone:   form.parent_phone.trim(),
         student_type:   form.student_type,
         apaar_id:       form.apaar_id.trim() || null,
@@ -471,15 +482,24 @@ export default function StudentAdmission() {
           <p style={S.sectionLabel}>Parent details · తల్లిదండ్రుల వివరాలు</p>
 
           <FormField
-            label="Parent / Guardian name"
-            name="parent_name"
-            value={form.parent_name}
+            label="Father's name"
+            name="father_name"
+            value={form.father_name}
             onChange={update}
             onBlur={touch}
-            error={errors.parent_name}
-            touched={touched.parent_name}
+            error={errors.father_name}
+            touched={touched.father_name}
             required
-            placeholder="Father or mother name"
+            placeholder="Father's full name"
+          />
+
+          <FormField
+            label="Mother's name (optional)"
+            name="mother_name"
+            value={form.mother_name}
+            onChange={update}
+            onBlur={touch}
+            placeholder="Mother's full name"
           />
 
           <FormField

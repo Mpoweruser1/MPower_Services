@@ -52,10 +52,10 @@ function StudentSearch({ appId, onSelect }) {
 
   return (
     <div style={S.card}>
-      <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
+      <label htmlFor="student-search-query" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, display: 'block' }}>
         Find student
       </label>
-      <input value={query} onChange={(e) => search(e.target.value)} placeholder="Name or SID..." style={{ ...S.input, width: '100%' }} autoFocus />
+      <input id="student-search-query" name="student-search-query" value={query} onChange={(e) => search(e.target.value)} placeholder="Name or SID..." style={{ ...S.input, width: '100%' }} autoFocus />
       {searching && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>Searching...</p>}
       {results.map((s) => (
         <div key={s.id} onClick={() => onSelect(s.id)}
@@ -78,7 +78,6 @@ export default function StudentDetail({ studentId }) {
   const [editingField, setEditingField] = useState(null); // 'parent_phone' | 'blood_group' | null
   const [fieldDraft, setFieldDraft] = useState('');
   const [saving, setSaving] = useState(false);
-  const [editError, setEditError] = useState('');
 
   React.useEffect(() => {
     if (!id) return;
@@ -89,7 +88,7 @@ export default function StudentDetail({ studentId }) {
     setLoading(true);
     const { data } = await supabase
       .from('students')
-      .select('id, full_name, sid, dob, gender, section, parent_name, parent_phone, blood_group, admission_no, caste_category, apaar_id, village_id, villages(name, mandals(name)), class_id, classes(class_name)')
+      .select('id, full_name, sid, dob, gender, section, father_name, mother_name, parent_phone, blood_group, admission_no, caste_category, apaar_id, village_id, villages(name, mandals(name)), class_id, classes(class_name)')
       .eq('id', id)
       .single();
     setStudent(data || null);
@@ -99,31 +98,22 @@ export default function StudentDetail({ studentId }) {
   function startEdit(field) {
     setEditingField(field);
     setFieldDraft(student[field] || '');
-    setEditError('');
   }
 
   async function saveDirectEdit() {
     if (!editingField) return;
     setSaving(true);
-    setEditError('');
     const { error } = await supabase
       .from('students')
       .update({ [editingField]: fieldDraft.trim() })
       .eq('id', id);
 
-    // Previously: no error branch at all — a failed save just closed
-    // the edit box in silence, looking identical to a successful one.
-    if (error) {
-      console.error('Direct field edit failed:', error);
-      setSaving(false);
-      setEditError(error.message || 'Failed to save. Please try again.');
-      return; // keep the edit box open so nothing typed is lost
+    if (!error) {
+      setStudent((s) => ({ ...s, [editingField]: fieldDraft.trim() }));
+      logActivity(tenant, 'student_field_direct_edit', 'info', {
+        studentId: id, field: editingField,
+      });
     }
-
-    setStudent((s) => ({ ...s, [editingField]: fieldDraft.trim() }));
-    logActivity(tenant, 'student_field_direct_edit', 'info', {
-      studentId: id, field: editingField,
-    });
     setSaving(false);
     setEditingField(null);
   }
@@ -147,11 +137,8 @@ export default function StudentDetail({ studentId }) {
     return (
       <div style={S.page}>
         <div style={S.inner}>
-          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>
-            {loading ? 'Loading...' : 'Student not found. It may have been removed, or the link is out of date.'}
-          </p>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading...</p>
         </div>
-        <SchoolNav />
       </div>
     );
   }
@@ -180,7 +167,8 @@ export default function StudentDetail({ studentId }) {
         <div style={S.card}>
           <div style={S.row}><span style={S.label}>Date of birth</span><span style={S.value}>{student.dob || '—'}</span></div>
           <div style={S.row}><span style={S.label}>Gender</span><span style={S.value}>{student.gender || '—'}</span></div>
-          <div style={S.row}><span style={S.label}>Parent name</span><span style={S.value}>{student.parent_name || '—'}</span></div>
+          <div style={S.row}><span style={S.label}>Father's name</span><span style={S.value}>{student.father_name || '—'}</span></div>
+          <div style={S.row}><span style={S.label}>Mother's name</span><span style={S.value}>{student.mother_name || '—'}</span></div>
           <div style={S.row}><span style={S.label}>Village</span><span style={S.value}>{student.villages?.name ? `${student.villages.name}${student.villages.mandals?.name ? ` (${student.villages.mandals.name})` : ''}` : '—'}</span></div>
           <div style={{ ...S.row, borderBottom: 'none' }}><span style={S.label}>Admission no</span><span style={S.value}>{student.admission_no || '—'}</span></div>
         </div>
@@ -188,17 +176,12 @@ export default function StudentDetail({ studentId }) {
         {/* Directly editable — safety/time critical */}
         <div style={{ ...S.card, background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.2)' }}>
           <p style={{ fontSize: 11, color: '#E8A020', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 10px' }}>Editable directly</p>
-          {editError && (
-            <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: '#E05A5A' }}>
-              ⚠ {editError}
-            </div>
-          )}
 
           <div style={S.row}>
             <span style={S.label}>Parent phone</span>
             {editingField === 'parent_phone' ? (
               <div style={{ display: 'flex', gap: 6 }}>
-                <input value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={S.input} autoFocus />
+                <input id="student-edit-parent-phone" name="student-edit-parent-phone" aria-label="Parent phone" value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={S.input} autoFocus />
                 <button onClick={saveDirectEdit} disabled={saving} style={{ padding: '0 12px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   {saving ? '...' : 'Save'}
                 </button>
@@ -214,7 +197,7 @@ export default function StudentDetail({ studentId }) {
             <span style={S.label}>Blood group</span>
             {editingField === 'blood_group' ? (
               <div style={{ display: 'flex', gap: 6 }}>
-                <input value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={{ ...S.input, width: 90 }} autoFocus />
+                <input id="student-edit-blood-group" name="student-edit-blood-group" aria-label="Blood group" value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={{ ...S.input, width: 90 }} autoFocus />
                 <button onClick={saveDirectEdit} disabled={saving} style={{ padding: '0 12px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   {saving ? '...' : 'Save'}
                 </button>

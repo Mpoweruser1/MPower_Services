@@ -82,12 +82,22 @@ async function runReportQuery(reportId, appId, extraFilters) {
         .from('students').select('id').eq('app_id', appId);
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: ['Name', 'SID', 'Class', 'Fee type', 'Balance', 'Due date', 'Remarks'] };
+      // Previously read amount_paid directly from fee_dues — never
+      // actually updated anywhere by a real payment, so this report
+      // showed every due as fully unpaid forever, regardless of what
+      // was actually collected via FeeCollection.jsx. Now sums the
+      // real fee_payments rows per due, same fix already applied to
+      // Dashboard.jsx and TransferCertificate.jsx for this identical bug.
       const { data } = await supabase
         .from('fee_dues')
-        .select('id, amount_due, amount_paid, fee_type, due_date, students(full_name, sid, parent_phone, classes(class_name))')
+        .select('id, amount_due, fee_type, due_date, fee_payments(amount), students(full_name, sid, parent_phone, classes(class_name))')
         .lt('due_date', today)
         .in('student_id', ids);
-      const filtered = (data || []).filter((d) => Number(d.amount_due) > Number(d.amount_paid));
+      const withRealPaid = (data || []).map((d) => ({
+        ...d,
+        amount_paid: (d.fee_payments || []).reduce((sum, p) => sum + Number(p.amount), 0),
+      }));
+      const filtered = withRealPaid.filter((d) => Number(d.amount_due) > Number(d.amount_paid));
       return { data: filtered, columns: ['Name', 'SID', 'Class', 'Fee type', 'Balance', 'Due date', 'Remarks'] };
     }
     case 'class_rank': {
