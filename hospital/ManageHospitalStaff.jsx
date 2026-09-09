@@ -93,21 +93,21 @@ export default function ManageHospitalStaff() {
         <div style={{ ...S.card, border: '1px solid rgba(232,160,32,0.3)' }}>
           <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>Invite a staff member</p>
           <div style={{ marginBottom: 10 }}>
-            <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Full name *</label>
-            <input value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} style={S.input} />
+            <label htmlFor="hstaff-full-name" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Full name *</label>
+            <input id="hstaff-full-name" name="hstaff-full-name" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} style={S.input} />
           </div>
           <div style={{ marginBottom: 10 }}>
-            <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Email *</label>
-            <input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} style={S.input} />
+            <label htmlFor="hstaff-email" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Email *</label>
+            <input id="hstaff-email" name="hstaff-email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} style={S.input} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Phone</label>
-              <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} style={S.input} />
+              <label htmlFor="hstaff-phone" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Phone</label>
+              <input id="hstaff-phone" name="hstaff-phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} style={S.input} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Role</label>
-              <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} style={{ ...S.input, cursor: 'pointer' }}>
+              <label htmlFor="hstaff-role" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Role</label>
+              <select id="hstaff-role" name="hstaff-role" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} style={{ ...S.input, cursor: 'pointer' }}>
                 {Object.entries(ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </div>

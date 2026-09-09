@@ -98,13 +98,13 @@ export default function FeedbackOverview() {
 
         {/* Filters */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-          <select value={filterModule} onChange={(e) => setFilterModule(e.target.value)} style={S.select}>
+          <select id="feedback-ov-filter-module" name="feedback-ov-filter-module" value={filterModule} onChange={(e) => setFilterModule(e.target.value)} style={S.select}>
             <option value="">All modules</option>
             <option value="school">🏫 School</option>
             <option value="hospital">🏥 Hospital</option>
             <option value="grievance">🏛️ CTS</option>
           </select>
-          <select value={filterRating} onChange={(e) => setFilterRating(e.target.value)} style={S.select}>
+          <select id="feedback-ov-filter-rating" name="feedback-ov-filter-rating" value={filterRating} onChange={(e) => setFilterRating(e.target.value)} style={S.select}>
             <option value="">All ratings</option>
             {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n}⭐</option>)}
           </select>

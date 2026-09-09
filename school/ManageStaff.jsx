@@ -148,14 +148,14 @@ export default function ManageStaff() {
         <div style={{ ...S.card, border: '1px solid rgba(232,160,32,0.3)' }}>
           <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>Invite a staff member</p>
           <div style={{ marginBottom: 10 }}>
-            <label style={S.label}>Full name *</label>
-            <input value={form.fullName} onChange={(e) => { setForm((f) => ({ ...f, fullName: e.target.value })); setFormErrors({}); }}
+            <label htmlFor="staff-full-name" style={S.label}>Full name *</label>
+            <input id="staff-full-name" name="staff-full-name" value={form.fullName} onChange={(e) => { setForm((f) => ({ ...f, fullName: e.target.value })); setFormErrors({}); }}
               placeholder="e.g. Priya Sharma" style={S.input(!!formErrors.fullName)} />
             {formErrors.fullName && <p style={S.fieldErr}>⚠ {formErrors.fullName}</p>}
           </div>
           <div style={{ marginBottom: 10 }}>
-            <label style={S.label}>Email *</label>
-            <input value={form.email} onChange={(e) => { setForm((f) => ({ ...f, email: e.target.value })); setFormErrors({}); }}
+            <label htmlFor="staff-email" style={S.label}>Email *</label>
+            <input id="staff-email" name="staff-email" value={form.email} onChange={(e) => { setForm((f) => ({ ...f, email: e.target.value })); setFormErrors({}); }}
               placeholder="their.email@example.com" style={S.input(!!formErrors.email)} />
             {formErrors.email && <p style={S.fieldErr}>⚠ {formErrors.email}</p>}
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
@@ -164,13 +164,13 @@ export default function ManageStaff() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
             <div>
-              <label style={S.label}>Phone</label>
-              <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              <label htmlFor="staff-phone" style={S.label}>Phone</label>
+              <input id="staff-phone" name="staff-phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 placeholder="Optional" style={S.input(false)} />
             </div>
             <div>
-              <label style={S.label}>Role</label>
-              <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} style={S.select}>
+              <label htmlFor="staff-role" style={S.label}>Role</label>
+              <select id="staff-role" name="staff-role" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} style={S.select}>
                 <option value="teacher">Teacher</option>
                 <option value="fee_clerk">Fee Clerk</option>
               </select>

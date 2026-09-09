@@ -136,7 +136,12 @@ export default function Attendance() {
       onConflict: 'student_id,date',
     });
 
-    if (error) { alert('Failed to save attendance. Please try again.'); setSaving(false); return; }
+    if (error) {
+      console.error('Saving attendance failed:', error);
+      alert(`Failed to save attendance: ${error.message || 'please try again.'}`);
+      setSaving(false);
+      return;
+    }
 
     const absentStudents = students.filter((s) => attendance[s.id] === 'A');
     if (absentStudents.length > 0) {

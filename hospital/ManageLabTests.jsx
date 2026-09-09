@@ -112,7 +112,12 @@ export default function ManageLabTests() {
 
   async function deleteTest(id, name) {
     if (!window.confirm(`Remove "${name}" from your test catalog? Already-ordered tests keep their own record and won't be affected.`)) return;
-    await supabase.from('master_lab_tests').delete().eq('id', id);
+    const { error: delErr } = await supabase.from('master_lab_tests').delete().eq('id', id);
+    if (delErr) {
+      console.error('Delete failed:', delErr);
+      alert(`Could not delete: ${delErr.message || 'please try again.'}`);
+      return;
+    }
     loadTests();
   }
 

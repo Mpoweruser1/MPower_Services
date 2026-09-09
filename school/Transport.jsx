@@ -49,7 +49,7 @@ export default function Transport() {
 
     const [routesRes, maintenanceRes] = await Promise.allSettled([
       supabase.from('transport_routes')
-        .select(`*, transport_stops(id, stop_name, arrival_time, student_count)`)
+        .select(`*, transport_stops(id, stop_name, pickup_time, stop_order)`)
         .eq('app_id', tenant.appId)
         .order('route_no'),
 
@@ -75,7 +75,33 @@ export default function Transport() {
       console.error('Loading transport maintenance failed:', maintenanceRes.status === 'rejected' ? maintenanceRes.reason : maintenanceRes.value.error);
     }
 
-    setRoutes(routesRes.status === 'fulfilled' ? (routesRes.value.data || []) : []);
+    // student_count was never a real column on transport_stops at
+    // all — the actual per-stop count has to be computed from real
+    // enrollment, the same way route-level counts already are
+    // elsewhere in this app (see the transport_enrollment report).
+    const rawRoutes = routesRes.status === 'fulfilled' ? (routesRes.value.data || []) : [];
+    const allStopIds = rawRoutes.flatMap((r) => (r.transport_stops || []).map((s) => s.id));
+    let countsByStop = {};
+    if (allStopIds.length > 0) {
+      const { data: enrollments, error: enrollErr } = await supabase
+        .from('transport_students').select('stop_id').in('stop_id', allStopIds);
+      if (enrollErr) {
+        console.error('Loading transport enrollment counts failed:', enrollErr);
+      } else {
+        (enrollments || []).forEach((e) => {
+          countsByStop[e.stop_id] = (countsByStop[e.stop_id] || 0) + 1;
+        });
+      }
+    }
+    const routesWithCounts = rawRoutes.map((r) => ({
+      ...r,
+      transport_stops: (r.transport_stops || []).map((s) => ({
+        ...s,
+        student_count: countsByStop[s.id] || 0,
+      })),
+    }));
+
+    setRoutes(routesWithCounts);
     setMaintenance(maintenanceRes.status === 'fulfilled' ? (maintenanceRes.value.data || []) : []);
     setLoading(false);
   }
@@ -118,9 +144,17 @@ export default function Transport() {
             marked_via: 'manual',
           }));
 
-          await supabase.from('attendance').upsert(attendanceRows, {
+          // Previously unchecked — if this failed, parents still got a
+          // WhatsApp saying their child was marked absent, for
+          // attendance that was never actually recorded.
+          const { error: attErr } = await supabase.from('attendance').upsert(attendanceRows, {
             onConflict: 'student_id,date',
           });
+          if (attErr) {
+            console.error('Marking bus students absent failed:', attErr);
+            alert(`Could not mark students absent: ${attErr.message || 'please try again.'} No parent alerts were sent.`);
+            return;
+          }
 
           // WhatsApp alert to parents
           await supabase.functions.invoke('send-whatsapp', {
@@ -199,8 +233,11 @@ export default function Transport() {
       <div className="no-print">
       <div style={S.inner}>
 
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
+        {/* Header — no-print: this is the on-screen page heading, not
+            part of the printed route sheet. Without this it printed at
+            the top of every route sheet, wasting space and looking
+            like an app screenshot rather than a document. */}
+        <div className="no-print" style={{ marginBottom: 24 }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Transport · రవాణా
           </p>
@@ -256,7 +293,17 @@ export default function Transport() {
                   </button>
                 </div>
               ) : (
-                routes.map((route) => {
+                // Previously an unbounded single-column list — with
+                // many routes, that meant a very long page and a lot
+                // of scrolling to get from one route to another. Now
+                // a responsive grid, so more routes are visible at
+                // once and it's easier to move between them. An
+                // expanded card can be taller than its row's other
+                // cards — a real, known tradeoff of a plain CSS grid
+                // vs. a masonry layout — but still a clear improvement
+                // over one long vertical stack.
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 12, alignItems: 'start' }}>
+                {routes.map((route) => {
                   const statusCfg   = STATUS_CONFIG[route.status] || STATUS_CONFIG.on_time;
                   const isExpanded  = expandedId === route.id;
                   const stopCount   = (route.transport_stops || []).length;
@@ -288,7 +335,7 @@ export default function Transport() {
                                   style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                   <span style={{ color: '#fff' }}>{stop.stop_name}</span>
                                   <span style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                    {stop.arrival_time} · {stop.student_count || 0} students
+                                    {stop.pickup_time || 'Time not set'} · {stop.student_count || 0} students
                                   </span>
                                 </div>
                               ))}
@@ -321,7 +368,8 @@ export default function Transport() {
                       )}
                     </div>
                   );
-                })
+                })}
+                </div>
               )
             )}
 
@@ -374,10 +422,10 @@ export default function Transport() {
                 { key: 'driver_phone', label: 'Driver phone',      placeholder: '10-digit number', type: 'phone' },
               ].map((field) => (
                 <div key={field.key}>
-                  <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
+                  <label htmlFor={`transport-new-route-${field.key}`} style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
                     {field.label}
                   </label>
-                  <input
+                  <input id={`transport-new-route-${field.key}`} name={`transport-new-route-${field.key}`}
                     value={newRoute[field.key]}
                     onChange={(e) => {
                       const v = field.type === 'phone' ? sanitize.phone(e.target.value) : e.target.value;
@@ -443,7 +491,7 @@ export default function Transport() {
                 {(route.transport_stops || []).map((stop) => (
                   <tr key={stop.id}>
                     <td style={{ padding: '6px 10px', borderBottom: '1px solid #eee' }}>{stop.stop_name}</td>
-                    <td style={{ padding: '6px 10px', borderBottom: '1px solid #eee' }}>{stop.arrival_time}</td>
+                    <td style={{ padding: '6px 10px', borderBottom: '1px solid #eee' }}>{stop.pickup_time || '—'}</td>
                     <td style={{ textAlign: 'right', padding: '6px 10px', borderBottom: '1px solid #eee' }}>{stop.student_count || 0}</td>
                   </tr>
                 ))}

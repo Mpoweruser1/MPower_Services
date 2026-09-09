@@ -1,6 +1,6 @@
 // grievance/CtsLanding.jsx
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { useStateConfig } from './useStateConfig';
 import { fetchAppIdBySlug } from './grievanceApi';
 import { supabase } from '../lib/supabaseClient';
@@ -88,7 +88,7 @@ export default function CtsLanding() {
     <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
       <div>
         <p style={{ fontSize: 14, color: '#64748b', marginBottom: 16 }}>This state isn't set up on this platform yet. Check the link you were given, or contact your local office.</p>
-        <a href="/" style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>← Back to home</a>
+        <Link to="/" style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>← Back to home</Link>
       </div>
     </div>
   );

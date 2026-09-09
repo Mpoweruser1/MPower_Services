@@ -97,7 +97,7 @@ export default function HelpSystemAdmin() {
   // itself; anyone reaching this URL directly had full access to real
   // help-content management with no check at all. Same gate as
   // FeedbackOverview.jsx, for consistency.
-  if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading…</p></div></div>;
+  if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading…</p></div><ControlPanelNav /></div>;
 
   if (!tenant || !['developer', 'support'].includes(tenant.role)) {
     return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Control Panel access only.</p></div><ControlPanelNav /></div>;

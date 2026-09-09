@@ -159,7 +159,10 @@ export default function FirstTimeSetup() {
       }
 
       if (orgInfo.contact_phone) {
-        await supabase.from('users').update({ phone: orgInfo.contact_phone.trim() }).eq('auth_id', tenant?.userId);
+        const { error: phoneErr } = await supabase.from('users').update({ phone: orgInfo.contact_phone.trim() }).eq('auth_id', tenant?.userId);
+        // Non-blocking: a failed phone update shouldn't stop setup,
+        // but it shouldn't vanish silently either.
+        if (phoneErr) console.error('Updating contact phone failed:', phoneErr);
       }
     }
 
@@ -226,10 +229,10 @@ export default function FirstTimeSetup() {
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Organisation details</p>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
+              <label htmlFor="setup-org-name" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
                 Organisation name <span style={{ color: '#E05A5A' }}>*</span>
               </label>
-              <input value={orgInfo.orgName}
+              <input id="setup-org-name" name="setup-org-name" value={orgInfo.orgName}
                 onChange={(e) => { setOrgInfo((o) => ({ ...o, orgName: e.target.value })); setErrors((er) => ({ ...er, orgName: null })); }}
                 placeholder="Full name of school / hospital"
                 style={S.input(!!errors.orgName)} />
@@ -237,8 +240,8 @@ export default function FirstTimeSetup() {
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>District</label>
-              <select value={orgInfo.district} onChange={(e) => setOrgInfo((o) => ({ ...o, district: e.target.value }))}
+              <label htmlFor="setup-district" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>District</label>
+              <select id="setup-district" name="setup-district" value={orgInfo.district} onChange={(e) => setOrgInfo((o) => ({ ...o, district: e.target.value }))}
                 style={{ ...S.input(false), cursor: 'pointer' }}>
                 <option value="">-- Select district --</option>
                 {AP_DISTRICTS.map((d) => <option key={d}>{d}</option>)}
@@ -246,15 +249,15 @@ export default function FirstTimeSetup() {
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Address</label>
-              <input value={orgInfo.address} onChange={(e) => setOrgInfo((o) => ({ ...o, address: e.target.value }))}
+              <label htmlFor="setup-address" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Address</label>
+              <input id="setup-address" name="setup-address" value={orgInfo.address} onChange={(e) => setOrgInfo((o) => ({ ...o, address: e.target.value }))}
                 placeholder="Full address" style={S.input(false)} />
             </div>
 
             {isSchool && (
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>School type</label>
-                <select value={orgInfo.school_type} onChange={(e) => setOrgInfo((o) => ({ ...o, school_type: e.target.value }))}
+                <label htmlFor="setup-school-type" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>School type</label>
+                <select id="setup-school-type" name="setup-school-type" value={orgInfo.school_type} onChange={(e) => setOrgInfo((o) => ({ ...o, school_type: e.target.value }))}
                   style={{ ...S.input(false), cursor: 'pointer' }}>
                   <option value="">-- Select --</option>
                   <option value="government">Government</option>
@@ -269,8 +272,8 @@ export default function FirstTimeSetup() {
 
             {isSchool && (
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Board</label>
-                <select value={orgInfo.board_type} onChange={(e) => setOrgInfo((o) => ({ ...o, board_type: e.target.value }))}
+                <label htmlFor="setup-board-type" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Board</label>
+                <select id="setup-board-type" name="setup-board-type" value={orgInfo.board_type} onChange={(e) => setOrgInfo((o) => ({ ...o, board_type: e.target.value }))}
                   style={{ ...S.input(false), cursor: 'pointer' }}>
                   <option value="state_board">State Board (AP SSC / TS SSC)</option>
                   <option value="cbse">CBSE</option>
@@ -282,8 +285,8 @@ export default function FirstTimeSetup() {
             )}
 
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Contact phone</label>
-              <input value={orgInfo.contact_phone}
+              <label htmlFor="setup-contact-phone" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Contact phone</label>
+              <input id="setup-contact-phone" name="setup-contact-phone" value={orgInfo.contact_phone}
                 onChange={(e) => { setOrgInfo((o) => ({ ...o, contact_phone: sanitize.phone(e.target.value) })); setErrors((er) => ({ ...er, contact_phone: null })); }}
                 placeholder="+91 XXXXX XXXXX" inputMode="numeric"
                 style={S.input(!!errors.contact_phone)} />
@@ -299,15 +302,15 @@ export default function FirstTimeSetup() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Board</label>
-                <select value={schoolConfig.board} onChange={(e) => setSchoolConfig((s) => ({ ...s, board: e.target.value }))}
+                <label htmlFor="setup-config-board" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Board</label>
+                <select id="setup-config-board" name="setup-config-board" value={schoolConfig.board} onChange={(e) => setSchoolConfig((s) => ({ ...s, board: e.target.value }))}
                   style={{ ...S.input(false), cursor: 'pointer' }}>
                   {SCHOOL_BOARDS.map((b) => <option key={b}>{b}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Medium</label>
-                <select value={schoolConfig.medium} onChange={(e) => setSchoolConfig((s) => ({ ...s, medium: e.target.value }))}
+                <label htmlFor="setup-config-medium" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Medium</label>
+                <select id="setup-config-medium" name="setup-config-medium" value={schoolConfig.medium} onChange={(e) => setSchoolConfig((s) => ({ ...s, medium: e.target.value }))}
                   style={{ ...S.input(false), cursor: 'pointer' }}>
                   {MEDIUM_OPTIONS.map((m) => <option key={m}>{m}</option>)}
                 </select>
@@ -315,8 +318,8 @@ export default function FirstTimeSetup() {
             </div>
 
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Academic year</label>
-              <input value={schoolConfig.academic_year} onChange={(e) => setSchoolConfig((s) => ({ ...s, academic_year: e.target.value }))}
+              <label htmlFor="setup-academic-year" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Academic year</label>
+              <input id="setup-academic-year" name="setup-academic-year" value={schoolConfig.academic_year} onChange={(e) => setSchoolConfig((s) => ({ ...s, academic_year: e.target.value }))}
                 placeholder="2025-2026" style={S.input(false)} />
             </div>
 
@@ -330,10 +333,10 @@ export default function FirstTimeSetup() {
               {loadingDefaults && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Loading...</p>}
               {classList && classList.map((cls, i) => (
                 <div key={cls.id || `new-${i}`} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                  <input value={cls.class_name} onChange={(e) => {
+                  <input id={`setup-class-name-${i}`} name={`setup-class-name-${i}`} aria-label={`Class ${i + 1} name`} value={cls.class_name} onChange={(e) => {
                     const updated = [...classList]; updated[i] = { ...cls, class_name: e.target.value }; setClassList(updated);
                   }} style={{ ...S.input(false), flex: 2 }} />
-                  <select value={cls.medium} onChange={(e) => {
+                  <select id={`setup-class-medium-${i}`} name={`setup-class-medium-${i}`} aria-label={`Class ${i + 1} medium`} value={cls.medium} onChange={(e) => {
                     const updated = [...classList]; updated[i] = { ...cls, medium: e.target.value }; setClassList(updated);
                   }} style={{ ...S.input(false), flex: 1, cursor: 'pointer' }}>
                     {MEDIUM_OPTIONS.map((m) => <option key={m}>{m}</option>)}
@@ -370,10 +373,10 @@ export default function FirstTimeSetup() {
               {loadingDefaults && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Loading...</p>}
               {wardList && wardList.map((ward, i) => (
                 <div key={ward.id || `new-${i}`} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                  <input value={ward.ward_type} onChange={(e) => {
+                  <input id={`setup-ward-type-${i}`} name={`setup-ward-type-${i}`} aria-label={`Ward ${i + 1} type`} value={ward.ward_type} onChange={(e) => {
                     const updated = [...wardList]; updated[i] = { ...ward, ward_type: e.target.value }; setWardList(updated);
                   }} style={{ ...S.input(false), flex: 2 }} placeholder="Ward name" />
-                  <input value={ward.total_beds} inputMode="numeric" onChange={(e) => {
+                  <input id={`setup-ward-beds-${i}`} name={`setup-ward-beds-${i}`} aria-label={`Ward ${i + 1} total beds`} value={ward.total_beds} inputMode="numeric" onChange={(e) => {
                     const updated = [...wardList]; updated[i] = { ...ward, total_beds: sanitize.integer(e.target.value) }; setWardList(updated);
                   }} style={{ ...S.input(false), flex: 1 }} placeholder="Beds" />
                   <button type="button" onClick={() => {
@@ -392,8 +395,8 @@ export default function FirstTimeSetup() {
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Departments</label>
-              <input value={hospitalConfig.departments} onChange={(e) => setHospitalConfig((h) => ({ ...h, departments: e.target.value }))}
+              <label htmlFor="setup-departments" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Departments</label>
+              <input id="setup-departments" name="setup-departments" value={hospitalConfig.departments} onChange={(e) => setHospitalConfig((h) => ({ ...h, departments: e.target.value }))}
                 placeholder="General Medicine, Paediatrics, Surgery..." style={S.input(false)} />
             </div>
 
@@ -403,7 +406,7 @@ export default function FirstTimeSetup() {
                 { key: 'has_pharmacy', label: 'Has pharmacy',     sub: 'Enable dispensing and drug inventory' },
               ].map((item) => (
                 <label key={item.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', padding: '10px 12px', borderRadius: 8, background: hospitalConfig[item.key] ? 'rgba(232,160,32,0.06)' : '#111113', border: `1px solid ${hospitalConfig[item.key] ? 'rgba(232,160,32,0.25)' : 'rgba(255,255,255,0.07)'}` }}>
-                  <input type="checkbox" checked={hospitalConfig[item.key]} onChange={(e) => setHospitalConfig((h) => ({ ...h, [item.key]: e.target.checked }))} style={{ marginTop: 2, accentColor: '#E8A020', width: 16, height: 16 }} />
+                  <input type="checkbox" id={`setup-${item.key}`} name={`setup-${item.key}`} checked={hospitalConfig[item.key]} onChange={(e) => setHospitalConfig((h) => ({ ...h, [item.key]: e.target.checked }))} style={{ marginTop: 2, accentColor: '#E8A020', width: 16, height: 16 }} />
                   <div>
                     <p style={{ margin: 0, fontSize: 13, color: '#fff' }}>{item.label}</p>
                     <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{item.sub}</p>

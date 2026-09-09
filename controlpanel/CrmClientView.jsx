@@ -1,5 +1,6 @@
 // controlpanel/CrmClientView.jsx — FINAL
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import ControlPanelNav from '../shared/ControlPanelNav';
@@ -45,6 +46,7 @@ export default function CrmClientView() {
   const [selected, setSelected]     = useState(null);
   const [clientDetails, setClientDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => { loadClients(); }, []);
 
@@ -87,7 +89,17 @@ export default function CrmClientView() {
       const ok = window.confirm(`Suspend ${client?.org_name || 'this client'}? They will lose access immediately.`);
       if (!ok) return;
     }
-    await supabase.from('crm_clients').update({ status: newStatus }).eq('id', clientId);
+    setActionError('');
+    // Previously: local UI state (clients list, selected client) was
+    // updated unconditionally, even if this write actually failed —
+    // meaning an admin could see "Suspended" in the UI for a client
+    // who still had full, working access in reality.
+    const { error } = await supabase.from('crm_clients').update({ status: newStatus }).eq('id', clientId);
+    if (error) {
+      console.error('Client status update failed:', error);
+      setActionError(error.message || 'Failed to update client status. Please try again.');
+      return;
+    }
     setClients((prev) => prev.map((c) => c.id === clientId ? { ...c, status: newStatus } : c));
     if (selected?.id === clientId) setSelected((s) => ({ ...s, status: newStatus }));
   }
@@ -142,10 +154,10 @@ export default function CrmClientView() {
 
   // Was reachable by anyone at this URL with no check at all — same
   // gap already fixed in FeedbackOverview.jsx and HelpSystemAdmin.jsx.
-  if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading…</p></div></div>;
+  if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Loading…</p></div><ControlPanelNav /></div>;
 
   if (!tenant || !['developer', 'support'].includes(tenant.role)) {
-    return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Control Panel access only.</p></div></div>;
+    return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Control Panel access only.</p></div><ControlPanelNav /></div>;
   }
 
   return (
@@ -161,6 +173,12 @@ export default function CrmClientView() {
       </nav>
 
       <div style={S.inner}>
+
+        {actionError && (
+          <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#E05A5A' }}>
+            ⚠ {actionError}
+          </div>
+        )}
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8, marginBottom: 20 }}>
@@ -198,17 +216,17 @@ export default function CrmClientView() {
 
         {/* Filters */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-          <input value={search} onChange={(e) => setSearch(e.target.value)}
+          <input id="crm-search" name="crm-search" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="🔍 Search org name, contact, district..." style={{ ...S.input, minWidth: 180 }} />
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={S.select}>
+          <select id="crm-filter-status" name="crm-filter-status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={S.select}>
             <option value="">All status</option>
             {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={S.select}>
+          <select id="crm-filter-type" name="crm-filter-type" value={filterType} onChange={(e) => setFilterType(e.target.value)} style={S.select}>
             <option value="">All types</option>
             {Object.entries(APP_TYPES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
           </select>
-          <select value={filterTier} onChange={(e) => setFilterTier(e.target.value)} style={S.select}>
+          <select id="crm-filter-tier" name="crm-filter-tier" value={filterTier} onChange={(e) => setFilterTier(e.target.value)} style={S.select}>
             <option value="">All tiers</option>
             {Object.entries(TIER_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
@@ -368,10 +386,10 @@ export default function CrmClientView() {
           })
         )}
 
-        <a href="/control/feedback"
+        <Link to="/control/feedback"
           style={{ display: 'block', textAlign: 'center', marginTop: 16, padding: '12px 16px', background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', textDecoration: 'none' }}>
           💬 View App Feedback (all modules)
-        </a>
+        </Link>
       </div>
 
       <ControlPanelNav />

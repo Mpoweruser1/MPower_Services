@@ -285,30 +285,30 @@ export default function CorrectionRequest({
                 {requestType === 'correction' && (
                   <>
                     <div style={{ marginBottom: 14 }}>
-                      <label style={S.label}>Which field needs correction?</label>
-                      <select value={fieldName} onChange={(e) => onFieldChange(e.target.value)} style={S.select}>
+                      <label htmlFor="correction-field-name" style={S.label}>Which field needs correction?</label>
+                      <select id="correction-field-name" name="correction-field-name" value={fieldName} onChange={(e) => onFieldChange(e.target.value)} style={S.select}>
                         {fields?.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
                       </select>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                       <div>
-                        <label style={S.label}>Current (wrong) value</label>
-                        <input value={oldValue} onChange={(e) => setOldValue(e.target.value)}
+                        <label htmlFor="correction-old-value" style={S.label}>Current (wrong) value</label>
+                        <input id="correction-old-value" name="correction-old-value" value={oldValue} onChange={(e) => setOldValue(e.target.value)}
                           placeholder="What it says now" style={S.input} />
                       </div>
                       <div>
-                        <label style={S.label}>Correct value</label>
+                        <label htmlFor="correction-new-value-date" style={S.label}>Correct value</label>
                         {selectedField?.type === 'date' ? (
-                          <input type="date" value={newValue} onChange={(e) => setNewValue(e.target.value)}
+                          <input id="correction-new-value-date" name="correction-new-value-date" type="date" value={newValue} onChange={(e) => setNewValue(e.target.value)}
                             style={S.input} autoFocus />
                         ) : selectedField?.type === 'select' ? (
-                          <select value={newValue} onChange={(e) => setNewValue(e.target.value)} style={S.select} autoFocus>
+                          <select id="correction-new-value-select" name="correction-new-value-select" value={newValue} onChange={(e) => setNewValue(e.target.value)} style={S.select} autoFocus>
                             <option value="">-- Select --</option>
                             {selectedField.options.map((o) => <option key={o} value={o}>{o}</option>)}
                           </select>
                         ) : selectedField?.type === 'reference' ? (
-                          <select value={newValue} onChange={(e) => setNewValue(e.target.value)} style={S.select} disabled={loadingOptions} autoFocus>
+                          <select id="correction-new-value-reference" name="correction-new-value-reference" value={newValue} onChange={(e) => setNewValue(e.target.value)} style={S.select} disabled={loadingOptions} autoFocus>
                             <option value="">{loadingOptions ? 'Loading…' : '-- Select --'}</option>
                             {referenceOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </select>
@@ -323,7 +323,7 @@ export default function CorrectionRequest({
                             </div>
                           ) : (
                             <div>
-                              <input value={villageQuery} onChange={(e) => searchVillage(e.target.value)}
+                              <input id="correction-village-search" name="correction-village-search" value={villageQuery} onChange={(e) => searchVillage(e.target.value)}
                                 placeholder="Search village name..." style={S.input} autoFocus />
                               {villageResults.map((v) => (
                                 <div key={v.id} onClick={() => selectVillage(v)}
@@ -334,7 +334,7 @@ export default function CorrectionRequest({
                             </div>
                           )
                         ) : (
-                          <input value={newValue} onChange={(e) => setNewValue(e.target.value)}
+                          <input id="correction-new-value-text" name="correction-new-value-text" value={newValue} onChange={(e) => setNewValue(e.target.value)}
                             placeholder="What it should be" style={S.input} autoFocus />
                         )}
                       </div>
@@ -361,8 +361,8 @@ export default function CorrectionRequest({
 
                 {/* Reason */}
                 <div style={{ marginBottom: 16 }}>
-                  <label style={S.label}>Reason for this request *</label>
-                  <textarea value={reason} onChange={(e) => setReason(e.target.value)}
+                  <label htmlFor="correction-reason" style={S.label}>Reason for this request *</label>
+                  <textarea id="correction-reason" name="correction-reason" value={reason} onChange={(e) => setReason(e.target.value)}
                     placeholder="Why does this need to be changed or deleted? Be specific."
                     rows={3}
                     style={{ ...S.input, resize: 'none', lineHeight: 1.6 }} />

@@ -145,22 +145,22 @@ export default function ManageFeeStructure() {
         <div style={{ ...S.card, border: '1px solid rgba(232,160,32,0.3)' }}>
           <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>Create a fee</p>
           <div style={{ marginBottom: 10 }}>
-            <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Fee type *</label>
-            <input value={form.fee_type} onChange={(e) => setForm((f) => ({ ...f, fee_type: e.target.value }))} placeholder="e.g. Tuition Fee - Term 1" style={S.input} />
+            <label htmlFor="fee-struct-fee-type" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Fee type *</label>
+            <input id="fee-struct-fee-type" name="fee-struct-fee-type" value={form.fee_type} onChange={(e) => setForm((f) => ({ ...f, fee_type: e.target.value }))} placeholder="e.g. Tuition Fee - Term 1" style={S.input} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Amount (₹) *</label>
-              <input value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value.replace(/\D/g, '') }))} placeholder="15000" style={S.input} />
+              <label htmlFor="fee-struct-amount" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Amount (₹) *</label>
+              <input id="fee-struct-amount" name="fee-struct-amount" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value.replace(/\D/g, '') }))} placeholder="15000" style={S.input} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Due date</label>
-              <input type="date" value={form.due_date} onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))} style={S.input} />
+              <label htmlFor="fee-struct-due-date" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Due date</label>
+              <input id="fee-struct-due-date" name="fee-struct-due-date" type="date" value={form.due_date} onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))} style={S.input} />
             </div>
           </div>
           <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Applies to</label>
-            <select value={form.class_id} onChange={(e) => setForm((f) => ({ ...f, class_id: e.target.value }))} style={{ ...S.input, cursor: 'pointer' }}>
+            <label htmlFor="fee-struct-class-id" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Applies to</label>
+            <select id="fee-struct-class-id" name="fee-struct-class-id" value={form.class_id} onChange={(e) => setForm((f) => ({ ...f, class_id: e.target.value }))} style={{ ...S.input, cursor: 'pointer' }}>
               <option value="">All classes</option>
               {classes.map((c) => <option key={c.id} value={c.id}>{c.class_name} only</option>)}
             </select>

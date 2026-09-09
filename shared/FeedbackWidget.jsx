@@ -74,7 +74,7 @@ export function FeedbackWidget({ appId, citizenId, userId, context, onClose }) {
                 </button>
               ))}
             </div>
-            <textarea
+            <textarea id="feedback-comments" name="feedback-comments"
               value={comments}
               onChange={(e) => setComments(e.target.value)}
               placeholder="What could be better? (optional)"

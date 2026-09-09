@@ -133,14 +133,14 @@ export default function HomeworkTracking() {
         <div style={S.card}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={S.label}>Class</label>
-              <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={S.select}>
+              <label htmlFor="homework-select-class" style={S.label}>Class</label>
+              <select id="homework-select-class" name="homework-select-class" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={S.select}>
                 {classes.map((c) => <option key={c.id} value={c.id}>{c.class_name}</option>)}
               </select>
             </div>
             <div>
-              <label style={S.label}>Section</label>
-              <select value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)} style={S.select}>
+              <label htmlFor="homework-select-section" style={S.label}>Section</label>
+              <select id="homework-select-section" name="homework-select-section" value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)} style={S.select}>
                 {sections.map((s) => <option key={s} value={s}>Section {s}</option>)}
               </select>
             </div>
@@ -151,23 +151,23 @@ export default function HomeworkTracking() {
           <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>Post today's homework</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
-              <label style={S.label}>Subject</label>
-              <select value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} style={S.select}>
+              <label htmlFor="homework-subject" style={S.label}>Subject</label>
+              <select id="homework-subject" name="homework-subject" value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} style={S.select}>
                 {COMMON_SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
-              <label style={S.label}>Date</label>
-              <input type="date" value={form.homework_date} onChange={(e) => setForm((f) => ({ ...f, homework_date: e.target.value }))} style={S.input} />
+              <label htmlFor="homework-date" style={S.label}>Date</label>
+              <input id="homework-date" name="homework-date" type="date" value={form.homework_date} onChange={(e) => setForm((f) => ({ ...f, homework_date: e.target.value }))} style={S.input} />
             </div>
             <div>
-              <label style={S.label}>Due date (optional)</label>
-              <input type="date" value={form.due_date} onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))} style={S.input} />
+              <label htmlFor="homework-due-date" style={S.label}>Due date (optional)</label>
+              <input id="homework-due-date" name="homework-due-date" type="date" value={form.due_date} onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))} style={S.input} />
             </div>
           </div>
           <div style={{ marginBottom: 14 }}>
-            <label style={S.label}>What's assigned</label>
-            <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            <label htmlFor="homework-description" style={S.label}>What's assigned</label>
+            <textarea id="homework-description" name="homework-description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               placeholder="e.g. Complete exercise 4.2, questions 1-10"
               rows={3}
               style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />

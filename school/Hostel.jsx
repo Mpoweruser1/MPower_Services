@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
 import BugReporter from '../shared/BugReporter';
+import PermissionGate from '../shared/PermissionGate';
 
 const MEALS = ['Breakfast', 'Lunch', 'Dinner'];
 
@@ -15,7 +16,7 @@ const S = {
   textarea: { width: '100%', padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', resize: 'none' },
 };
 
-export default function Hostel() {
+function HostelScreen() {
   const { tenant } = useTenant();
   const [tab, setTab]               = useState('meals');
   const [meal, setMeal]             = useState('Dinner');
@@ -53,11 +54,16 @@ export default function Hostel() {
     setHostelStudents(students || []);
 
     // Load today's meal attendance
-    const { data: mealData } = await supabase
+    // meal_date, not date — confirmed real column (and real unique
+    // constraint: meal_attendance_student_id_meal_date_meal_type_key).
+    // This was silently failing before, since 'date' isn't a real
+    // column on this table at all.
+    const { data: mealData, error: mealErr } = await supabase
       .from('meal_attendance')
       .select('student_id, meal_type, present')
-      .eq('date', today)
+      .eq('meal_date', today)
       .in('student_id', (students || []).map((s) => s.id));
+    if (mealErr) console.error('Loading meal attendance failed:', mealErr);
 
     const mealMap = {};
     (mealData || []).forEach((m) => {
@@ -101,13 +107,23 @@ export default function Hostel() {
 
     setMealAttendance((prev) => ({ ...prev, [key]: newValue }));
 
-    await supabase.from('meal_attendance').upsert({
+    // meal_date, not date — same fix as the read side above. Also
+    // previously had no error check at all: if this upsert failed
+    // (as it always would have, given the wrong column), the toggle
+    // still showed as successfully changed on screen with nothing
+    // actually saved. Now reverts the optimistic update on failure.
+    const { error } = await supabase.from('meal_attendance').upsert({
       student_id: studentId,
-      date:       today,
+      meal_date:  today,
       meal_type:  meal,
       present:    newValue,
       marked_by:  tenant.userRowId,
-    }, { onConflict: 'student_id,date,meal_type' });
+    }, { onConflict: 'student_id,meal_date,meal_type' });
+
+    if (error) {
+      console.error('Saving meal attendance failed:', error);
+      setMealAttendance((prev) => ({ ...prev, [key]: current })); // revert
+    }
   }
 
   async function addOuting() {
@@ -141,7 +157,8 @@ export default function Hostel() {
   }
 
   async function markReturned(outingId) {
-    await supabase.from('hostel_outings').update({ status: 'returned' }).eq('id', outingId);
+    const { error: retErr } = await supabase.from('hostel_outings').update({ status: 'returned' }).eq('id', outingId);
+    if (retErr) { console.error('Marking outing returned failed:', retErr); alert(`Could not mark as returned: ${retErr.message || 'please try again.'}`); return; }
     loadAll();
   }
 
@@ -176,9 +193,13 @@ export default function Hostel() {
     // on an UPDATE request, so the previous version silently marked
     // notified_parent on every past incident for this student, not
     // just this one.
-    await supabase.from('hostel_medical_log')
+    const { error: notifyErr } = await supabase.from('hostel_medical_log')
       .update({ notified_parent: true })
       .eq('id', inserted.id);
+    // Non-blocking: the incident itself is already saved and the
+    // parent message already sent — but a failed flag update would
+    // make it look like the parent was never told.
+    if (notifyErr) console.error('Updating notified_parent flag failed:', notifyErr);
 
     setNewMedical({ student_id: '', issue: '', action_taken: '' });
     setShowAddMedical(false);
@@ -447,5 +468,21 @@ export default function Hostel() {
       <SchoolNav />
       <BugReporter screenName="hostel" />
     </div>
+  );
+}
+
+// PILOT — first screen wired to the granular permission system.
+// Only 'warden' has an explicit hostel permission in role_permissions;
+// owner roles (principal/doctor/developer/support) bypass the check
+// entirely via usePermission's OWNER_ROLES. Any other staff role sees
+// the access-denied screen, WITH navigation so they aren't stranded.
+//
+// If this pilot behaves correctly, the same one-line wrapper pattern
+// applies to other screens using their own module_code.
+export default function Hostel() {
+  return (
+    <PermissionGate moduleCode="hostel" nav={<SchoolNav />}>
+      <HostelScreen />
+    </PermissionGate>
   );
 }

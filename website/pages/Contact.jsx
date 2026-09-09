@@ -69,7 +69,7 @@ export default function Contact() {
       .single();
 
     if (client) {
-      await supabase.from('support_tickets').insert({
+      const { error: ticketErr } = await supabase.from('support_tickets').insert({
         client_id:   client.id,
         ticket_no:   'TKT-' + Date.now(),
         type:        'billing',
@@ -78,6 +78,11 @@ export default function Contact() {
         description: `Phone: ${form.phone || '—'} · Email: ${form.email || '—'}\n\n${form.message}`,
         status:      'open',
       });
+      if (ticketErr) {
+        // Previously unchecked — a website enquiry from a potential
+        // customer could silently vanish with no record anywhere.
+        console.error('Creating enquiry ticket failed:', ticketErr);
+      }
 
       await supabase.functions.invoke('send-whatsapp', {
         body: { type: 'website_enquiry', clientId: client.id, name: form.name, enquiryType: form.type },

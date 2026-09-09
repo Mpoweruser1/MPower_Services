@@ -186,7 +186,12 @@ export default function ManageClasses() {
 
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
 
-    await supabase.from('classes').delete().eq('id', id);
+    const { error: delErr } = await supabase.from('classes').delete().eq('id', id);
+    if (delErr) {
+      console.error('Delete failed:', delErr);
+      alert(`Could not delete: ${delErr.message || 'please try again.'}`);
+      return;
+    }
     loadClasses();
   }
 
@@ -206,7 +211,12 @@ export default function ManageClasses() {
       return;
     }
 
-    await supabase.from('classes').delete().eq('app_id', tenant.appId);
+    const { error: bulkErr } = await supabase.from('classes').delete().eq('app_id', tenant.appId);
+    if (bulkErr) {
+      console.error('Bulk class delete failed:', bulkErr);
+      alert(`Could not delete classes: ${bulkErr.message || 'please try again.'}`);
+      return;
+    }
     loadClasses();
   }
 
@@ -308,24 +318,24 @@ export default function ManageClasses() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
-              <label style={S.label}>Prefix *</label>
-              <input value={bulkPrefix}
+              <label htmlFor="class-bulk-prefix" style={S.label}>Prefix *</label>
+              <input id="class-bulk-prefix" name="class-bulk-prefix" value={bulkPrefix}
                 onChange={(e) => { setBulkPrefix(e.target.value); setBulkErrors({}); }}
                 placeholder="Class / Form / Grade / Year"
                 style={S.input(!!bulkErrors.bulkPrefix)} />
               {bulkErrors.bulkPrefix && <p style={S.fieldErr}>⚠ {bulkErrors.bulkPrefix}</p>}
             </div>
             <div>
-              <label style={S.label}>Start from *</label>
-              <input value={bulkFrom}
+              <label htmlFor="class-bulk-from" style={S.label}>Start from *</label>
+              <input id="class-bulk-from" name="class-bulk-from" value={bulkFrom}
                 onChange={(e) => { setBulkFrom(sanitize.integer(e.target.value)); setBulkErrors({}); }}
                 inputMode="numeric" placeholder="1"
                 style={S.input(!!bulkErrors.bulkFrom)} />
               {bulkErrors.bulkFrom && <p style={S.fieldErr}>⚠ {bulkErrors.bulkFrom}</p>}
             </div>
             <div>
-              <label style={S.label}>Count *</label>
-              <input value={bulkCount}
+              <label htmlFor="class-bulk-count" style={S.label}>Count *</label>
+              <input id="class-bulk-count" name="class-bulk-count" value={bulkCount}
                 onChange={(e) => { setBulkCount(sanitize.integer(e.target.value)); setBulkErrors({}); }}
                 inputMode="numeric" placeholder="10"
                 style={S.input(!!bulkErrors.bulkCount)} />
@@ -361,24 +371,24 @@ export default function ManageClasses() {
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
-              <label style={S.label}>Class name *</label>
-              <input value={newClass.class_name}
+              <label htmlFor="class-new-name" style={S.label}>Class name *</label>
+              <input id="class-new-name" name="class-new-name" value={newClass.class_name}
                 onChange={(e) => { setNewClass((c) => ({ ...c, class_name: e.target.value })); setClassErrors({}); }}
                 placeholder="e.g. Class 11 / LKG / Diploma"
                 style={S.input(!!classErrors.class_name)} />
               {classErrors.class_name && <p style={S.fieldErr}>⚠ {classErrors.class_name}</p>}
             </div>
             <div>
-              <label style={S.label}>Medium</label>
-              <select value={newClass.medium}
+              <label htmlFor="class-new-medium" style={S.label}>Medium</label>
+              <select id="class-new-medium" name="class-new-medium" value={newClass.medium}
                 onChange={(e) => setNewClass((c) => ({ ...c, medium: e.target.value }))}
                 style={{ ...S.input(false), cursor: 'pointer' }}>
                 {MEDIUMS.map((m) => <option key={m}>{m}</option>)}
               </select>
             </div>
             <div>
-              <label style={S.label}>Order *</label>
-              <input value={newClass.class_order}
+              <label htmlFor="class-new-order" style={S.label}>Order *</label>
+              <input id="class-new-order" name="class-new-order" value={newClass.class_order}
                 onChange={(e) => { setNewClass((c) => ({ ...c, class_order: sanitize.integer(e.target.value) })); setClassErrors({}); }}
                 inputMode="numeric" placeholder="11"
                 style={S.input(!!classErrors.class_order)} />

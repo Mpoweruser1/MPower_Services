@@ -118,7 +118,7 @@ export default function ManageAccess() {
       const { error } = await supabase.from('role_permissions').upsert(rows, { onConflict: 'app_id,role,module_code' });
       if (error) {
         console.error(error);
-        alert('Failed to save permissions. Please try again.');
+        alert(`Failed to save permissions: ${error.message || 'please try again.'}`);
         return;
       }
       setSaved(true);
@@ -134,7 +134,7 @@ export default function ManageAccess() {
     }
   }
 
-  if (isDevOrSupport && loadingClients) return <div style={{ padding: 16, fontSize: 13, color: '#888' }}>Loading clients...</div>;
+  if (isDevOrSupport && loadingClients) return <><div style={{ padding: 16, fontSize: 13, color: '#888' }}>Loading clients...</div><ControlPanelNav /></>;
 
   if (isDevOrSupport && !selectedClient) {
     return (
@@ -160,7 +160,7 @@ export default function ManageAccess() {
     );
   }
 
-  if (loading) return <div style={{ padding: 16, fontSize: 13, color: '#888' }}>Loading...</div>;
+  if (loading) return <><div style={{ padding: 16, fontSize: 13, color: '#888' }}>Loading...</div><ControlPanelNav /></>;
 
   const availableRoles = ROLES_BY_APP_TYPE[appType] || [];
 
@@ -183,8 +183,8 @@ export default function ManageAccess() {
       </p>
 
       <div style={{ marginBottom: 16 }}>
-        <label style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 4 }}>Select role to configure</label>
-        <select value={selectedRole} onChange={(e) => { setSelectedRole(e.target.value); setSaved(false); }} style={{ width: '100%', padding: '8px 10px', border: '1px solid #ccc', borderRadius: 6 }}>
+        <label htmlFor="access-selected-role" style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 4 }}>Select role to configure</label>
+        <select id="access-selected-role" name="access-selected-role" value={selectedRole} onChange={(e) => { setSelectedRole(e.target.value); setSaved(false); }} style={{ width: '100%', padding: '8px 10px', border: '1px solid #ccc', borderRadius: 6 }}>
           {availableRoles.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
@@ -202,7 +202,7 @@ export default function ManageAccess() {
               <div key={m.module_code} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '10px 12px', borderTop: '1px solid #eee', alignItems: 'center', fontSize: 13 }}>
                 <span>{m.module_label}</span>
                 {['can_view', 'can_create', 'can_edit', 'can_delete'].map((action) => (
-                  <input key={action} type="checkbox" checked={!!p[action]} onChange={() => togglePermission(m.module_code, action)} style={{ cursor: 'pointer' }} />
+                  <input id="access-p-action" name="access-p-action" key={action} type="checkbox" checked={!!p[action]} onChange={() => togglePermission(m.module_code, action)} style={{ cursor: 'pointer' }} />
                 ))}
               </div>
             );

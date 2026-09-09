@@ -3,7 +3,7 @@
 // 1. Citizen representation letter to MLA/MP
 // 2. Staff — single complaint print for official reference
 // 3. Staff — batch complaint list for minister/collector submission
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
@@ -1100,7 +1100,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     if (dateFrom) query = query.gte('created_at', dateFrom);
     if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59');
     const { data, error: err } = await query;
-    if (err) { setError('Failed to load complaints.'); setLoading(false); return; }
+    if (err) { console.error('Loading complaints failed:', err); setError(err.message || 'Failed to load complaints.'); setLoading(false); return; }
 
     // The base query above has no joins at all — village/mandal names
     // were always blank in this report before. Resolve them here in
@@ -1152,7 +1152,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     if (filterBranchId) {
       const { data: branchConsts, error: branchErr } = await supabase
         .from('constituencies').select('id').eq('branch_id', filterBranchId);
-      if (branchErr) { setError('Failed to resolve this district\u2019s constituencies.'); setLoading(false); return; }
+      if (branchErr) { console.error('Resolving district constituencies failed:', branchErr); setError(branchErr.message || 'Failed to resolve this district’s constituencies.'); setLoading(false); return; }
       branchConstituencyIds = (branchConsts || []).map((c) => c.id);
       if (branchConstituencyIds.length === 0) { setComplaints([]); setLoading(false); return; }
     }
@@ -1175,7 +1175,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     if (dateFrom) query = query.gte('created_at', dateFrom);
     if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59');
     const { data, error: err } = await query;
-    if (err) { setError('Failed to load complaints.'); setLoading(false); return; }
+    if (err) { console.error('Loading complaints failed:', err); setError(err.message || 'Failed to load complaints.'); setLoading(false); return; }
 
     const rows = data || [];
     const constituencyIds = [...new Set(rows.map((r) => r.constituency_id).filter(Boolean))];
@@ -1538,7 +1538,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
         >
           ← Back
         </button>
-        <a href="/" style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>🏠 Exit to Home</a>
+        <Link to="/" style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>🏠 Exit to Home</Link>
       </div>
 
       <GrievanceNav />

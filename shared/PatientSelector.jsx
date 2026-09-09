@@ -51,7 +51,7 @@ export default function PatientSelector({
   return (
     <div>
       <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8 }}>{label}</p>
-      <input
+      <input id="patient-sel-query" name="patient-sel-query"
         value={query}
         onChange={(e) => search(e.target.value)}
         placeholder="Search by name, UID or phone..."

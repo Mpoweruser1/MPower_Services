@@ -1,6 +1,6 @@
 // src/pages/grievance/StaffDashboard.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useTenant } from '../context/TenantContext';
 import EvidenceGallery from './EvidenceGallery';
 import { CATEGORY_EMOJI, StageBadge } from './CitizenPortal';
@@ -118,11 +118,14 @@ export default function StaffDashboard() {
   // empty page that no longer has anything on it.
   useEffect(() => { setPage(0); }, [search, categoryFilter, priorityFilter, activeTab, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo]);
 
-  if (tenantLoading || !tenant) return <CenteredNote>Loading…</CenteredNote>;
+  // Both early-exit states previously showed CenteredNote with zero
+  // navigation — if tenantLoading ever hung, or a wrong-role user
+  // landed here, there was no way back at all.
+  if (tenantLoading || !tenant) return <><CenteredNote>Loading…</CenteredNote><GrievanceNav /></>;
 
   // FIX 1: Single role check — duplicate removed
   if (!['representative', 'authority', 'grievance_admin', 'grievance_staff'].includes(tenant.role)) {
-    return <CenteredNote>This dashboard is for representatives, authorities, or grievance admins.</CenteredNote>;
+    return <><CenteredNote>This dashboard is for representatives, authorities, or grievance admins.</CenteredNote><GrievanceNav /></>;
   }
 
   const profileIncomplete = !tenant.phone || !tenant.alternatePhone;
@@ -162,7 +165,7 @@ export default function StaffDashboard() {
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-            <a href="/portal/dashboard" style={{ fontSize: 12, color: '#15213A', textDecoration: 'none', fontWeight: 600 }}>🏠 Home</a>
+            <Link to="/portal/dashboard" style={{ fontSize: 12, color: '#15213A', textDecoration: 'none', fontWeight: 600 }}>🏠 Home</Link>
             <button onClick={() => setShowFeedback(true)} style={{ fontSize: 12, color: '#15213A', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
               💬 Feedback
             </button>
@@ -186,18 +189,18 @@ export default function StaffDashboard() {
             up just to search or change a filter */}
         <div style={{ position: 'sticky', top: 56, background: '#f0f4f8', zIndex: 20, paddingBottom: 10, marginBottom: 10 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <input
+            <input id="staff-dash-search" name="staff-dash-search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by title…"
               style={{ flex: '1 1 160px', padding: '9px 12px', border: '1px solid #D9D5C8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit' }}
             />
-            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+            <select id="staff-dash-category-filter" name="staff-dash-category-filter" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
               style={{ padding: '9px 10px', border: '1px solid #D9D5C8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff' }}>
               <option value="">All categories</option>
               {categories.map((c) => <option key={c.id} value={c.label_en}>{c.label_en}</option>)}
             </select>
-            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}
+            <select id="staff-dash-priority-filter" name="staff-dash-priority-filter" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}
               style={{ padding: '9px 10px', border: '1px solid #D9D5C8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff' }}>
               <option value="">All priorities</option>
               <option value="Normal">Normal</option>
@@ -243,25 +246,25 @@ export default function StaffDashboard() {
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                <input id="staff-dash-date-from" name="staff-dash-date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
                   style={{ flex: 1, padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit' }} />
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                <input id="staff-dash-date-to" name="staff-dash-date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
                   style={{ flex: 1, padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit' }} />
               </div>
 
               <p style={{ fontSize: 11, fontWeight: 700, color: '#5B6473', letterSpacing: 0.5, margin: '0 0 6px' }}>LOCATION</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <select value={constituencyFilter} onChange={(e) => setConstituencyFilter(e.target.value)}
+                <select id="staff-dash-constituency-filter" name="staff-dash-constituency-filter" value={constituencyFilter} onChange={(e) => setConstituencyFilter(e.target.value)}
                   style={{ flex: '1 1 140px', padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit', background: '#fff' }}>
                   <option value="">All constituencies</option>
                   {constituencyOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <select value={mandalFilter} onChange={(e) => setMandalFilter(e.target.value)} disabled={!constituencyFilter}
+                <select id="staff-dash-mandal-filter" name="staff-dash-mandal-filter" value={mandalFilter} onChange={(e) => setMandalFilter(e.target.value)} disabled={!constituencyFilter}
                   style={{ flex: '1 1 140px', padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit', background: '#fff', opacity: constituencyFilter ? 1 : 0.5 }}>
                   <option value="">All mandals</option>
                   {mandalOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
-                <select value={villageFilter} onChange={(e) => setVillageFilter(e.target.value)} disabled={!mandalFilter}
+                <select id="staff-dash-village-filter" name="staff-dash-village-filter" value={villageFilter} onChange={(e) => setVillageFilter(e.target.value)} disabled={!mandalFilter}
                   style={{ flex: '1 1 140px', padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit', background: '#fff', opacity: mandalFilter ? 1 : 0.5 }}>
                   <option value="">All villages</option>
                   {villageOptions.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -460,17 +463,17 @@ function StaffProfileSetup({ tenant, onClose }) {
           A contact number and emergency contact, kept on file for {tenant.fullName}.
         </p>
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
-          <label style={{ display: 'grid', gap: 5 }}>
+          <label htmlFor="staff-dash-phone" style={{ display: 'grid', gap: 5 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#5B6473' }}>📱 Contact number</span>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} required style={fieldStyle} />
+            <input id="staff-dash-phone" name="staff-dash-phone" value={phone} onChange={(e) => setPhone(e.target.value)} required style={fieldStyle} />
           </label>
-          <label style={{ display: 'grid', gap: 5 }}>
+          <label htmlFor="staff-dash-alternate-phone" style={{ display: 'grid', gap: 5 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#5B6473' }}>🚨 Emergency/alternate contact number</span>
-            <input value={alternatePhone} onChange={(e) => setAlternatePhone(e.target.value)} required style={fieldStyle} />
+            <input id="staff-dash-alternate-phone" name="staff-dash-alternate-phone" value={alternatePhone} onChange={(e) => setAlternatePhone(e.target.value)} required style={fieldStyle} />
           </label>
-          <label style={{ display: 'grid', gap: 5 }}>
+          <label htmlFor="staff-dash-file" style={{ display: 'grid', gap: 5 }}>
             <span style={{ fontSize: 12, fontWeight: 500, color: '#5B6473' }}>📷 Photo (entirely optional)</span>
-            <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+            <input id="staff-dash-file" name="staff-dash-file" type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
           </label>
           {error && <p style={{ fontSize: 12, color: '#9B3C2E' }}>{error}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -540,7 +543,7 @@ function ComplaintCard({ complaint, role, actorName, onOpen, onAction }) {
         </div>
       </div>
 
-      <input
+      <input id="staff-dash-note" name="staff-dash-note"
         value={note}
         onChange={(e) => { setNote(e.target.value); if (warn) setWarn(false); }}
         placeholder="Add a note — required if declining"
@@ -667,7 +670,7 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
         )}
 
         {/* Status actions — same role/stage rules as ComplaintCard */}
-        <input
+        <input id="staff-dash-note-2" name="staff-dash-note-2"
           value={note}
           onChange={(e) => { setNote(e.target.value); if (warn) setWarn(false); }}
           placeholder="Add a note — required if declining"
@@ -707,19 +710,19 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
         {warn && <p style={{ fontSize: 11, color: '#9B3C2E', marginTop: -4, marginBottom: 10 }}>Add a reason before declining — the citizen will see it.</p>}
 
         <div style={{ background: '#F7F6F2', border: '1px solid #D9D5C8', borderRadius: 8, padding: 12, margin: '12px 0' }}>
-          <label style={{ fontSize: 11, fontWeight: 600, color: '#5B6473', display: 'block', marginBottom: 4 }}>
+          <label htmlFor="staff-dash-department" style={{ fontSize: 11, fontWeight: 600, color: '#5B6473', display: 'block', marginBottom: 4 }}>
             Assigned Department (from Collector's response)
           </label>
-          <input
+          <input id="staff-dash-department" name="staff-dash-department"
             value={department}
             onChange={(e) => { setDepartment(e.target.value); setDeptSaved(false); }}
             placeholder="e.g. Public Health Department"
             style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid #D9D5C8', borderRadius: 6, marginBottom: 8, boxSizing: 'border-box' }}
           />
-          <label style={{ fontSize: 11, fontWeight: 600, color: '#5B6473', display: 'block', marginBottom: 4 }}>
+          <label htmlFor="staff-dash-remark" style={{ fontSize: 11, fontWeight: 600, color: '#5B6473', display: 'block', marginBottom: 4 }}>
             Remark (optional — internal note, won't change complaint status)
           </label>
-          <input
+          <input id="staff-dash-remark" name="staff-dash-remark"
             value={remark}
             onChange={(e) => setRemark(e.target.value)}
             placeholder="e.g. Collector's office confirmed inspection scheduled"

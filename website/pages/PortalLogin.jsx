@@ -183,7 +183,11 @@ export default function PortalLogin() {
       redirectTo: `${window.location.origin}/portal/reset-password`,
     });
     setSendingReset(false);
-    if (resetErr) { setError('Failed to send reset email. Please try again.'); return; }
+    if (resetErr) {
+      console.error('Password reset email failed:', resetErr);
+      setError(resetErr.message || 'Failed to send reset email. Please try again.');
+      return;
+    }
     setResetSent(true);
   }
 
@@ -242,7 +246,8 @@ export default function PortalLogin() {
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 10 }}>
               Enter the 6-digit code from your authenticator app.
             </p>
-            <input value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            <input id="mfa-code" name="mfa-code" aria-label="6-digit authentication code" autoComplete="one-time-code"
+              value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="000000" autoFocus
               style={{ width: '100%', padding: '11px 14px', marginBottom: 12, background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 18, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', textAlign: 'center', letterSpacing: 6 }} />
             <button onClick={verifyMfaCode} disabled={verifyingMfa}
@@ -279,8 +284,9 @@ export default function PortalLogin() {
           <>
             {/* Login form */}
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email</label>
+              <label htmlFor="login-email" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email</label>
               <input
+                id="login-email" name="login-email" autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -294,13 +300,14 @@ export default function PortalLogin() {
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Password</label>
+                <label htmlFor="login-password" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Password</label>
                 <button onClick={() => { setShowForgot(true); setError(''); setResetEmail(email); }}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#E8A020', fontFamily: 'inherit', padding: 0 }}>
                   Forgot password?
                 </button>
               </div>
               <input
+                id="login-password" name="login-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -329,8 +336,9 @@ export default function PortalLogin() {
             {!resetSent && (
               <>
                 <div>
-                  <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email address</label>
+                  <label htmlFor="reset-email" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email address</label>
                   <input
+                    id="reset-email" name="reset-email" autoComplete="email"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                     onKeyDown={handleKeyDown}

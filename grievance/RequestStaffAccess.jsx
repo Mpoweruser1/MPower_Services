@@ -95,7 +95,10 @@ export default function RequestStaffAccess() {
 
       setDone(true);
     } catch (e) {
-      setError('Submission failed. Please try again or contact MPower support.');
+      // Previously the error wasn't even logged — a failed staff
+      // access request left no trace anywhere to debug from.
+      console.error('Staff access request submission failed:', e);
+      setError(e.message || 'Submission failed. Please try again or contact MPower support.');
     } finally {
       setBusy(false);
     }
@@ -134,7 +137,7 @@ export default function RequestStaffAccess() {
       <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
         <div>
           <p style={{ fontSize: 14, color: '#64748b', marginBottom: 16 }}>This state isn't set up on this platform yet. Check the link you were given, or contact your local office.</p>
-          <a href="/" style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>← Back to home</a>
+          <Link to="/" style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>← Back to home</Link>
         </div>
       </div>
     );
@@ -207,8 +210,8 @@ export default function RequestStaffAccess() {
 
           {/* Office name */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Office / Organisation Name *</label>
-            <input
+            <label htmlFor="access-req-office-name" style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Office / Organisation Name *</label>
+            <input id="access-req-office-name" name="access-req-office-name"
               value={form.officeName}
               onChange={e => update('officeName', e.target.value)}
               placeholder="e.g. Office of MLA Mandapeta"
@@ -219,8 +222,8 @@ export default function RequestStaffAccess() {
 
           {/* Constituency */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Constituency *</label>
-            <select
+            <label htmlFor="access-req-constituency-name" style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Constituency *</label>
+            <select id="access-req-constituency-name" name="access-req-constituency-name"
               value={form.constituencyName}
               onChange={e => update('constituencyName', e.target.value)}
               required
@@ -238,8 +241,8 @@ export default function RequestStaffAccess() {
 
           {/* Contact person */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Contact Person Name *</label>
-            <input
+            <label htmlFor="access-req-contact-person" style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Contact Person Name *</label>
+            <input id="access-req-contact-person" name="access-req-contact-person"
               value={form.contactPerson}
               onChange={e => update('contactPerson', e.target.value)}
               placeholder="Name of MLA/MP or office in-charge"
@@ -250,8 +253,8 @@ export default function RequestStaffAccess() {
 
           {/* Phone */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>WhatsApp Mobile Number *</label>
-            <input
+            <label htmlFor="access-req-phone" style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>WhatsApp Mobile Number *</label>
+            <input id="access-req-phone" name="access-req-phone"
               value={form.phone}
               onChange={e => update('phone', e.target.value)}
               placeholder="+91XXXXXXXXXX"
@@ -263,8 +266,8 @@ export default function RequestStaffAccess() {
 
           {/* Email optional */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Email (Optional)</label>
-            <input
+            <label htmlFor="access-req-email" style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Email (Optional)</label>
+            <input id="access-req-email" name="access-req-email"
               value={form.email}
               onChange={e => update('email', e.target.value)}
               placeholder="office@example.com"

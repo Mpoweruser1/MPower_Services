@@ -87,7 +87,14 @@ export default function PTMScheduling() {
       slotDate.setMinutes(totalMinutes);
       return { session_id: session.id, slot_time: slotDate.toISOString(), status: 'open' };
     });
-    await supabase.from('ptm_slots').insert(rows);
+    // Previously unchecked — showed "created with N slots" even if
+    // zero slots saved, leaving a PTM session parents can't book.
+    const { error: slotsErr } = await supabase.from('ptm_slots').insert(rows);
+    if (slotsErr) {
+      console.error('Creating PTM slots failed:', slotsErr);
+      setMessage(`⚠️ Session was created, but its slots failed to save: ${slotsErr.message}. Delete the session and try again.`);
+      return;
+    }
 
     setShowCreate(false);
     setForm({ title: '', class_id: '', session_date: new Date().toISOString().slice(0, 10), start_time: '15:00', slot_minutes: '10', slot_count: '20' });
@@ -150,34 +157,34 @@ export default function PTMScheduling() {
           <div style={{ ...S.card, border: '1px solid rgba(232,160,32,0.3)' }}>
             <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>New PTM session</p>
             <div style={{ marginBottom: 10 }}>
-              <label style={S.label}>Title</label>
-              <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Term 1 PTM" style={S.input} />
+              <label htmlFor="ptm-title" style={S.label}>Title</label>
+              <input id="ptm-title" name="ptm-title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Term 1 PTM" style={S.input} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div>
-                <label style={S.label}>Class (optional)</label>
-                <select value={form.class_id} onChange={(e) => setForm((f) => ({ ...f, class_id: e.target.value }))} style={S.select}>
+                <label htmlFor="ptm-class" style={S.label}>Class (optional)</label>
+                <select id="ptm-class" name="ptm-class" value={form.class_id} onChange={(e) => setForm((f) => ({ ...f, class_id: e.target.value }))} style={S.select}>
                   <option value="">Whole school</option>
                   {classes.map((c) => <option key={c.id} value={c.id}>{c.class_name}</option>)}
                 </select>
               </div>
               <div>
-                <label style={S.label}>Date</label>
-                <input type="date" value={form.session_date} onChange={(e) => setForm((f) => ({ ...f, session_date: e.target.value }))} style={S.input} />
+                <label htmlFor="ptm-session-date" style={S.label}>Date</label>
+                <input id="ptm-session-date" name="ptm-session-date" type="date" value={form.session_date} onChange={(e) => setForm((f) => ({ ...f, session_date: e.target.value }))} style={S.input} />
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div>
-                <label style={S.label}>Start time</label>
-                <input type="time" value={form.start_time} onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))} style={S.input} />
+                <label htmlFor="ptm-start-time" style={S.label}>Start time</label>
+                <input id="ptm-start-time" name="ptm-start-time" type="time" value={form.start_time} onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))} style={S.input} />
               </div>
               <div>
-                <label style={S.label}>Minutes/slot</label>
-                <input type="number" value={form.slot_minutes} onChange={(e) => setForm((f) => ({ ...f, slot_minutes: e.target.value }))} style={S.input} />
+                <label htmlFor="ptm-slot-minutes" style={S.label}>Minutes/slot</label>
+                <input id="ptm-slot-minutes" name="ptm-slot-minutes" type="number" value={form.slot_minutes} onChange={(e) => setForm((f) => ({ ...f, slot_minutes: e.target.value }))} style={S.input} />
               </div>
               <div>
-                <label style={S.label}>Number of slots</label>
-                <input type="number" value={form.slot_count} onChange={(e) => setForm((f) => ({ ...f, slot_count: e.target.value }))} style={S.input} />
+                <label htmlFor="ptm-slot-count" style={S.label}>Number of slots</label>
+                <input id="ptm-slot-count" name="ptm-slot-count" type="number" value={form.slot_count} onChange={(e) => setForm((f) => ({ ...f, slot_count: e.target.value }))} style={S.input} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>

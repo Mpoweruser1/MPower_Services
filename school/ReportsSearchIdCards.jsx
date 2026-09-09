@@ -55,11 +55,12 @@ async function runReportQuery(reportId, appId, extraFilters) {
         .from('students').select('id').eq('app_id', appId).eq('status', 'active');
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: ['Name', 'SID', 'Class', 'Status', 'Remarks'] };
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('attendance')
         .select('student_id, status, students(full_name, sid, section, classes(class_name))')
         .eq('date', today)
         .in('student_id', ids);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Name', 'SID', 'Class', 'Status', 'Remarks'] };
     }
     case 'low_attendance': {
@@ -88,11 +89,12 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // was actually collected via FeeCollection.jsx. Now sums the
       // real fee_payments rows per due, same fix already applied to
       // Dashboard.jsx and TransferCertificate.jsx for this identical bug.
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('fee_dues')
         .select('id, amount_due, fee_type, due_date, fee_payments(amount), students(full_name, sid, parent_phone, classes(class_name))')
         .lt('due_date', today)
         .in('student_id', ids);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const withRealPaid = (data || []).map((d) => ({
         ...d,
         amount_paid: (d.fee_payments || []).reduce((sum, p) => sum + Number(p.amount), 0),
@@ -105,10 +107,11 @@ async function runReportQuery(reportId, appId, extraFilters) {
         .from('students').select('id').eq('app_id', appId).eq('status', 'active');
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: ['Rank', 'Name', 'SID', 'Class', 'Percentage', 'Remarks'] };
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('marks')
         .select('student_id, percentage, students(full_name, sid, class_id, classes(class_name, class_order))')
         .in('student_id', ids);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
 
       // Genuinely rank WITHIN each class — the previous version sorted
       // everyone school-wide and capped at 100, which silently dropped
@@ -148,7 +151,8 @@ async function runReportQuery(reportId, appId, extraFilters) {
       return { data: rows, columns: ['Class', 'Section', 'Students', 'Remarks'] };
     }
     case 'gender_distribution': {
-      const { data } = await supabase.from('students').select('id, gender').eq('app_id', appId).eq('status', 'active');
+      const { data, error: qErr } = await supabase.from('students').select('id, gender').eq('app_id', appId).eq('status', 'active');
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const counts = {};
       (data || []).forEach((s) => { const g = s.gender || 'Unspecified'; counts[g] = (counts[g] || 0) + 1; });
       const rows = Object.entries(counts).map(([gender, count]) => ({ id: gender, gender, count }));
@@ -157,34 +161,45 @@ async function runReportQuery(reportId, appId, extraFilters) {
     case 'new_admissions': {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 90); // last 90 days by default
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('students')
         .select('id, full_name, sid, admission_date, admission_no, classes(class_name)')
         .eq('app_id', appId)
         .gte('admission_date', cutoff.toISOString().slice(0, 10))
         .order('admission_date', { ascending: false });
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Name', 'SID', 'Admission no', 'Class', 'Admission date', 'Remarks'] };
     }
     case 'tc_issued': {
       const { data: appStudents } = await supabase.from('students').select('id').eq('app_id', appId);
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: ['Name', 'TC no', 'Reason', 'Date of leaving', 'Remarks'] };
-      const { data } = await supabase
+      // reason_leaving/date_of_leaving were never real columns — this
+      // exact mismatch was already found and fixed in
+      // TransferCertificate.jsx itself; this report had the identical
+      // stale field names and has likely been failing outright every
+      // time it ran, since these columns don't exist to select at all.
+      const { data, error } = await supabase
         .from('transfer_certificates')
-        .select('id, tc_no, reason_leaving, date_of_leaving, students(full_name, sid)')
+        .select('id, tc_no, reason, issue_date, students(full_name, sid)')
         .in('student_id', ids)
-        .order('date_of_leaving', { ascending: false });
+        .order('issue_date', { ascending: false });
+      if (error) { console.error('tc_issued report failed:', error); throw error; }
       return { data: data || [], columns: ['Name', 'TC no', 'Reason', 'Date of leaving', 'Remarks'] };
     }
     case 'certificates_issued': {
       const { data: appStudents } = await supabase.from('students').select('id').eq('app_id', appId);
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: ['Name', 'Certificate type', 'Cert no', 'Issued', 'Remarks'] };
-      const { data } = await supabase
+      // issued_at was never a real column — the real column is
+      // issue_date (a date, not a timestamp). Same mismatch already
+      // found and fixed in Certificates.jsx itself.
+      const { data, error } = await supabase
         .from('certificates')
-        .select('id, cert_type, cert_no, issued_at, students(full_name, sid)')
+        .select('id, cert_type, cert_no, issue_date, students(full_name, sid)')
         .in('student_id', ids)
-        .order('issued_at', { ascending: false });
+        .order('issue_date', { ascending: false });
+      if (error) { console.error('certificates_issued report failed:', error); throw error; }
       return { data: data || [], columns: ['Name', 'Certificate type', 'Cert no', 'Issued', 'Remarks'] };
     }
     case 'transport_enrollment': {
@@ -213,21 +228,23 @@ async function runReportQuery(reportId, appId, extraFilters) {
       const { data: appStudents } = await supabase.from('students').select('id').eq('app_id', appId);
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: ['Name', 'SID', 'Reason', 'Out since', 'Expected return', 'Remarks'] };
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('hostel_outings')
         .select('id, reason, out_date, out_time, return_expected, students(full_name, sid)')
         .in('student_id', ids)
         .eq('status', 'out')
         .order('out_date', { ascending: false });
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Name', 'SID', 'Reason', 'Out since', 'Expected return', 'Remarks'] };
     }
     case 'welfare_eligible': {
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('students')
         .select('id, full_name, sid, caste_category, classes(class_name)')
         .eq('app_id', appId)
         .eq('status', 'active')
         .in('caste_category', ['SC', 'ST', 'BC-A', 'BC-B', 'BC-C', 'BC-D', 'BC-E', 'EWS']);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Name', 'SID', 'Class', 'Category', 'Remarks'] };
     }
     case 'admissions_village_category_class': {
@@ -236,12 +253,13 @@ async function runReportQuery(reportId, appId, extraFilters) {
       const rangeStart = `${startYear}-06-01`;
       const rangeEnd = `${Number(startYear) + 1}-05-31`;
 
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('students')
         .select('caste_category, village_id, class_id, villages(name), classes(class_name)')
         .eq('app_id', appId)
         .gte('admission_date', rangeStart)
         .lte('admission_date', rangeEnd);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
 
       const grouped = {};
       (data || []).forEach((s) => {
@@ -266,7 +284,8 @@ async function runReportQuery(reportId, appId, extraFilters) {
         : [];
       const dueIdList = dueIds.map((d) => d.id);
       if (dueIdList.length === 0) return { data: [], columns: ['Month', 'Total collected', 'Remarks'] };
-      const { data } = await supabase.from('fee_payments').select('amount, paid_at').in('due_id', dueIdList);
+      const { data, error: qErr } = await supabase.from('fee_payments').select('amount, paid_at').in('due_id', dueIdList);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const byMonth = {};
       (data || []).forEach((p) => {
         const month = new Date(p.paid_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
@@ -277,12 +296,15 @@ async function runReportQuery(reportId, appId, extraFilters) {
       return { data: rows, columns: ['Month', 'Total collected', 'Remarks'] };
     }
     case 'pending_corrections': {
-      const { data } = await supabase
+      // created_at was never a real column on correction_requests —
+      // confirmed real schema uses requested_at.
+      const { data, error } = await supabase
         .from('correction_requests')
-        .select('id, module, record_label, request_type, field_name, created_at')
+        .select('id, module, record_label, request_type, field_name, requested_at')
         .eq('app_id', appId)
         .eq('status', 'pending')
-        .order('created_at', { ascending: true });
+        .order('requested_at', { ascending: true });
+      if (error) { console.error('pending_corrections report failed:', error); throw error; }
       return { data: data || [], columns: ['Module', 'Record', 'Type', 'Field', 'Requested', 'Remarks'] };
     }
     case 'homework_compliance': {
@@ -387,7 +409,8 @@ export function ReportEngine({ userTier = 'basic' }) {
         is_archived:   false,
       });
     } catch (err) {
-      setError('Failed to generate report. Please try again.');
+      console.error('Report generation failed:', err);
+      setError(err.message || 'Failed to generate report. Please try again.');
     } finally {
       setRunning(null);
     }
@@ -405,13 +428,13 @@ export function ReportEngine({ userTier = 'basic' }) {
         }
       `}</style>
       <div style={S.inner}>
-        <div style={{ marginBottom: 24 }}>
+        <div className="no-print" style={{ marginBottom: 24 }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}><span style={{ letterSpacing: '2px', textTransform: 'uppercase' }}>Reports</span> · నివేదికలు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Report Engine</h1>
         </div>
 
         {error && (
-          <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A' }}>
+          <div className="no-print" style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A' }}>
             ⚠️ {error}
           </div>
         )}
@@ -462,15 +485,15 @@ export function ReportEngine({ userTier = 'basic' }) {
             <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>Multi-filter — caste + village + gender</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div>
-                <label style={S.label}>Caste category</label>
-                <select value={casteFilter} onChange={(e) => setCasteFilter(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
+                <label htmlFor="reports-caste-filter" style={S.label}>Caste category</label>
+                <select id="reports-caste-filter" name="reports-caste-filter" value={casteFilter} onChange={(e) => setCasteFilter(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
                   <option value="">All categories</option>
                   {FILTER_CASTE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
-                <label style={S.label}>Gender</label>
-                <select value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
+                <label htmlFor="reports-gender-filter" style={S.label}>Gender</label>
+                <select id="reports-gender-filter" name="reports-gender-filter" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
                   <option value="">All genders</option>
                   {FILTER_GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
                 </select>
@@ -488,7 +511,7 @@ export function ReportEngine({ userTier = 'basic' }) {
                 </div>
               ) : (
                 <>
-                  <input value={villageFilterQuery} onChange={(e) => searchVillageFilter(e.target.value)} placeholder="Search village name..." style={S.input} />
+                  <input id="reports-village-filter-query" name="reports-village-filter-query" value={villageFilterQuery} onChange={(e) => searchVillageFilter(e.target.value)} placeholder="Search village name..." style={S.input} />
                   {villageFilterResults.map((v) => (
                     <div key={v.id} onClick={() => { setVillageFilterId(v.id); setVillageFilterDisplay(`${v.name}${v.mandals?.name ? ` (${v.mandals.name})` : ''}`); setVillageFilterQuery(''); setVillageFilterResults([]); }}
                       style={{ padding: '7px 10px', cursor: 'pointer', fontSize: 12, color: '#fff', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
@@ -518,8 +541,8 @@ export function ReportEngine({ userTier = 'basic' }) {
               Academic year treated as an admission-date range — June through the following May.
             </p>
             <div style={{ marginBottom: 16 }}>
-              <label style={S.label}>Academic year starting</label>
-              <select value={academicYearStart} onChange={(e) => setAcademicYearStart(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
+              <label htmlFor="reports-academic-year-start" style={S.label}>Academic year starting</label>
+              <select id="reports-academic-year-start" name="reports-academic-year-start" value={academicYearStart} onChange={(e) => setAcademicYearStart(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
                 {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((y) => (
                   <option key={y} value={y}>{y}-{String(y + 1).slice(-2)} (June {y} – May {y + 1})</option>
                 ))}
@@ -707,7 +730,7 @@ export function ReportEngine({ userTier = 'basic' }) {
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.record_label}</td>
                             <td style={{ padding: '8px 8px', color: '#E8A020' }}>{row.request_type}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.field_name || '—'}</td>
-                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{new Date(row.created_at).toLocaleDateString('en-IN')}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{new Date(row.requested_at).toLocaleDateString('en-IN')}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="pending_corrections" rowKey={row.id} /></td>
                           </>
                         )}
@@ -821,7 +844,27 @@ export function IdCardPrinter() {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         @media print {
           .no-print { display: none !important; }
-          .id-card-grid { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+          /* Deliberately does NOT declare its own @page rule —
+             PrintHeader already sets one (A4, 15mm 18mm margins), and
+             two competing @page declarations produce unpredictable
+             results depending on which wins. The card grid below is
+             sized to fit PrintHeader's existing margins instead:
+             A4 is 210mm wide, minus 36mm of side margin leaves 174mm,
+             which fits two 85mm cards (real ID-card width) with room
+             for the gap. */
+          .id-card-grid {
+            display: grid !important;
+            /* Real ID-card proportions (~85mm x 54mm, standard card
+               size) instead of a loose auto-fit grid — previously
+               cards had no fixed size at all, wasting real page
+               space since far fewer fit per sheet than actually
+               could. */
+            grid-template-columns: repeat(2, 85mm);
+            grid-auto-rows: 54mm;
+            gap: 4mm;
+            justify-content: center;
+          }
+          .id-card { page-break-inside: avoid; }
         }
       `}</style>
       <div style={S.inner}>
@@ -832,8 +875,8 @@ export function IdCardPrinter() {
 
         <div className="no-print" style={{ ...S.card, display: 'flex', gap: 12, alignItems: 'flex-end' }}>
           <div style={{ flex: 1 }}>
-            <label style={S.label}>Select class</label>
-            <select value={selectedClass}
+            <label htmlFor="reports-selected-class" style={S.label}>Select class</label>
+            <select id="reports-selected-class" name="reports-selected-class" value={selectedClass}
               onChange={(e) => loadStudents(e.target.value)}
               style={{ ...S.input, cursor: 'pointer' }}>
               <option value="">-- Select class --</option>
@@ -850,17 +893,32 @@ export function IdCardPrinter() {
         {loading ? (
           <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading students...</p>
         ) : students.length > 0 ? (
-          <div className="id-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+          <div className="id-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
             {students.map((s) => (
-              <div key={s.id} style={{ background: '#fff', borderRadius: 10, padding: 14, textAlign: 'center', border: '2px solid #185FA5', color: '#111' }}>
-                <div style={{ width: 50, height: 50, borderRadius: '50%', background: '#E8A020', margin: '0 auto 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700, color: '#111' }}>
+              <div key={s.id} className="id-card" style={{ background: '#fff', borderRadius: 10, padding: 12, textAlign: 'center', border: '2px solid #185FA5', color: '#111', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: '#185FA5', textTransform: 'uppercase', letterSpacing: 0.5 }}>{tenant?.orgName}</p>
+                  {/* Previously only the school name showed at all —
+                      an ID card's whole purpose includes being useful
+                      in an emergency, so address and a real contact
+                      number matter as much as the name does. */}
+                  {[tenant?.address, tenant?.city, tenant?.district].filter(Boolean).join(', ') && (
+                    <p style={{ margin: '1px 0 0', fontSize: 7, color: '#666' }}>{[tenant?.address, tenant?.city, tenant?.district].filter(Boolean).join(', ')}</p>
+                  )}
+                </div>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#E8A020', margin: '4px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, color: '#111' }}>
                   {s.full_name[0]}
                 </div>
-                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#111' }}>{s.full_name}</p>
-                <p style={{ margin: '2px 0', fontSize: 10, color: '#555' }}>{s.sid}</p>
-                <p style={{ margin: '2px 0', fontSize: 10, color: '#555' }}>{s.classes?.class_name}{s.section ? ` — ${s.section}` : ''}</p>
-                {s.blood_group && <p style={{ margin: '2px 0', fontSize: 10, color: '#185FA5', fontWeight: 600 }}>Blood: {s.blood_group}</p>}
-                <p style={{ margin: '6px 0 0', fontSize: 9, color: '#888' }}>{tenant?.orgName}</p>
+                <div>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#111' }}>{s.full_name}</p>
+                  <p style={{ margin: '2px 0', fontSize: 10, color: '#555' }}>{s.sid} · {s.classes?.class_name}{s.section ? `-${s.section}` : ''}</p>
+                  {s.blood_group && <p style={{ margin: '2px 0', fontSize: 10, color: '#185FA5', fontWeight: 600 }}>Blood Group: {s.blood_group}</p>}
+                </div>
+                {tenant?.businessPhone && (
+                  <p style={{ margin: '4px 0 0', fontSize: 9, color: '#A32D2D', fontWeight: 600, borderTop: '1px solid #eee', paddingTop: 4 }}>
+                    🚨 Emergency: {tenant.businessPhone}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -941,7 +999,7 @@ export function UniversalSearch() {
 
         {/* Search input */}
         <div style={{ marginBottom: 16 }}>
-          <input
+          <input id="reports-query" name="reports-query"
             value={query}
             onChange={(e) => search(e.target.value)}
             placeholder={tab === 'students' ? 'Search by name, SID or parent phone...' : 'Search staff by name or phone...'}

@@ -238,23 +238,23 @@ export default function ActivitiesCoaching() {
             {tab === 'activities' ? (
               <div style={{ display: 'grid', gap: 12 }}>
                 <div>
-                  <label style={S.label}>Activity name *</label>
-                  <input value={newActivity.activity_name}
+                  <label htmlFor="activity-name" style={S.label}>Activity name *</label>
+                  <input id="activity-name" name="activity-name" value={newActivity.activity_name}
                     onChange={(e) => { setNewActivity((a) => ({ ...a, activity_name: e.target.value })); setFormErrors({}); }}
                     placeholder="e.g. Annual Sports Day" style={S.input} />
                   {formErrors.activity_name && <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4 }}>⚠ {formErrors.activity_name}</p>}
                 </div>
                 <div>
-                  <label style={S.label}>Type</label>
-                  <select value={newActivity.activity_type}
+                  <label htmlFor="activity-type" style={S.label}>Type</label>
+                  <select id="activity-type" name="activity-type" value={newActivity.activity_type}
                     onChange={(e) => setNewActivity((a) => ({ ...a, activity_type: e.target.value }))}
                     style={{ ...S.input, cursor: 'pointer' }}>
                     {ACTIVITY_TYPES.map((t) => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={S.label}>Date *</label>
-                  <input type="date" value={newActivity.activity_date}
+                  <label htmlFor="activity-date" style={S.label}>Date *</label>
+                  <input id="activity-date" name="activity-date" type="date" value={newActivity.activity_date}
                     onChange={(e) => { setNewActivity((a) => ({ ...a, activity_date: e.target.value })); setFormErrors({}); }}
                     style={S.input} />
                   {formErrors.activity_date && <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4 }}>⚠ {formErrors.activity_date}</p>}
@@ -263,21 +263,21 @@ export default function ActivitiesCoaching() {
             ) : (
               <div style={{ display: 'grid', gap: 12 }}>
                 <div>
-                  <label style={S.label}>Subject *</label>
-                  <input value={newCoaching.subject}
+                  <label htmlFor="activity-coaching-subject" style={S.label}>Subject *</label>
+                  <input id="activity-coaching-subject" name="activity-coaching-subject" value={newCoaching.subject}
                     onChange={(e) => { setNewCoaching((c) => ({ ...c, subject: e.target.value })); setFormErrors({}); }}
                     placeholder="e.g. Mathematics — Foundation" style={S.input} />
                   {formErrors.subject && <p style={{ fontSize: 12, color: '#E05A5A', marginTop: 4 }}>⚠ {formErrors.subject}</p>}
                 </div>
                 <div>
-                  <label style={S.label}>Class range</label>
-                  <input value={newCoaching.class_range}
+                  <label htmlFor="activity-coaching-class-range" style={S.label}>Class range</label>
+                  <input id="activity-coaching-class-range" name="activity-coaching-class-range" value={newCoaching.class_range}
                     onChange={(e) => setNewCoaching((c) => ({ ...c, class_range: e.target.value }))}
                     placeholder="e.g. 6–10" style={S.input} />
                 </div>
                 <div>
-                  <label style={S.label}>Schedule</label>
-                  <input value={newCoaching.schedule}
+                  <label htmlFor="activity-coaching-schedule" style={S.label}>Schedule</label>
+                  <input id="activity-coaching-schedule" name="activity-coaching-schedule" value={newCoaching.schedule}
                     onChange={(e) => setNewCoaching((c) => ({ ...c, schedule: e.target.value }))}
                     placeholder="e.g. Mon/Wed/Fri 4–5 PM" style={S.input} />
                 </div>

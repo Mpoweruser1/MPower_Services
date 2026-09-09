@@ -76,15 +76,23 @@ async function fetchFeeDefaultersCount(appId) {
   // matching the already-correct approach in FeeStructureReport.jsx.
   // Also now correctly excludes students who are no longer active
   // (graduated, TC issued, etc.) — the original had no such filter.
+  //
+  // Second bug, found separately: this counted unpaid DUE ROWS, not
+  // distinct STUDENTS — a student with two separate unpaid fees (say,
+  // Tuition and Transport) was counted twice. "X students due" should
+  // mean X real students, not X due line-items. Now counts unique
+  // student ids instead of raw row count.
   const { data } = await supabase
     .from('fee_dues')
-    .select('id, amount_due, students(app_id, status), fee_payments(amount)')
+    .select('id, amount_due, student_id, students(app_id, status), fee_payments(amount)')
     .lt('due_date', today);
-  return (data || []).filter((d) => {
-    if (d.students?.app_id !== appId || d.students?.status !== 'active') return false;
+  const defaultingStudentIds = new Set();
+  (data || []).forEach((d) => {
+    if (d.students?.app_id !== appId || d.students?.status !== 'active') return;
     const paid = (d.fee_payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-    return paid < Number(d.amount_due);
-  }).length;
+    if (paid < Number(d.amount_due)) defaultingStudentIds.add(d.student_id);
+  });
+  return defaultingStudentIds.size;
 }
 
 
@@ -149,14 +157,24 @@ async function fetchWeeklyAttendanceTrend(appId) {
 
 async function fetchStudentParentData(studentId) {
   if (!studentId) return null;
+  // Previously read amount_paid directly from fee_dues — same
+  // never-actually-updated column found and fixed elsewhere (the
+  // Dashboard defaulters count, TransferCertificate.jsx, the Fee
+  // Defaulters report). This one is worth calling out specifically:
+  // it powers the PARENT-facing dashboard — a parent could have seen
+  // a stale, wrong "amount due" for their own child regardless of
+  // what they'd actually paid. Now sums real fee_payments per due.
   const { data: s } = await supabase.from('students')
-    .select('full_name, classes(class_name), section, fee_dues(amount_due, amount_paid, due_date), marks(percentage, exams(exam_name))')
+    .select('full_name, classes(class_name), section, fee_dues(amount_due, due_date, fee_payments(amount)), marks(percentage, exams(exam_name))')
     .eq('id', studentId).single();
   if (!s) return null;
   const yearStart = `${new Date().getFullYear()}-06-01`;
   const { count: total }   = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', studentId).gte('date', yearStart);
   const { count: present } = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', studentId).eq('status', 'P').gte('date', yearStart);
-  const due = (s.fee_dues || []).reduce((sum, d) => sum + Math.max(0, Number(d.amount_due) - Number(d.amount_paid)), 0);
+  const due = (s.fee_dues || []).reduce((sum, d) => {
+    const paid = (d.fee_payments || []).reduce((s2, p) => s2 + Number(p.amount), 0);
+    return sum + Math.max(0, Number(d.amount_due) - paid);
+  }, 0);
   return {
     name:           s.full_name,
     className:      s.classes?.class_name || '—',

@@ -4,6 +4,7 @@
 // correctly to app_feedback, but there was no screen anywhere to
 // browse it.
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import { fetchFeedback } from '../shared/feedbackApi';
@@ -28,7 +29,7 @@ export default function FeedbackViewer() {
       .finally(() => setLoading(false));
   }, [tenant?.appId]);
 
-  if (tenantLoading) return <CenteredNote>Loading…</CenteredNote>;
+  if (tenantLoading) return <><CenteredNote>Loading…</CenteredNote><GrievanceNav /></>;
 
   if (!tenant || !['grievance_admin', 'developer', 'support'].includes(tenant.role)) {
     return <CenteredNote>This page is for grievance admins only.</CenteredNote>;
@@ -113,7 +114,7 @@ export default function FeedbackViewer() {
           <button onClick={() => window.history.back()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
             ← Back
           </button>
-          <a href="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</a>
+          <Link to="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</Link>
           <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
             Sign out
           </button>

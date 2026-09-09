@@ -3,7 +3,12 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 
-const OWNER_ROLES = ['principal', 'doctor'];
+// developer/support are MPower's own Control Panel roles — they were
+// missing here, which would have locked the platform team (including
+// the account used to configure permissions in the first place) out
+// of any screen PermissionGate protects. principal/doctor are the
+// client-side owner roles.
+const OWNER_ROLES = ['principal', 'doctor', 'developer', 'support'];
 
 export function usePermission(moduleCode) {
   const { tenant } = useTenant();

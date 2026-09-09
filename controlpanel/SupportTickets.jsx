@@ -170,13 +170,13 @@ export default function SupportTickets() {
 
         {/* Filters */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-          <input value={search} onChange={(e) => setSearch(e.target.value)}
+          <input id="ticket-search" name="ticket-search" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="🔍 Search tickets..." style={{ ...S.select, flex: 1, minWidth: 160, padding: '9px 12px' }} />
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={S.select}>
+          <select id="ticket-filter-status" name="ticket-filter-status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={S.select}>
             <option value="">All status</option>
             {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={S.select}>
+          <select id="ticket-filter-type" name="ticket-filter-type" value={filterType} onChange={(e) => setFilterType(e.target.value)} style={S.select}>
             <option value="">All types</option>
             {Object.entries(TYPE_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
@@ -237,7 +237,7 @@ export default function SupportTickets() {
                     )}
 
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)}
+                      <textarea id="ticket-reply-text" name="ticket-reply-text" value={replyText} onChange={(e) => setReplyText(e.target.value)}
                         placeholder="Type reply..." rows={2}
                         style={{ ...S.input, flex: 1, resize: 'none', fontSize: 13 }}
                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendReply())}

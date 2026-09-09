@@ -5,7 +5,7 @@ export default function PowerSearchBar({ value, onChange, placeholder = 'Search.
   return (
     <div style={{ position: 'relative', ...style }}>
       <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, pointerEvents: 'none' }}>🔍</span>
-      <input
+      <input id="search-value" name="search-value"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

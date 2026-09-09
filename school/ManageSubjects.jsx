@@ -41,7 +41,10 @@ export default function ManageSubjects() {
     setSaving(true);
     const { error } = await supabase.from('subjects').insert({ app_id: tenant.appId, subject_name: name });
     setSaving(false);
-    if (!error) { setMessage(`✅ ${name} added`); load(); }
+    // Previously: on failure, nothing happened at all — no message,
+    // no console log, the tap just silently did nothing.
+    if (error) { console.error('Quick-add subject failed:', error); setMessage(error.message || `Failed to add ${name}.`); return; }
+    setMessage(`✅ ${name} added`); load();
   }
 
   async function addCustom() {
@@ -49,7 +52,14 @@ export default function ManageSubjects() {
     setSaving(true);
     const { error } = await supabase.from('subjects').insert({ app_id: tenant.appId, subject_name: customName.trim() });
     setSaving(false);
-    if (error) { setMessage(`"${customName}" may already exist.`); return; }
+    // Was assuming any failure meant a duplicate — showing a
+    // misleading message for what could be a completely different
+    // real error.
+    if (error) {
+      console.error('Custom subject add failed:', error);
+      setMessage(error.code === '23505' ? `"${customName}" already exists.` : (error.message || `Failed to add "${customName}".`));
+      return;
+    }
     setCustomName('');
     setMessage('✅ Subject added');
     load();
@@ -57,7 +67,12 @@ export default function ManageSubjects() {
 
   async function removeSubject(id, name) {
     if (!window.confirm(`Remove "${name}"? Existing marks for this subject will keep their record.`)) return;
-    await supabase.from('subjects').delete().eq('id', id);
+    const { error: delErr } = await supabase.from('subjects').delete().eq('id', id);
+    if (delErr) {
+      console.error('Delete failed:', delErr);
+      alert(`Could not delete: ${delErr.message || 'please try again.'}`);
+      return;
+    }
     load();
   }
 
@@ -95,7 +110,7 @@ export default function ManageSubjects() {
         <div style={S.card}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 14 }}>Add custom subject</p>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="e.g. Sanskrit, Computer Science" style={S.input} />
+            <input id="subject-custom-name" name="subject-custom-name" value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="e.g. Sanskrit, Computer Science" style={S.input} />
             <button onClick={addCustom} disabled={saving}
               style={{ padding: '10px 20px', border: 'none', borderRadius: 8, background: '#E8A020', color: '#111113', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
               + Add

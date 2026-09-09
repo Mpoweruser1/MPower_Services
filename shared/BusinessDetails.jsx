@@ -24,7 +24,7 @@ const S = {
 
 const EMPTY = {
   address: '', city: '', district: '', pincode: '',
-  phone: '', gstin: '', pan: '', registration_no: '',
+  phone: '', gstin: '', pan: '', registration_no: '', upi_id: '',
 };
 
 export default function BusinessDetails({ NavComponent }) {
@@ -46,14 +46,14 @@ export default function BusinessDetails({ NavComponent }) {
     setLoading(true);
     const { data } = await supabase
       .from('branches')
-      .select('address, city, district, pincode, phone, gstin, pan, registration_no')
+      .select('address, city, district, pincode, phone, gstin, pan, registration_no, upi_id')
       .eq('id', tenant.branchId)
       .maybeSingle();
     if (data) {
       setForm({
         address: data.address || '', city: data.city || '',
         district: data.district || '', pincode: data.pincode || '',
-        phone: data.phone || '', gstin: data.gstin || '',
+        phone: data.phone || '', gstin: data.gstin || '', upi_id: data.upi_id || '',
         pan: data.pan || '', registration_no: data.registration_no || '',
       });
     }
@@ -83,6 +83,7 @@ export default function BusinessDetails({ NavComponent }) {
         pincode: form.pincode.trim() || null,
         phone: form.phone.trim() || null,
         gstin: form.gstin.trim().toUpperCase() || null,
+        upi_id: form.upi_id.trim() || null,
         pan: form.pan.trim().toUpperCase() || null,
         registration_no: form.registration_no.trim() || null,
       })
@@ -145,50 +146,63 @@ export default function BusinessDetails({ NavComponent }) {
             <div style={S.card}>
               <p style={S.sectionLabel}>Address</p>
 
-              <label style={S.label}>Address</label>
-              <input value={form.address} onChange={(e) => update('address', e.target.value)}
+              <label htmlFor="business-address" style={S.label}>Address</label>
+              <input id="business-address" name="business-address" value={form.address} onChange={(e) => update('address', e.target.value)}
                 placeholder="Street / area" style={{ ...S.input, marginBottom: 12 }} />
 
               <div style={S.row2}>
                 <div>
-                  <label style={S.label}>City</label>
-                  <input value={form.city} onChange={(e) => update('city', e.target.value)} style={S.input} />
+                  <label htmlFor="business-city" style={S.label}>City</label>
+                  <input id="business-city" name="business-city" value={form.city} onChange={(e) => update('city', e.target.value)} style={S.input} />
                 </div>
                 <div>
-                  <label style={S.label}>District</label>
-                  <input value={form.district} onChange={(e) => update('district', e.target.value)} style={S.input} />
+                  <label htmlFor="business-district" style={S.label}>District</label>
+                  <input id="business-district" name="business-district" value={form.district} onChange={(e) => update('district', e.target.value)} style={S.input} />
                 </div>
               </div>
 
-              <label style={S.label}>Pincode</label>
-              <input value={form.pincode} onChange={(e) => update('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+              <label htmlFor="business-pincode" style={S.label}>Pincode</label>
+              <input id="business-pincode" name="business-pincode" value={form.pincode} onChange={(e) => update('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
                 inputMode="numeric" placeholder="6-digit pincode" style={{ ...S.input, maxWidth: 160 }} />
             </div>
 
             <div style={S.card}>
               <p style={S.sectionLabel}>Business details</p>
 
-              <label style={S.label}>Business phone</label>
-              <input value={form.phone} onChange={(e) => update('phone', e.target.value)}
+              <label htmlFor="business-phone" style={S.label}>Business phone</label>
+              <input id="business-phone" name="business-phone" value={form.phone} onChange={(e) => update('phone', e.target.value)}
                 placeholder="Reception / billing contact number" style={{ ...S.input, marginBottom: 4 }} />
               <p style={{ ...S.hint, marginBottom: 12 }}>Shown on invoices — separate from your own personal phone number</p>
 
               <div style={S.row2}>
                 <div>
-                  <label style={S.label}>GSTIN</label>
-                  <input value={form.gstin} onChange={(e) => update('gstin', e.target.value.toUpperCase())}
+                  <label htmlFor="business-gstin" style={S.label}>GSTIN</label>
+                  <input id="business-gstin" name="business-gstin" value={form.gstin} onChange={(e) => update('gstin', e.target.value.toUpperCase())}
                     placeholder="15-character GSTIN" maxLength={15} style={S.input} />
                 </div>
                 <div>
-                  <label style={S.label}>PAN</label>
-                  <input value={form.pan} onChange={(e) => update('pan', e.target.value.toUpperCase())}
+                  <label htmlFor="business-pan" style={S.label}>PAN</label>
+                  <input id="business-pan" name="business-pan" value={form.pan} onChange={(e) => update('pan', e.target.value.toUpperCase())}
                     placeholder="10-character PAN" maxLength={10} style={S.input} />
                 </div>
               </div>
               <p style={S.hint}>Leave blank if not GST-registered</p>
 
-              <label style={{ ...S.label, marginTop: 12 }}>Registration number</label>
-              <input value={form.registration_no} onChange={(e) => update('registration_no', e.target.value)}
+              {/* UPI ID — used to generate a scannable payment QR code
+                  at the billing counter. Note this is deliberately
+                  separate from the Razorpay online-payment flow: a QR
+                  payment is NOT auto-verified by the app, so staff
+                  must confirm receipt on their own UPI app before
+                  marking a bill paid. */}
+              <div>
+                <label htmlFor="business-upi-id" style={S.label}>UPI ID (for counter QR payments)</label>
+                <input id="business-upi-id" name="business-upi-id" value={form.upi_id} onChange={(e) => update('upi_id', e.target.value)}
+                  placeholder="e.g. yourhospital@paytm" style={S.input} />
+                <p style={S.hint}>Leave blank to hide the QR option. Payments via QR are not automatically verified — confirm receipt before marking a bill as paid.</p>
+              </div>
+
+              <label htmlFor="business-registration-no" style={{ ...S.label, marginTop: 12 }}>Registration number</label>
+              <input id="business-registration-no" name="business-registration-no" value={form.registration_no} onChange={(e) => update('registration_no', e.target.value)}
                 placeholder="Hospital / school registration or license no." style={S.input} />
             </div>
 

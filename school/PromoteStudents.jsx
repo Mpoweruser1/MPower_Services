@@ -222,7 +222,14 @@ export default function PromoteStudents() {
           failures.push(`${row.student.full_name} (class not updated: ${updErr.message})`);
         }
       } else if (row.decision === 'graduated') {
-        const { error: updErr } = await supabase.from('students').update({ status: 'graduated' }).eq('id', row.student.id);
+        // Confirmed real constraint: students_status_check only
+        // allows 'passed_out', not 'graduated'. This has been
+        // silently failing every single promotion batch for every
+        // student in the highest class — the entire graduation step
+        // never actually worked. 'graduated' stays as the internal
+        // decision label (matches promotionLogic.js and the UI's
+        // "Graduate" wording) — only the actual database value changes.
+        const { error: updErr } = await supabase.from('students').update({ status: 'passed_out' }).eq('id', row.student.id);
         if (updErr) {
           console.error(`Graduation update failed for ${row.student.full_name}:`, updErr);
           failures.push(`${row.student.full_name} (status not updated: ${updErr.message})`);
@@ -343,19 +350,19 @@ export default function PromoteStudents() {
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                   <div>
-                    <label style={S.label}>From academic year</label>
-                    <select value={selectedYear} onChange={(e) => { setSelectedYear(e.target.value); setToYear(nextAcademicYear(e.target.value)); }} style={{ ...S.select, width: '100%' }}>
+                    <label htmlFor="promote-selected-year" style={S.label}>From academic year</label>
+                    <select id="promote-selected-year" name="promote-selected-year" value={selectedYear} onChange={(e) => { setSelectedYear(e.target.value); setToYear(nextAcademicYear(e.target.value)); }} style={{ ...S.select, width: '100%' }}>
                       {academicYears.map((y) => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label style={S.label}>To academic year</label>
-                    <input value={toYear} onChange={(e) => setToYear(e.target.value)} style={{ ...S.input, width: '100%' }} />
+                    <label htmlFor="promote-to-year" style={S.label}>To academic year</label>
+                    <input id="promote-to-year" name="promote-to-year" value={toYear} onChange={(e) => setToYear(e.target.value)} style={{ ...S.input, width: '100%' }} />
                   </div>
                 </div>
                 <div style={{ marginBottom: 16 }}>
-                  <label style={S.label}>Determining exam</label>
-                  <select value={selectedExamType} onChange={(e) => setSelectedExamType(e.target.value)} style={{ ...S.select, width: '100%' }}>
+                  <label htmlFor="promote-selected-exam-type" style={S.label}>Determining exam</label>
+                  <select id="promote-selected-exam-type" name="promote-selected-exam-type" value={selectedExamType} onChange={(e) => setSelectedExamType(e.target.value)} style={{ ...S.select, width: '100%' }}>
                     {examTypes.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 6 }}>
@@ -403,13 +410,13 @@ export default function PromoteStudents() {
                           {row.avgPct !== null ? ` · avg ${row.avgPct}%` : ''}
                         </p>
                       </div>
-                      <select value={row.decision}
+                      <select id="promote-decision" name="promote-decision" value={row.decision}
                         onChange={(e) => updateDecision(row.student.id, e.target.value, row.reason)}
                         style={{ ...S.select, fontSize: 12, padding: '6px 10px', color: cfg.color, borderColor: `${cfg.color}40` }}>
                         {Object.entries(DECISION_CONFIG).map(([key, c]) => <option key={key} value={key}>{c.label}</option>)}
                       </select>
                     </div>
-                    <input
+                    <input id="promote-reason" name="promote-reason"
                       value={row.reason}
                       onChange={(e) => updateDecision(row.student.id, row.decision, e.target.value)}
                       placeholder="Reason (required for Retain, or any manual override)"

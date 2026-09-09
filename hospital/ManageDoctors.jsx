@@ -142,7 +142,12 @@ export default function ManageDoctors() {
 
     if (!window.confirm(`Remove doctor profile for "${name}"? Their account isn't deleted, only this hospital profile.`)) return;
 
-    await supabase.from('doctors').delete().eq('id', id);
+    const { error: delErr } = await supabase.from('doctors').delete().eq('id', id);
+    if (delErr) {
+      console.error('Delete failed:', delErr);
+      alert(`Could not delete: ${delErr.message || 'please try again.'}`);
+      return;
+    }
     loadAll();
   }
 
@@ -200,8 +205,8 @@ export default function ManageDoctors() {
             </p>
 
             <div style={{ marginBottom: 12 }}>
-              <label style={S.label}>Doctor account *</label>
-              <select value={selectedUserId}
+              <label htmlFor="doctor-select-user" style={S.label}>Doctor account *</label>
+              <select id="doctor-select-user" name="doctor-select-user" value={selectedUserId}
                 onChange={(e) => { setSelectedUserId(e.target.value); setFormErrors({}); }}
                 style={{ ...S.input(!!formErrors.selectedUserId), cursor: 'pointer' }}>
                 <option value="">-- Select --</option>
@@ -214,16 +219,16 @@ export default function ManageDoctors() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div>
-                <label style={S.label}>Designation *</label>
-                <input value={form.designation}
+                <label htmlFor="doctor-designation" style={S.label}>Designation *</label>
+                <input id="doctor-designation" name="doctor-designation" value={form.designation}
                   onChange={(e) => { setForm((f) => ({ ...f, designation: e.target.value })); setFormErrors({}); }}
                   placeholder="e.g. General Physician"
                   style={S.input(!!formErrors.designation)} />
                 {formErrors.designation && <p style={S.fieldErr}>⚠ {formErrors.designation}</p>}
               </div>
               <div>
-                <label style={S.label}>Employment type</label>
-                <select value={form.employment_type}
+                <label htmlFor="doctor-employment-type" style={S.label}>Employment type</label>
+                <select id="doctor-employment-type" name="doctor-employment-type" value={form.employment_type}
                   onChange={(e) => setForm((f) => ({ ...f, employment_type: e.target.value }))}
                   style={{ ...S.input(false), cursor: 'pointer' }}>
                   {EMPLOYMENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -233,15 +238,15 @@ export default function ManageDoctors() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               <div>
-                <label style={S.label}>Registration number</label>
-                <input value={form.registration_no}
+                <label htmlFor="doctor-registration-no" style={S.label}>Registration number</label>
+                <input id="doctor-registration-no" name="doctor-registration-no" value={form.registration_no}
                   onChange={(e) => setForm((f) => ({ ...f, registration_no: e.target.value }))}
                   placeholder="Medical council reg. no."
                   style={S.input(false)} />
               </div>
               <div>
-                <label style={S.label}>Consultation fee (₹)</label>
-                <input value={form.consultation_fee}
+                <label htmlFor="doctor-consultation-fee" style={S.label}>Consultation fee (₹)</label>
+                <input id="doctor-consultation-fee" name="doctor-consultation-fee" value={form.consultation_fee}
                   onChange={(e) => { setForm((f) => ({ ...f, consultation_fee: e.target.value.replace(/[^0-9.]/g, '') })); setFormErrors({}); }}
                   inputMode="decimal" placeholder="e.g. 300"
                   style={S.input(!!formErrors.consultation_fee)} />

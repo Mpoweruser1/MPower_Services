@@ -137,7 +137,7 @@ export default function ParentPortal() {
 
           {!otpSent ? (
             <>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Registered phone number" autoFocus style={S.input} />
+              <input id="parent-phone" name="parent-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Registered phone number" autoFocus style={S.input} />
               <button onClick={sendOtp} disabled={loading}
                 style={{ width: '100%', padding: 13, border: 'none', borderRadius: 8, background: '#E8A020', color: '#111113', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>
                 {loading ? 'Sending...' : 'Send code via WhatsApp'}
@@ -146,7 +146,7 @@ export default function ParentPortal() {
           ) : (
             <>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 14 }}>Code sent to {phone}</p>
-              <input value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" autoFocus
+              <input id="parent-otp" name="parent-otp" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" autoFocus
                 style={{ ...S.input, textAlign: 'center', fontSize: 18, letterSpacing: 4 }} />
               <button onClick={verifyOtp} disabled={loading}
                 style={{ width: '100%', padding: 13, border: 'none', borderRadius: 8, background: '#E8A020', color: '#111113', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>

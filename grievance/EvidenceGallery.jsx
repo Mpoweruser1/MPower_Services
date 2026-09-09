@@ -114,7 +114,7 @@ export default function EvidenceGallery({ complaintId, uploaderCitizenId, upload
             background: uploading ? '#f8fafc' : '#fff',
           }}>
             <span>{uploading ? '⏳ Uploading...' : '📎 Add photo evidence'}</span>
-            <input
+            <input id="evidence-file" name="evidence-file"
               type="file"
               accept="image/*"
               onChange={handleUpload}

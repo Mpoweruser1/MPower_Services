@@ -3,7 +3,7 @@
 // Usage: <RequireRole roles={['developer','support']}><Component /></RequireRole>
 
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { useTenant } from '../context/TenantContext';
 
 export default function RequireRole({ roles, children, redirectTo = '/portal/dashboard' }) {
@@ -25,7 +25,7 @@ export default function RequireRole({ roles, children, redirectTo = '/portal/das
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
           This page requires {roles.join(' or ')} role. You are logged in as {tenant.role}.
         </p>
-        <a href="/portal/dashboard" style={{ color: '#E8A020', fontSize: 13 }}>← Back to dashboard</a>
+        <Link to="/portal/dashboard" style={{ color: '#E8A020', fontSize: 13 }}>← Back to dashboard</Link>
       </div>
     );
   }

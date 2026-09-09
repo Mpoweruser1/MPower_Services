@@ -48,46 +48,50 @@ async function runReportQuery(reportId, appId) {
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
       if (ids.length === 0) return { data: [], columns: ['Patient', 'UID', 'Doctor', 'Visit date', 'Remarks'] };
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('opd_visits')
         .select('id, visit_date, patients(full_name, patient_uid), doctors(designation, users(full_name))')
         .eq('visit_date', today)
         .in('patient_id', ids);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Patient', 'UID', 'Doctor', 'Visit date', 'Remarks'] };
     }
     case 'lab_pending': {
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
       if (ids.length === 0) return { data: [], columns: ['Patient', 'UID', 'Test', 'Status', 'Remarks'] };
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('lab_tests')
         .select('id, test_name, status, patients(full_name, patient_uid)')
         .eq('app_id', appId)
         .eq('status', 'pending')
         .in('patient_id', ids);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Patient', 'UID', 'Test', 'Status', 'Remarks'] };
     }
     case 'lab_tests_completed': {
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
       if (ids.length === 0) return { data: [], columns: ['Patient', 'UID', 'Test', 'Status', 'Remarks'] };
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('lab_tests')
         .select('id, test_name, status, patients(full_name, patient_uid)')
         .eq('app_id', appId)
         .eq('status', 'completed')
         .in('patient_id', ids);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Patient', 'UID', 'Test', 'Status', 'Remarks'] };
     }
     case 'new_registrations': {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 90);
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('patients')
         .select('id, full_name, patient_uid, phone, created_at')
         .eq('app_id', appId)
         .gte('created_at', cutoff.toISOString())
         .order('created_at', { ascending: false });
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Patient', 'UID', 'Phone', 'Registered', 'Remarks'] };
     }
     case 'doctor_wise_opd': {
@@ -106,11 +110,12 @@ async function runReportQuery(reportId, appId) {
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
       if (ids.length === 0) return { data: [], columns: ['Patient', 'UID', 'Ward', 'Admitted', 'Discharged', 'Remarks'] };
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('ipd_admissions')
         .select('id, admission_date, discharge_date, patients(full_name, patient_uid), wards(ward_type)')
         .in('patient_id', ids)
         .order('admission_date', { ascending: false });
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Patient', 'UID', 'Ward', 'Admitted', 'Discharged', 'Remarks'] };
     }
     case 'bed_occupancy': {
@@ -149,7 +154,8 @@ async function runReportQuery(reportId, appId) {
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
       if (ids.length === 0) return { data: [], columns: ['Metric', 'Value', 'Remarks'] };
-      const { data } = await supabase.from('ipd_admissions').select('admission_date, discharge_date').in('patient_id', ids).not('discharge_date', 'is', null);
+      const { data, error: qErr } = await supabase.from('ipd_admissions').select('admission_date, discharge_date').in('patient_id', ids).not('discharge_date', 'is', null);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const stays = (data || []).map((a) => (new Date(a.discharge_date) - new Date(a.admission_date)) / (1000 * 60 * 60 * 24));
       const avg = stays.length ? (stays.reduce((s, v) => s + v, 0) / stays.length) : 0;
       const rows = [
@@ -163,7 +169,8 @@ async function runReportQuery(reportId, appId) {
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
       if (ids.length === 0) return { data: [], columns: ['Medicine', 'Times prescribed', 'Remarks'] };
-      const { data } = await supabase.from('prescriptions').select('medicines').in('patient_id', ids);
+      const { data, error: qErr } = await supabase.from('prescriptions').select('medicines').in('patient_id', ids);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const counts = {};
       (data || []).forEach((p) => {
         (p.medicines || []).forEach((m) => {
@@ -176,7 +183,8 @@ async function runReportQuery(reportId, appId) {
       return { data: rows, columns: ['Medicine', 'Times prescribed', 'Remarks'] };
     }
     case 'monthly_revenue_trend': {
-      const { data } = await supabase.from('billing_invoices').select('total_amount, created_at').eq('app_id', appId).eq('status', 'paid');
+      const { data, error: qErr } = await supabase.from('billing_invoices').select('total_amount, created_at').eq('app_id', appId).eq('status', 'paid');
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const byMonth = {};
       (data || []).forEach((inv) => {
         const month = new Date(inv.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
@@ -187,7 +195,8 @@ async function runReportQuery(reportId, appId) {
       return { data: rows, columns: ['Month', 'Total revenue', 'Remarks'] };
     }
     case 'gender_distribution': {
-      const { data } = await supabase.from('patients').select('id, gender').eq('app_id', appId);
+      const { data, error: qErr } = await supabase.from('patients').select('id, gender').eq('app_id', appId);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const counts = {};
       (data || []).forEach((p) => { const g = p.gender || 'Unspecified'; counts[g] = (counts[g] || 0) + 1; });
       const rows = Object.entries(counts).map(([gender, count]) => ({ id: gender, gender, count }));
@@ -197,18 +206,20 @@ async function runReportQuery(reportId, appId) {
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
       if (ids.length === 0) return { data: [], columns: ['Patient', 'UID', 'Consent type', 'OTP verified', 'Remarks'] };
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('abha_consent_log')
         .select('id, consent_type, otp_verified, patients(full_name, patient_uid)')
         .in('patient_id', ids);
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Patient', 'UID', 'Consent type', 'OTP verified', 'Remarks'] };
     }
     case 'revenue_by_mode': {
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('billing_invoices')
         .select('payment_mode, total_amount')
         .eq('app_id', appId)
         .eq('status', 'paid');
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const byMode = {};
       (data || []).forEach((inv) => {
         const mode = inv.payment_mode || 'Unknown';
@@ -218,11 +229,12 @@ async function runReportQuery(reportId, appId) {
       return { data: rows, columns: ['Payment mode', 'Total collected', 'Remarks'] };
     }
     case 'abha_linked': {
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from('patients')
         .select('id, full_name, patient_uid, abha_linked')
         .eq('app_id', appId)
         .order('full_name');
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       return { data: data || [], columns: ['Patient', 'UID', 'ABHA status', 'Remarks'] };
     }
     default:
@@ -245,7 +257,8 @@ export function HospitalReports({ userTier = 'basic' }) {
       const res = await runReportQuery(report.id, tenant.appId);
       setResult({ report, ...res, generatedAt: new Date().toLocaleString('en-IN') });
     } catch (err) {
-      setError('Failed to generate report. Please try again.');
+      console.error('Report generation failed:', err);
+      setError(err.message || 'Failed to generate report. Please try again.');
     } finally {
       setRunning(null);
     }
@@ -263,13 +276,13 @@ export function HospitalReports({ userTier = 'basic' }) {
         }
       `}</style>
       <div style={S.inner}>
-        <div style={{ marginBottom: 24 }}>
+        <div className="no-print" style={{ marginBottom: 24 }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Reports · నివేదికలు</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Hospital Reports</h1>
         </div>
 
         {error && (
-          <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A' }}>
+          <div className="no-print" style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A' }}>
             ⚠️ {error}
           </div>
         )}

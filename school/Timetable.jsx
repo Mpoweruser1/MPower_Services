@@ -88,7 +88,12 @@ export default function Timetable() {
 
   async function savePeriodTimes(newPeriods) {
     const rows = newPeriods.map((p) => ({ app_id: tenant.appId, ...p }));
-    await supabase.from('class_periods').upsert(rows, { onConflict: 'app_id,period_number' });
+    const { error } = await supabase.from('class_periods').upsert(rows, { onConflict: 'app_id,period_number' });
+    if (error) {
+      console.error('Saving period times failed:', error);
+      alert(`Could not save period times: ${error.message || 'please try again.'}`);
+      return;
+    }
     setPeriods(newPeriods);
   }
 
@@ -118,16 +123,28 @@ export default function Timetable() {
 
     if (!subject) {
       // Empty input clears the slot
-      await supabase.from('timetable_entries')
+      const { error: clearErr } = await supabase.from('timetable_entries')
         .delete()
         .eq('app_id', tenant.appId).eq('class_id', selectedClass).eq('section', selectedSection)
         .eq('day_of_week', day).eq('period_number', periodNumber);
+      if (clearErr) {
+        console.error('Clearing timetable slot failed:', clearErr);
+        alert(`Could not clear this slot: ${clearErr.message || 'please try again.'}`);
+        setSavingCell(null);
+        return;
+      }
       setEntries((prev) => { const next = { ...prev }; delete next[key]; return next; });
     } else {
-      await supabase.from('timetable_entries').upsert({
+      const { error: setErr } = await supabase.from('timetable_entries').upsert({
         app_id: tenant.appId, class_id: selectedClass, section: selectedSection,
         day_of_week: day, period_number: periodNumber, subject,
       }, { onConflict: 'app_id,class_id,section,day_of_week,period_number' });
+      if (setErr) {
+        console.error('Saving timetable slot failed:', setErr);
+        alert(`Could not save this slot: ${setErr.message || 'please try again.'}`);
+        setSavingCell(null);
+        return;
+      }
       setEntries((prev) => ({ ...prev, [key]: subject }));
     }
     setSavingCell(null);
@@ -158,14 +175,14 @@ export default function Timetable() {
         <div style={S.card}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={S.label}>Class</label>
-              <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={{ ...S.select, width: '100%' }}>
+              <label htmlFor="timetable-select-class" style={S.label}>Class</label>
+              <select id="timetable-select-class" name="timetable-select-class" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={{ ...S.select, width: '100%' }}>
                 {classes.map((c) => <option key={c.id} value={c.id}>{c.class_name}</option>)}
               </select>
             </div>
             <div>
-              <label style={S.label}>Section</label>
-              <select value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)} style={{ ...S.select, width: '100%' }}>
+              <label htmlFor="timetable-select-section" style={S.label}>Section</label>
+              <select id="timetable-select-section" name="timetable-select-section" value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)} style={{ ...S.select, width: '100%' }}>
                 {sections.map((s) => <option key={s} value={s}>Section {s}</option>)}
               </select>
             </div>
@@ -230,14 +247,14 @@ export default function Timetable() {
             {periods.map((p, i) => (
               <div key={p.period_number} style={{ display: 'grid', gridTemplateColumns: '50px 1fr 1fr', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>P{p.period_number}</span>
-                <input type="time" value={p.start_time?.slice(0, 5)}
+                <input type="time" id={`period-start-${p.period_number}`} name={`period-start-${p.period_number}`} aria-label={`Period ${p.period_number} start time`} value={p.start_time?.slice(0, 5)}
                   onChange={(e) => {
                     const next = [...periods];
                     next[i] = { ...next[i], start_time: e.target.value };
                     setPeriods(next);
                   }}
                   style={{ padding: '8px 10px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 13, color: '#fff', fontFamily: 'inherit' }} />
-                <input type="time" value={p.end_time?.slice(0, 5)}
+                <input type="time" id={`period-end-${p.period_number}`} name={`period-end-${p.period_number}`} aria-label={`Period ${p.period_number} end time`} value={p.end_time?.slice(0, 5)}
                   onChange={(e) => {
                     const next = [...periods];
                     next[i] = { ...next[i], end_time: e.target.value };

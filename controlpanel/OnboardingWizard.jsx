@@ -53,7 +53,7 @@ export default function OnboardingWizard({ clientId }) {
     setSaving(true);
     if (step === 2) {
       const { error } = await supabase.from('crm_clients').update({ org_name: orgInfo.name, district: orgInfo.district, contact_person: orgInfo.contactPerson, phone: orgInfo.phone }).eq('id', clientId);
-      if (error) { console.error(error); alert('Failed to save.'); setSaving(false); return; }
+      if (error) { console.error('Saving org info failed:', error); alert(`Failed to save: ${error.message || 'please try again.'}`); setSaving(false); return; }
       await saveStepProgress(2, 'Org info', orgInfo);
     } else {
       await saveStepProgress(step, STEPS[step - 1], {});
@@ -65,14 +65,30 @@ export default function OnboardingWizard({ clientId }) {
   async function sendOtp() {
     if (!ackPhone.trim()) { alert('Enter mobile number.'); return; }
     const { error } = await supabase.functions.invoke('send-otp', { body: { phone: ackPhone, purpose: 'go_live_ack' } });
-    if (error) { alert('Failed to send OTP.'); return; }
+    if (error) {
+      // Edge function errors hide the real reason inside error.context
+      // (a raw Response), not error.message — which is just a generic
+      // "non-2xx status code" wrapper. Same pattern that concealed the
+      // real invite-staff failure reason for a long time.
+      console.error('Sending OTP failed:', error);
+      let detail = error.message;
+      try { detail = (await error.context?.json())?.error || detail; } catch { /* not JSON */ }
+      alert(`Failed to send OTP: ${detail || 'please try again.'}`);
+      return;
+    }
     setOtpSent(true);
   }
 
   async function verifyAndSign() {
     if (otp.length < 4) { alert('Enter OTP.'); return; }
     const { data: verifyData, error } = await supabase.functions.invoke('verify-otp', { body: { phone: ackPhone, otp, purpose: 'go_live_ack' } });
-    if (error || !verifyData?.verified) { alert('OTP verification failed.'); return; }
+    if (error || !verifyData?.verified) {
+      console.error('OTP verification failed:', error || verifyData);
+      let detail = error?.message;
+      try { detail = (await error?.context?.json())?.error || detail; } catch { /* not JSON */ }
+      alert(detail ? `OTP verification failed: ${detail}` : 'OTP verification failed — check the code and try again.');
+      return;
+    }
 
     setSaving(true);
     const ackNo = `ACK-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 90000) + 10000)}`;
@@ -170,10 +186,10 @@ export default function OnboardingWizard({ clientId }) {
               <div>
                 <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: '#fff' }}>Step 2 — Organisation information</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-                  <input placeholder="Organisation name" value={orgInfo.name} onChange={(e) => setOrgInfo((o) => ({ ...o, name: e.target.value }))} style={S.input} />
-                  <input placeholder="District" value={orgInfo.district} onChange={(e) => setOrgInfo((o) => ({ ...o, district: e.target.value }))} style={S.input} />
-                  <input placeholder="Contact person" value={orgInfo.contactPerson} onChange={(e) => setOrgInfo((o) => ({ ...o, contactPerson: e.target.value }))} style={S.input} />
-                  <input placeholder="Phone" value={orgInfo.phone} onChange={(e) => setOrgInfo((o) => ({ ...o, phone: e.target.value }))} style={S.input} />
+                  <input id="onboarding-org-info-name" name="onboarding-org-info-name" placeholder="Organisation name" value={orgInfo.name} onChange={(e) => setOrgInfo((o) => ({ ...o, name: e.target.value }))} style={S.input} />
+                  <input id="onboarding-org-info-district" name="onboarding-org-info-district" placeholder="District" value={orgInfo.district} onChange={(e) => setOrgInfo((o) => ({ ...o, district: e.target.value }))} style={S.input} />
+                  <input id="onboarding-org-info-contact-person" name="onboarding-org-info-contact-person" placeholder="Contact person" value={orgInfo.contactPerson} onChange={(e) => setOrgInfo((o) => ({ ...o, contactPerson: e.target.value }))} style={S.input} />
+                  <input id="onboarding-org-info-phone" name="onboarding-org-info-phone" placeholder="Phone" value={orgInfo.phone} onChange={(e) => setOrgInfo((o) => ({ ...o, phone: e.target.value }))} style={S.input} />
                 </div>
               </div>
             )}
@@ -204,7 +220,7 @@ export default function OnboardingWizard({ clientId }) {
                   <>
                     <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 12 }}>Confirm setup is complete. Client signs digitally to start support SLA.</p>
 
-                    <input placeholder="Principal/Owner mobile number" value={ackPhone}
+                    <input id="onboarding-ack-phone" name="onboarding-ack-phone" placeholder="Principal/Owner mobile number" value={ackPhone}
                       onChange={(e) => setAckPhone(e.target.value.replace(/[^0-9+\s-]/g, '').slice(0, 15))}
                       inputMode="numeric"
                       style={{ ...S.input, width: '100%', marginBottom: 6, border: ackPhone && ackPhone.replace(/\D/g, '').length !== 10 && ackPhone.length > 5 ? '1px solid #E05A5A' : '1px solid rgba(255,255,255,0.1)' }} />
@@ -216,7 +232,7 @@ export default function OnboardingWizard({ clientId }) {
                       <button onClick={sendOtp} style={{ width: '100%', padding: 12, background: '#E8A020', color: '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginTop: 10 }}>Send OTP & sign</button>
                     ) : (
                       <>
-                        <input placeholder="Enter OTP" value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6}
+                        <input id="onboarding-otp" name="onboarding-otp" placeholder="Enter OTP" value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6}
                           style={{ ...S.input, width: '100%', marginBottom: 10, textAlign: 'center', fontSize: 16, letterSpacing: 4 }} />
                         <button onClick={verifyAndSign} style={{ width: '100%', padding: 12, background: '#6AAA90', color: '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Verify & sign</button>
                       </>

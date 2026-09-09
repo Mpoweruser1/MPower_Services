@@ -38,15 +38,25 @@ export default function ReportRemark({ reportId, rowKey }) {
     const trimmed = draft.trim();
 
     if (!trimmed) {
-      await supabase.from('report_remarks')
+      const { error: delErr } = await supabase.from('report_remarks')
         .delete()
         .eq('app_id', tenant.appId).eq('report_id', reportId).eq('row_key', String(rowKey));
+      if (delErr) {
+        console.error('Clearing remark failed:', delErr);
+        setSaving(false);
+        return;
+      }
       setRemark(null);
     } else {
-      await supabase.from('report_remarks').upsert({
+      const { error: saveErr } = await supabase.from('report_remarks').upsert({
         app_id: tenant.appId, report_id: reportId, row_key: String(rowKey),
         remark: trimmed, created_by: tenant.userRowId, updated_at: new Date().toISOString(),
       }, { onConflict: 'app_id,report_id,row_key' });
+      if (saveErr) {
+        console.error('Saving remark failed:', saveErr);
+        setSaving(false);
+        return;
+      }
       setRemark(trimmed);
     }
     setSaving(false);
@@ -58,7 +68,7 @@ export default function ReportRemark({ reportId, rowKey }) {
   if (editing) {
     return (
       <span className="no-print" style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-        <input
+        <input id="remark-draft" name="remark-draft"
           autoFocus
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

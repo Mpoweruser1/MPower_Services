@@ -1,5 +1,6 @@
 // hospital/OpdAppointments.jsx — NEW
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import HospitalNav from '../shared/HospitalNav';
@@ -81,7 +82,7 @@ export default function OpdAppointments() {
       created_by: tenant.userRowId,
     }).select().single();
 
-    if (error) { console.error('Appointment day creation failed:', error); setMessage(error.message || 'Failed to create appointment day.'); return; }
+    if (error) { setMessage('Failed to create appointment day.'); return; }
 
     const [h, m] = form.start_time.split(':').map(Number);
     const rows = Array.from({ length: count }, (_, i) => {
@@ -90,17 +91,13 @@ export default function OpdAppointments() {
       slotDate.setMinutes(totalMinutes);
       return { appointment_day_id: day.id, slot_time: slotDate.toISOString(), status: 'open' };
     });
+    // Previously unchecked — showed "created with N slots" even if
+    // zero slots were actually saved, leaving a clinic day nobody
+    // could book into.
     const { error: slotsErr } = await supabase.from('opd_appointment_slots').insert(rows);
-
-    // Previously not checked — same bug shape as PTM slot generation:
-    // the day itself was created either way, so the success message
-    // showed "created with N slots" even when zero slots actually
-    // existed to book into.
     if (slotsErr) {
-      console.error('OPD slot generation failed:', slotsErr);
-      setMessage(`Clinic day created, but generating slots failed: ${slotsErr.message}. Delete this day and try again.`);
-      setShowCreate(false);
-      loadDays();
+      console.error('Creating appointment slots failed:', slotsErr);
+      setMessage(`⚠️ Clinic day was created, but its slots failed to save: ${slotsErr.message}. Delete the day and try again.`);
       return;
     }
 
@@ -111,19 +108,14 @@ export default function OpdAppointments() {
 
   async function completeCheckIn(dayId, slotId) {
     if (!checkInPatient) { setMessage('Select or register the patient first.'); return; }
-    const { error } = await supabase.from('opd_appointment_slots')
+    const { error: checkInErr } = await supabase.from('opd_appointment_slots')
       .update({ status: 'completed', patient_id: checkInPatient.id })
       .eq('id', slotId);
-
-    // Previously not checked — a failed check-in still showed
-    // "✅ Checked in", so a patient could be told they're checked in
-    // while the slot never actually linked to their record.
-    if (error) {
-      console.error('Check-in failed:', error);
-      setMessage(error.message || 'Failed to check in. Please try again.');
+    if (checkInErr) {
+      console.error('Patient check-in failed:', checkInErr);
+      setMessage(`Failed to check in patient: ${checkInErr.message || 'please try again.'}`);
       return;
     }
-
     setCheckingInSlot(null);
     setCheckInPatient(null);
     setMessage(`✅ Checked in — linked to ${checkInPatient.full_name}`);
@@ -177,27 +169,27 @@ export default function OpdAppointments() {
           <div style={{ ...S.card, border: '1px solid rgba(232,160,32,0.3)' }}>
             <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>New clinic day</p>
             <div style={{ marginBottom: 10 }}>
-              <label style={S.label}>Doctor</label>
-              <select value={form.doctor_id} onChange={(e) => setForm((f) => ({ ...f, doctor_id: e.target.value }))} style={S.select}>
+              <label htmlFor="opd-appt-doctor-id" style={S.label}>Doctor</label>
+              <select id="opd-appt-doctor-id" name="opd-appt-doctor-id" value={form.doctor_id} onChange={(e) => setForm((f) => ({ ...f, doctor_id: e.target.value }))} style={S.select}>
                 {doctors.map((d) => <option key={d.id} value={d.id}>{doctorName(d)}</option>)}
               </select>
             </div>
             <div style={{ marginBottom: 10 }}>
-              <label style={S.label}>Date</label>
-              <input type="date" value={form.appointment_date} onChange={(e) => setForm((f) => ({ ...f, appointment_date: e.target.value }))} style={S.input} />
+              <label htmlFor="opd-appt-appointment-date" style={S.label}>Date</label>
+              <input id="opd-appt-appointment-date" name="opd-appt-appointment-date" type="date" value={form.appointment_date} onChange={(e) => setForm((f) => ({ ...f, appointment_date: e.target.value }))} style={S.input} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div>
-                <label style={S.label}>Start time</label>
-                <input type="time" value={form.start_time} onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))} style={S.input} />
+                <label htmlFor="opd-appt-start-time" style={S.label}>Start time</label>
+                <input id="opd-appt-start-time" name="opd-appt-start-time" type="time" value={form.start_time} onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))} style={S.input} />
               </div>
               <div>
-                <label style={S.label}>Minutes/slot</label>
-                <input type="number" value={form.slot_minutes} onChange={(e) => setForm((f) => ({ ...f, slot_minutes: e.target.value }))} style={S.input} />
+                <label htmlFor="opd-appt-slot-minutes" style={S.label}>Minutes/slot</label>
+                <input id="opd-appt-slot-minutes" name="opd-appt-slot-minutes" type="number" value={form.slot_minutes} onChange={(e) => setForm((f) => ({ ...f, slot_minutes: e.target.value }))} style={S.input} />
               </div>
               <div>
-                <label style={S.label}>Number of slots</label>
-                <input type="number" value={form.slot_count} onChange={(e) => setForm((f) => ({ ...f, slot_count: e.target.value }))} style={S.input} />
+                <label htmlFor="opd-appt-slot-count" style={S.label}>Number of slots</label>
+                <input id="opd-appt-slot-count" name="opd-appt-slot-count" type="number" value={form.slot_count} onChange={(e) => setForm((f) => ({ ...f, slot_count: e.target.value }))} style={S.input} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -278,7 +270,7 @@ export default function OpdAppointments() {
                               </button>
                             )}
                             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
-                              Not found? <a href="/hospital/patients/new" style={{ color: '#5A9ADF' }}>Register them as a new patient</a>, then come back and check in.
+                              Not found? <Link to="/hospital/patients/new" style={{ color: '#5A9ADF' }}>Register them as a new patient</Link>, then come back and check in.
                             </p>
                           </div>
                         )}

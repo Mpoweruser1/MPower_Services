@@ -10,6 +10,7 @@ import HospitalNav from '../shared/HospitalNav';
 import NextActions from '../shared/NextActions';
 import BugReporter from '../shared/BugReporter';
 import { useRazorpay } from '../shared/useRazorpay';
+import UpiQrCode from '../shared/UpiQrCode';
 
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Insurance', 'Aarogyasri', 'PMJAY', 'Online'];
 const SERVICE_TYPES = ['Consultation', 'Lab test', 'Medicines', 'Procedure', 'Bed charges', 'Nursing', 'X-Ray / Scan', 'Other'];
@@ -50,6 +51,9 @@ export default function HospitalBilling() {
   const [items, setItems]       = useState([{ description: '', service_type: 'Consultation', quantity: '1', unit_price: '', gst_rate: '0' }]);
   const [itemErrors, setItemErrors] = useState([{}]);
   const [paymentMode, setPaymentMode] = useState('Cash');
+  // upi_id isn't part of TenantContext (it's branch-level business
+  // data, not session data), so it's fetched here on mount.
+  const [branchUpiId, setBranchUpiId] = useState('');
   const { initiatePayment, paying } = useRazorpay();
   const [discountAmt, setDiscountAmt] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
@@ -58,6 +62,15 @@ export default function HospitalBilling() {
   const [submitError, setSubmitError] = useState('');
 
   useEffect(() => { setSelectedPatient(activePatient); }, [activePatient]);
+
+  useEffect(() => {
+    if (!tenant?.branchId) return;
+    supabase.from('branches').select('upi_id').eq('id', tenant.branchId).maybeSingle()
+      .then(({ data, error }) => {
+        if (error) { console.error('Loading branch UPI ID failed:', error); return; }
+        setBranchUpiId(data?.upi_id || '');
+      });
+  }, [tenant?.branchId]);
 
   function addItem() {
     setItems((prev) => [...prev, { description: '', service_type: 'Consultation', quantity: '1', unit_price: '', gst_rate: '0' }]);
@@ -168,7 +181,7 @@ export default function HospitalBilling() {
 
     if (invErr) {
       console.error('Invoice generation failed:', invErr);
-      setSubmitError('Failed to generate invoice. Please try again.');
+      setSubmitError(invErr.message || 'Failed to generate invoice. Please try again.');
       setSaving(false);
       return;
     }
@@ -203,7 +216,6 @@ export default function HospitalBilling() {
         @media print {
           .no-print { display: none !important; }
           .print-only { display: block !important; }
-          @page { size: A4 portrait; margin: 15mm 18mm; }
         }
         .print-only { display: none; }
       `}</style>
@@ -247,7 +259,7 @@ export default function HospitalBilling() {
                   </div>
 
                   <div style={{ marginBottom: 10 }}>
-                    <input value={item.description}
+                    <input id={`billing-item-desc-${idx}`} name={`billing-item-desc-${idx}`} aria-label={`Description for line item ${idx + 1}`} value={item.description}
                       onChange={(e) => updateItem(idx, 'description', e.target.value)}
                       placeholder="Description (e.g. Consultation fee, CBC test)"
                       style={S.input(itemErrors[idx]?.description)} />
@@ -260,7 +272,7 @@ export default function HospitalBilling() {
                     </select>
 
                     <div>
-                      <input value={item.quantity}
+                      <input id={`billing-item-qty-${idx}`} name={`billing-item-qty-${idx}`} aria-label={`Quantity for line item ${idx + 1}`} value={item.quantity}
                         onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
                         placeholder="Qty" inputMode="numeric"
                         style={S.input(itemErrors[idx]?.quantity)} />
@@ -268,7 +280,7 @@ export default function HospitalBilling() {
                     </div>
 
                     <div>
-                      <input value={item.unit_price}
+                      <input id={`billing-item-price-${idx}`} name={`billing-item-price-${idx}`} aria-label={`Unit price for line item ${idx + 1}`} value={item.unit_price}
                         onChange={(e) => updateItem(idx, 'unit_price', e.target.value)}
                         placeholder="₹ Price" inputMode="numeric"
                         style={S.input(itemErrors[idx]?.unit_price)} />
@@ -300,10 +312,32 @@ export default function HospitalBilling() {
                   <select id="billing-payment-mode" name="billing-payment-mode" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} style={S.select}>
                     {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
                   </select>
+                  {/* Counter QR — only for UPI mode, and only when the
+                      branch has actually configured a UPI ID in
+                      Business Details. "Online" mode intentionally
+                      does NOT show this: that path goes through
+                      Razorpay, which verifies the payment properly. */}
+                  {paymentMode === 'UPI' && branchUpiId && totalAmount > 0 && (
+                    <div style={{ marginTop: 14 }}>
+                      <UpiQrCode
+                        upiId={branchUpiId}
+                        payeeName={tenant?.orgName}
+                        amount={totalAmount}
+                        note={`Hospital bill${selectedPatient?.full_name ? ` - ${selectedPatient.full_name}` : ''}`}
+                        size={180}
+                      />
+                    </div>
+                  )}
+                  {paymentMode === 'UPI' && !branchUpiId && (
+                    <p style={{ margin: '8px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                      Set a UPI ID in Business Details to show a scannable QR code here.
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <label style={S.label}>Discount (₹)</label>
+                  <label htmlFor="billing-discount" style={S.label}>Discount (₹)</label>
                   <input
+                    id="billing-discount" name="billing-discount"
                     value={discountAmt}
                     onChange={(e) => {
                       const v = sanitize.amount(e.target.value);
@@ -320,8 +354,8 @@ export default function HospitalBilling() {
               </div>
 
               <div>
-                <label style={S.label}>Invoice date</label>
-                <input type="date" value={invoiceDate}
+                <label htmlFor="billing-invoice-date" style={S.label}>Invoice date</label>
+                <input id="billing-invoice-date" name="billing-invoice-date" type="date" value={invoiceDate}
                   max={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => setInvoiceDate(e.target.value)}
                   style={{ ...S.input(false), width: 'auto' }} />

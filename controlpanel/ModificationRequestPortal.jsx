@@ -108,22 +108,22 @@ function RaiseRequestForm({ onSubmit, submitting }) {
       </p>
 
       <div style={{ marginBottom: 14 }}>
-        <label style={S.label}>What do you need? *</label>
-        <select value={type} onChange={(e) => setType(e.target.value)} style={S.select}>
+        <label htmlFor="mod-req-type" style={S.label}>What do you need? *</label>
+        <select id="mod-req-type" name="mod-req-type" value={type} onChange={(e) => setType(e.target.value)} style={S.select}>
           {REQUEST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
 
       <div style={{ marginBottom: 14 }}>
-        <label style={S.label}>Which screen or module? (optional)</label>
-        <input value={screen} onChange={(e) => setScreen(e.target.value)}
+        <label htmlFor="mod-req-screen" style={S.label}>Which screen or module? (optional)</label>
+        <input id="mod-req-screen" name="mod-req-screen" value={screen} onChange={(e) => setScreen(e.target.value)}
           placeholder="e.g. Fee collection, TC printout, OPD visit"
           style={S.input} />
       </div>
 
       <div style={{ marginBottom: 14 }}>
-        <label style={S.label}>Describe what you need *</label>
-        <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+        <label htmlFor="mod-req-description" style={S.label}>Describe what you need *</label>
+        <textarea id="mod-req-description" name="mod-req-description" value={description} onChange={(e) => setDescription(e.target.value)}
           rows={4}
           placeholder="Be specific — what field, what format, what data should appear, any sample or reference document..."
           style={S.textarea}

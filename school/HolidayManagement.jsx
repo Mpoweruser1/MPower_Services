@@ -58,7 +58,8 @@ export default function HolidayManagement() {
     });
     setSaving(false);
     if (insertErr) {
-      setError(insertErr.code === '23505' ? 'A holiday is already set for that date.' : 'Failed to add holiday.');
+      console.error('Holiday add failed:', insertErr);
+      setError(insertErr.code === '23505' ? 'A holiday is already set for that date.' : (insertErr.message || 'Failed to add holiday.'));
       return;
     }
     setForm({ holiday_date: '', holiday_name: '', holiday_type: 'general' });
@@ -67,7 +68,12 @@ export default function HolidayManagement() {
 
   async function removeHoliday(id) {
     if (!window.confirm('Remove this holiday?')) return;
-    await supabase.from('school_holidays').delete().eq('id', id);
+    const { error: delErr } = await supabase.from('school_holidays').delete().eq('id', id);
+    if (delErr) {
+      console.error('Delete failed:', delErr);
+      alert(`Could not delete: ${delErr.message || 'please try again.'}`);
+      return;
+    }
     load();
   }
 
@@ -94,19 +100,19 @@ export default function HolidayManagement() {
           <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>Add a holiday</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Date</label>
-              <input type="date" value={form.holiday_date} onChange={(e) => setForm((f) => ({ ...f, holiday_date: e.target.value }))} style={S.input} />
+              <label htmlFor="holiday-holiday-date" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Date</label>
+              <input id="holiday-holiday-date" name="holiday-holiday-date" type="date" value={form.holiday_date} onChange={(e) => setForm((f) => ({ ...f, holiday_date: e.target.value }))} style={S.input} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Type</label>
-              <select value={form.holiday_type} onChange={(e) => setForm((f) => ({ ...f, holiday_type: e.target.value }))} style={{ ...S.input, cursor: 'pointer' }}>
+              <label htmlFor="holiday-holiday-type" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Type</label>
+              <select id="holiday-holiday-type" name="holiday-holiday-type" value={form.holiday_type} onChange={(e) => setForm((f) => ({ ...f, holiday_type: e.target.value }))} style={{ ...S.input, cursor: 'pointer' }}>
                 {HOLIDAY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
           </div>
           <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Name</label>
-            <input value={form.holiday_name} onChange={(e) => setForm((f) => ({ ...f, holiday_name: e.target.value }))} placeholder="e.g. Sankranti" style={S.input} />
+            <label htmlFor="holiday-holiday-name" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Name</label>
+            <input id="holiday-holiday-name" name="holiday-holiday-name" value={form.holiday_name} onChange={(e) => setForm((f) => ({ ...f, holiday_name: e.target.value }))} placeholder="e.g. Sankranti" style={S.input} />
           </div>
           <button onClick={addHoliday} disabled={saving}
             style={{ width: '100%', padding: 11, border: 'none', borderRadius: 8, background: saving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: 'inherit' }}>

@@ -214,8 +214,8 @@ export default function ManageWards() {
 
         {/* Default bed count for quick-add */}
         <div style={S.card}>
-          <label style={S.label}>Default beds for quick-add wards below</label>
-          <input value={quickBeds}
+          <label htmlFor="ward-quick-beds" style={S.label}>Default beds for quick-add wards below</label>
+          <input id="ward-quick-beds" name="ward-quick-beds" value={quickBeds}
             onChange={(e) => setQuickBeds(sanitize.integer(e.target.value))}
             inputMode="numeric" placeholder="10"
             style={{ ...S.input(false), maxWidth: 120 }} />
@@ -254,16 +254,16 @@ export default function ManageWards() {
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
-              <label style={S.label}>Ward type *</label>
-              <input value={newWard.ward_type}
+              <label htmlFor="ward-new-ward-ward-type" style={S.label}>Ward type *</label>
+              <input id="ward-new-ward-ward-type" name="ward-new-ward-ward-type" value={newWard.ward_type}
                 onChange={(e) => { setNewWard((w) => ({ ...w, ward_type: e.target.value })); setWardErrors({}); }}
                 placeholder="e.g. Cardiac / Neonatal"
                 style={S.input(!!wardErrors.ward_type)} />
               {wardErrors.ward_type && <p style={S.fieldErr}>⚠ {wardErrors.ward_type}</p>}
             </div>
             <div>
-              <label style={S.label}>Total beds *</label>
-              <input value={newWard.total_beds}
+              <label htmlFor="ward-new-ward-total-beds" style={S.label}>Total beds *</label>
+              <input id="ward-new-ward-total-beds" name="ward-new-ward-total-beds" value={newWard.total_beds}
                 onChange={(e) => { setNewWard((w) => ({ ...w, total_beds: sanitize.integer(e.target.value) })); setWardErrors({}); }}
                 inputMode="numeric" placeholder="10"
                 style={S.input(!!wardErrors.total_beds)} />

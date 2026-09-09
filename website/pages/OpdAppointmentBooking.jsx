@@ -122,9 +122,9 @@ export default function OpdAppointmentBooking() {
               </div>
             )}
 
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" style={S.input} autoFocus />
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" style={S.input} />
-            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for visit (optional)" style={S.input} />
+            <input id="opd-booking-name" name="opd-booking-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" style={S.input} autoFocus />
+            <input id="opd-booking-phone" name="opd-booking-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" style={S.input} />
+            <input id="opd-booking-reason" name="opd-booking-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for visit (optional)" style={S.input} />
             <button onClick={book}
               style={{ width: '100%', padding: 13, border: 'none', borderRadius: 8, background: '#E8A020', color: '#111113', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>
               Confirm appointment

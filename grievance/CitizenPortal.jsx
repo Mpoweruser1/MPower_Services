@@ -9,7 +9,7 @@
 // deployment this is fixed per state instance (e.g. by subdomain/config),
 // not something a citizen picks from a dropdown.
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { useCitizenAuth } from './useCitizenAuth';
 import { useGrievanceTranslations } from './useGrievanceTranslations';
@@ -167,9 +167,9 @@ function CenteredNote({ children, showHomeLink }) {
       {children}
       {showHomeLink && (
         <div style={{ marginTop: 16 }}>
-          <a href="/" style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>
+          <Link to="/" style={{ fontSize: 13, color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>
             ← Back to home
-          </a>
+          </Link>
         </div>
       )}
     </div>
@@ -226,6 +226,7 @@ function PhoneLogin({ auth }) {
       {!auth.otpSent ? (
         <form onSubmit={handleSendCode} style={{ display: 'grid', gap: 12 }}>
           <input
+            id="citizen-phone" name="citizen-phone" aria-label="Your phone number"
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -241,6 +242,7 @@ function PhoneLogin({ auth }) {
         <form onSubmit={handleVerify} style={{ display: 'grid', gap: 12 }}>
           <p style={{ fontSize: 13, color: '#64748b' }}>Enter the code sent to {phone}</p>
           <input
+            id="citizen-otp-code" name="citizen-otp-code" aria-label="6-digit verification code"
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="6-digit code"
@@ -420,19 +422,19 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
       <p style={{ fontSize: 12.5, color: '#64748b', marginBottom: 18 }}>One-time — used for every complaint you file.</p>
       <form onSubmit={handleContinue} style={{ display: 'grid', gap: 13 }}>
         <Field label={t('field_name', 'Name')}>
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)} required style={inputStyle} />
+          <input id="citizen-full-name" name="citizen-full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required style={inputStyle} />
         </Field>
         <Field label={t('field_father_husband_name', "Father's/Husband's Name")}>
-          <input value={fatherHusbandName} onChange={(e) => setFatherHusbandName(e.target.value)} style={inputStyle} />
+          <input id="citizen-father-husband-name" name="citizen-father-husband-name" value={fatherHusbandName} onChange={(e) => setFatherHusbandName(e.target.value)} style={inputStyle} />
         </Field>
         <Field label={t('field_full_address', 'Full Address')}>
-          <input value={address} onChange={(e) => setAddress(e.target.value)} style={inputStyle} />
+          <input id="citizen-address" name="citizen-address" value={address} onChange={(e) => setAddress(e.target.value)} style={inputStyle} />
         </Field>
         <Field label={t('field_ward_no', 'Ward No.')}>
-          <input value={wardNo} onChange={(e) => setWardNo(e.target.value)} style={inputStyle} />
+          <input id="citizen-ward-no" name="citizen-ward-no" value={wardNo} onChange={(e) => setWardNo(e.target.value)} style={inputStyle} />
         </Field>
         <Field label={t('field_membership_id', 'Membership Number (Optional)')}>
-          <input value={membershipId} onChange={(e) => setMembershipId(e.target.value)} style={inputStyle} />
+          <input id="citizen-membership-id" name="citizen-membership-id" value={membershipId} onChange={(e) => setMembershipId(e.target.value)} style={inputStyle} />
         </Field>
         <GeographyFields geo={geo} appSettings={appSettings} suggestedBy={auth?.citizen?.id} />
         <button type="submit" disabled={!geo.ready} style={buttonStyle}>
@@ -775,7 +777,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
     <form onSubmit={handleContinue} style={{ display: 'grid', gap: 16, border: '1px solid #e2e8f0', borderRadius: 10, padding: 20, marginBottom: 24 }}>
       <Field label="Subject">
         <div style={{ display: 'flex', gap: 6 }}>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
+          <input id="citizen-subject" name="citizen-subject" value={title} onChange={(e) => setTitle(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
           <MicButton onClick={() => speakInto(setTitle)} />
         </div>
       </Field>
@@ -784,6 +786,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontSize: 24 }}>{activeCategory ? (CATEGORY_EMOJI[activeCategory.label_en] || '📄') : '📄'}</span>
           <select
+            id="citizen-category" name="citizen-category"
             value={categoryId || ''}
             onChange={(e) => { setCategoryId(e.target.value); setSelectedIssues([]); setOtherDetail(''); }}
             style={{ ...inputStyle, flex: 1 }}
@@ -810,7 +813,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
             </label>
           ))}
           {selectedIssues.includes('other') && (
-            <input value={otherDetail} onChange={(e) => setOtherDetail(e.target.value)} placeholder="Please specify" style={inputStyle} />
+            <input id="citizen-other-detail" name="citizen-other-detail" value={otherDetail} onChange={(e) => setOtherDetail(e.target.value)} placeholder="Please specify" style={inputStyle} />
           )}
         </div>
       )}
@@ -849,14 +852,14 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
 
       <Field label={t('section3_title', 'Detailed Description')}>
         <div style={{ display: 'flex', gap: 6 }}>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} required rows={4} style={{ ...inputStyle, flex: 1 }} />
+          <textarea id="citizen-description" name="citizen-description" value={description} onChange={(e) => setDescription(e.target.value)} required rows={4} style={{ ...inputStyle, flex: 1 }} />
           <MicButton onClick={() => speakInto(setDescription)} />
         </div>
         {usedVoice && <p style={{ fontSize: 11, color: '#3E5C45', marginTop: 4 }}>🎤 Voice input used for this complaint</p>}
       </Field>
 
       <Field label={t('section4_title', 'Suggested Solution (Optional)')}>
-        <textarea value={suggestedSolution} onChange={(e) => setSuggestedSolution(e.target.value)} rows={2} style={inputStyle} />
+        <textarea id="citizen-suggested-solution" name="citizen-suggested-solution" value={suggestedSolution} onChange={(e) => setSuggestedSolution(e.target.value)} rows={2} style={inputStyle} />
       </Field>
 
       <Field label="📷 Evidence — Photo or Video (Optional)">
@@ -1066,12 +1069,13 @@ function GeographyFields({ geo, appSettings, suggestedBy }) {
   return (
     <>
       <Field label="Constituency">
-        <select value={geo.constituencyId} onChange={(e) => geo.setConstituencyId(e.target.value)} style={inputStyle}>
+        <select id="citizen-constituency" name="citizen-constituency" value={geo.constituencyId} onChange={(e) => geo.setConstituencyId(e.target.value)} style={inputStyle}>
           {geo.constituencies.map((c) => <option key={c.id} value={c.id}>{c.name} — {c.rep_name}</option>)}
         </select>
       </Field>
       <Field label="Mandal">
         <EditableCombobox
+          fieldId="citizen-mandal"
           value={geo.mandalId}
           options={geo.mandals}
           onSelect={geo.setMandalId}
@@ -1082,6 +1086,7 @@ function GeographyFields({ geo, appSettings, suggestedBy }) {
       </Field>
       <Field label="Village">
         <EditableCombobox
+          fieldId="citizen-village"
           value={geo.villageId}
           options={geo.villages}
           onSelect={geo.setVillageId}
@@ -1095,7 +1100,7 @@ function GeographyFields({ geo, appSettings, suggestedBy }) {
       )}
       {appSettings?.has_sachivalayam && geo.sachivalayams.length > 0 && (
         <Field label="Sachivalayam">
-          <select value={geo.sachivalayamId} onChange={(e) => geo.setSachivalayamId(e.target.value)} style={inputStyle}>
+          <select id="citizen-sachivalayam" name="citizen-sachivalayam" value={geo.sachivalayamId} onChange={(e) => geo.setSachivalayamId(e.target.value)} style={inputStyle}>
             {geo.sachivalayams.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </Field>
@@ -1108,7 +1113,7 @@ function GeographyFields({ geo, appSettings, suggestedBy }) {
 // nothing matches, offers to add the typed name as a new entry — same
 // interaction as GOV.UK's / USWDS's combo box component, adapted for a
 // dependent list (village options depend on which mandal is selected).
-function EditableCombobox({ value, options, onSelect, onCreate, placeholder, creating }) {
+function EditableCombobox({ fieldId, value, options, onSelect, onCreate, placeholder, creating }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.id === value);
@@ -1139,6 +1144,7 @@ function EditableCombobox({ value, options, onSelect, onCreate, placeholder, cre
   return (
     <div style={{ position: 'relative' }}>
       <input
+        id={fieldId} name={fieldId}
         value={open ? query : (selected?.name || '')}
         onFocus={() => { setOpen(true); setQuery(''); }}
         onChange={(e) => setQuery(e.target.value)}

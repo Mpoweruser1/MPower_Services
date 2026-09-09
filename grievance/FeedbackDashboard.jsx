@@ -3,7 +3,7 @@
 // complaint). Scoped to this app for a grievance_admin; cross-app for
 // developer/support (MPower's own Control Panel isn't tied to one tenant).
 import { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useTenant } from '../context/TenantContext';
 import { fetchFeedback, fetchAllFeedback } from '../shared/feedbackApi';
 import GrievanceNav from './GrievanceNav';
@@ -165,7 +165,7 @@ export default function FeedbackDashboard() {
           <a href={`/grievance/${stateSlug || 'andhra-pradesh'}/admin`} style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>
             Verification queue
           </a>
-          <a href="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</a>
+          <Link to="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</Link>
         </div>
       </div>
 

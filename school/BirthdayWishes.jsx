@@ -87,7 +87,11 @@ export default function BirthdayWishes() {
     for (const s of pending) await sendWish(s);
   }
 
-  if (loading) return <div style={{ ...S.page, textAlign: 'center', paddingTop: 60 }}><p style={{ color: 'rgba(255,255,255,0.3)' }}>Loading...</p></div>;
+  // Was returning with no navigation at all — if this screen's data
+  // load ever hung or failed, the user was stranded on a "Loading..."
+  // page with no way back. Same fix already applied to StudentDetail,
+  // PatientDetail, and the CTS staff screens.
+  if (loading) return <div style={{ ...S.page, textAlign: 'center', paddingTop: 60 }}><p style={{ color: 'rgba(255,255,255,0.3)' }}>Loading...</p><SchoolNav /></div>;
 
   return (
     <div style={S.page}>

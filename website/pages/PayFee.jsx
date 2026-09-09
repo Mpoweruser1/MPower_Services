@@ -102,8 +102,8 @@ export default function PayFee() {
 
       new window.Razorpay(options).open();
     } catch (err) {
-      console.error(err);
-      setError('Payment failed. Please try again or contact the school.');
+      console.error('Payment initiation failed:', err);
+      setError(err.message || 'Payment failed. Please try again or contact the school.');
       setPaying(false);
     }
   }

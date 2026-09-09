@@ -104,7 +104,7 @@ export default function PTMBooking() {
         ) : !selectedStudent ? (
           <div style={S.card}>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Find your child to see available times</p>
-            <input value={query} onChange={(e) => searchStudent(e.target.value)} placeholder="Name or admission number..." style={S.input} autoFocus />
+            <input id="ptm-book-query" name="ptm-book-query" value={query} onChange={(e) => searchStudent(e.target.value)} placeholder="Name or admission number..." style={S.input} autoFocus />
             {students.map((s) => (
               <div key={s.id} onClick={() => { setSelectedStudent(s); setQuery(''); setStudents([]); }}
                 style={{ padding: '10px 4px', cursor: 'pointer', borderTop: '1px solid rgba(255,255,255,0.06)' }}>

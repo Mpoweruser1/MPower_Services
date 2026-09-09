@@ -5,6 +5,7 @@ import { useTenant } from '../context/TenantContext';
 import { sanitize, validators } from '../shared/useFormValidation';
 import SchoolNav from '../shared/SchoolNav';
 import BugReporter from '../shared/BugReporter';
+import UpiQrCode from '../shared/UpiQrCode';
 
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'DD', 'Cheque', 'Online'];
 
@@ -36,11 +37,23 @@ export default function FeeCollection() {
   const [discountPct, setDiscountPct]       = useState('');
   const [discountError, setDiscountError]   = useState('');
   const [paymentMode, setPaymentMode]       = useState('Cash');
+  // upi_id is branch-level business data, not part of TenantContext,
+  // so it's fetched here on mount. Same approach as HospitalBilling.
+  const [branchUpiId, setBranchUpiId]       = useState('');
   const [transactionId, setTransactionId]   = useState('');
   const [txnError, setTxnError]             = useState('');
   const [saving, setSaving]                 = useState(false);
   const [receipt, setReceipt]               = useState(null);
   const [submitError, setSubmitError]       = useState('');
+
+  useEffect(() => {
+    if (!tenant?.branchId) return;
+    supabase.from('branches').select('upi_id').eq('id', tenant.branchId).maybeSingle()
+      .then(({ data, error }) => {
+        if (error) { console.error('Loading branch UPI ID failed:', error); return; }
+        setBranchUpiId(data?.upi_id || '');
+      });
+  }, [tenant?.branchId]);
 
   async function searchStudents(q) {
     setSearchQuery(q);
@@ -179,7 +192,8 @@ export default function FeeCollection() {
     const { error } = await supabase.from('fee_payments').insert(rows);
 
     if (error) {
-      setSubmitError('Failed to record payment. Please try again.');
+      console.error('Recording payment failed:', error);
+      setSubmitError(error.message || 'Failed to record payment. Please try again.');
       setSaving(false);
       return;
     }
@@ -236,8 +250,9 @@ export default function FeeCollection() {
         {/* Student search */}
         {!student ? (
           <div style={S.card}>
-            <label style={S.label}>Search student · విద్యార్థిని వెతకండి</label>
+            <label htmlFor="fee-search-student" style={S.label}>Search student · విద్యార్థిని వెతకండి</label>
             <input
+              id="fee-search-student" name="fee-search-student"
               value={searchQuery}
               onChange={(e) => searchStudents(e.target.value)}
               placeholder="Name, SID or parent phone..."
@@ -315,7 +330,7 @@ export default function FeeCollection() {
 
                     return (
                       <div key={due.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: isPaid ? 0.4 : 1 }}>
-                        <input type="checkbox" disabled={isPaid} checked={selected}
+                        <input type="checkbox" id={`fee-due-select-${due.id}`} name={`fee-due-select-${due.id}`} aria-label={`Select ${due.fee_type || due.category || 'fee'} to collect`} disabled={isPaid} checked={selected}
                           onChange={() => toggleDue(due.id)}
                           style={{ marginTop: 2, accentColor: '#E8A020', width: 16, height: 16, flexShrink: 0 }} />
                         <div style={{ flex: 1 }}>
@@ -332,6 +347,8 @@ export default function FeeCollection() {
                                 Amount to collect (max {currency(balance)})
                               </p>
                               <input
+                                id={`fee-custom-amount-${due.id}`} name={`fee-custom-amount-${due.id}`}
+                                aria-label={`Amount to collect for ${due.fee_type || due.category || 'fee'}`}
                                 value={customAmount[due.id] ?? ''}
                                 onChange={(e) => updateCustomAmount(due.id, e.target.value)}
                                 placeholder={String(balance)}
@@ -360,10 +377,33 @@ export default function FeeCollection() {
                           style={S.select}>
                           {PAYMENT_MODES.map((m) => <option key={m}>{m}</option>)}
                         </select>
+                        {/* Counter QR — same approach as HospitalBilling.
+                            Only for UPI mode, and only when the branch
+                            has actually set a UPI ID in Business Details.
+                            "Online" mode is deliberately excluded: that
+                            goes through the payment-link flow, which is
+                            properly verified. */}
+                        {paymentMode === 'UPI' && branchUpiId && totalToCollect > 0 && (
+                          <div style={{ marginTop: 14 }}>
+                            <UpiQrCode
+                              upiId={branchUpiId}
+                              payeeName={tenant?.orgName}
+                              amount={totalToCollect}
+                              note={`School fee${student?.full_name ? ` - ${student.full_name}` : ''}`}
+                              size={180}
+                            />
+                          </div>
+                        )}
+                        {paymentMode === 'UPI' && !branchUpiId && (
+                          <p style={{ margin: '8px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                            Set a UPI ID in Business Details to show a scannable QR code here.
+                          </p>
+                        )}
                       </div>
                       <div>
-                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>Discount %</label>
+                        <label htmlFor="fee-discount-pct" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>Discount %</label>
                         <input
+                          id="fee-discount-pct" name="fee-discount-pct"
                           value={discountPct}
                           onChange={(e) => updateDiscount(e.target.value)}
                           placeholder="0"
@@ -376,10 +416,11 @@ export default function FeeCollection() {
 
                     {['UPI', 'Card', 'Online', 'DD', 'Cheque'].includes(paymentMode) && (
                       <div style={{ marginBottom: 14 }}>
-                        <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>
+                        <label htmlFor="fee-transaction-id" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>
                           Transaction ID / Reference number <span style={{ color: '#E05A5A' }}>*</span>
                         </label>
                         <input
+                          id="fee-transaction-id" name="fee-transaction-id"
                           value={transactionId}
                           onChange={(e) => { setTransactionId(e.target.value); setTxnError(''); }}
                           placeholder="UPI ref / cheque no / DD no"

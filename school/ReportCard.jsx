@@ -106,7 +106,12 @@ export default function ReportCard() {
     const totalMax = subjectRows.length * 100;
     const totalObtained = subjectRows.reduce((s, m) => s + Number(m.total || 0), 0);
     const overallPct = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
-    const overallResult = subjectRows.every((m) => m.pass_fail === 'Pass') && subjectRows.length > 0 ? 'PASS' : 'FAIL';
+    // Confirmed real constraint on marks.pass_fail requires lowercase
+    // 'pass'/'fail' — was comparing against capitalized 'Pass', which
+    // would have silently shown every student as FAIL overall once
+    // MarksEntry.jsx was fixed to actually save the correct lowercase
+    // value. Both files now agree on the same real values.
+    const overallResult = subjectRows.every((m) => m.pass_fail === 'pass') && subjectRows.length > 0 ? 'PASS' : 'FAIL';
 
     setReportData({ student, subjects: subjectRows, totalObtained, totalMax, overallPct, overallResult, attendancePct, noExams: false });
     setLoading(false);
@@ -131,22 +136,22 @@ export default function ReportCard() {
         <div className="no-print" style={S.card}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Class</label>
-              <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={S.select}>
+              <label htmlFor="report-card-selected-class" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Class</label>
+              <select id="report-card-selected-class" name="report-card-selected-class" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={S.select}>
                 {classes.map((c) => <option key={c.id} value={c.id}>{c.class_name}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Academic Year</label>
-              <select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} style={S.select}>
+              <label htmlFor="report-card-academic-year" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Academic Year</label>
+              <select id="report-card-academic-year" name="report-card-academic-year" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} style={S.select}>
                 {years.length === 0 && <option value="">No exams yet</option>}
                 {years.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
           </div>
           <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Student</label>
-            <select value={selectedStudent} onChange={(e) => setSelectedStudent(e.target.value)} style={S.select}>
+            <label htmlFor="report-card-selected-student" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 5, display: 'block' }}>Student</label>
+            <select id="report-card-selected-student" name="report-card-selected-student" value={selectedStudent} onChange={(e) => setSelectedStudent(e.target.value)} style={S.select}>
               {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} · {s.sid}</option>)}
             </select>
           </div>

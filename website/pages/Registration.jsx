@@ -494,7 +494,7 @@ export default function Registration() {
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6 }}>
             Confirm password <span style={{ color: '#E05A5A' }}>*</span>
           </p>
-          <input
+          <input id="reg-confirm-pwd" name="reg-confirm-pwd"
             type="password"
             value={form.confirmPwd}
             onChange={(e) => update('confirmPwd', e.target.value)}

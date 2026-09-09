@@ -86,6 +86,7 @@ import ComplaintPrint from './grievance/ComplaintPrint';
 
 // Control Panel
 import CrmClientView from './controlpanel/CrmClientView';
+import FeedbackOverview from './controlpanel/FeedbackOverview';
 import SupportTickets from './controlpanel/SupportTickets';
 import BillingTracker from './controlpanel/BillingTracker';
 import OnboardingWizard from './controlpanel/OnboardingWizard';
@@ -408,6 +409,11 @@ function AppRoutes() {
         element={<RequireAuth><RequireRole roles={['developer','support']}><HelpSystemAdmin /></RequireRole></RequireAuth>} />
       <Route path="/control/access"
         element={<RequireAuth><RequireRole roles={['developer','support','principal','doctor']}><ManageAccess /></RequireRole></RequireAuth>} />
+      {/* Was completely missing — CrmClientView.jsx has a real link to
+          /control/feedback that pointed at nothing. FeedbackOverview.jsx
+          itself was also confirmed working but unreachable. */}
+      <Route path="/control/feedback"
+        element={<RequireAuth><RequireRole roles={['developer','support']}><FeedbackOverview /></RequireRole></RequireAuth>} />
       <Route path="/control/security"
         element={<RequireAuth><RequireRole roles={['developer','support']}><SecurityMonitor /></RequireRole></RequireAuth>} />
 

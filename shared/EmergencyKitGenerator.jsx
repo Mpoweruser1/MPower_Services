@@ -146,7 +146,7 @@ export default function EmergencyKitGenerator({ appType = 'school' }) {
 
     if (kit.code === 'transport') {
       const { data, error } = await supabase.from('transport_routes')
-        .select('route_no, driver_name, driver_phone, vehicle_no, transport_stops(stop_name, arrival_time)')
+        .select('route_no, driver_name, driver_phone, vehicle_no, transport_stops(stop_name, pickup_time)')
         .eq('app_id', tenant.appId).order('route_no');
       if (error) throw error;
       return <PrintDoc title="Transport Route Sheets" orgName={orgName}>
@@ -155,7 +155,7 @@ export default function EmergencyKitGenerator({ appType = 'school' }) {
             <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 4px' }}>Route {r.route_no} — Driver: {r.driver_name || '—'} ({r.driver_phone || '—'}) — Vehicle: {r.vehicle_no || '—'}</p>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead><tr><th style={th}>Stop</th><th style={th}>Arrival time</th></tr></thead>
-              <tbody>{(r.transport_stops || []).map((s) => <tr key={s.stop_name}><td style={td}>{s.stop_name}</td><td style={td}>{s.arrival_time || '—'}</td></tr>)}</tbody>
+              <tbody>{(r.transport_stops || []).map((s) => <tr key={s.stop_name}><td style={td}>{s.stop_name}</td><td style={td}>{s.pickup_time || '—'}</td></tr>)}</tbody>
             </table>
           </div>
         ))}
@@ -262,7 +262,17 @@ export default function EmergencyKitGenerator({ appType = 'school' }) {
 
   return (
     <div>
-      <style>{`@media print { .no-print { display: none !important; } }`}</style>
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          /* Was printing with no page setup at all, so it used
+             whatever browser defaults applied — a real cause of
+             wasted space and unexpected page breaks. Matches the
+             A4 setup PrintHeader uses elsewhere in the app. */
+          @page { size: A4 portrait; margin: 15mm 18mm; }
+          body { background: #fff !important; color: #000 !important; }
+        }
+      `}</style>
 
       <div className="no-print" style={{ maxWidth: 640, margin: '0 auto', fontFamily: 'sans-serif', padding: 16 }}>
         <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Emergency Continuity Kit</h2>

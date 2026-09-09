@@ -60,11 +60,16 @@ export default function ActivityFinance() {
   }
 
   async function setupBudget(activity, feePerStudent, studentCount) {
-    await supabase.from('activity_budgets').upsert({
+    const { error } = await supabase.from('activity_budgets').upsert({
       app_id: tenant.appId, activity_id: activity.id,
       fee_per_student: feePerStudent, student_count: studentCount,
       created_by: tenant.userRowId,
     }, { onConflict: 'activity_id' });
+    if (error) {
+      console.error('Saving activity budget failed:', error);
+      alert(`Could not save budget: ${error.message || 'please try again.'}`);
+      return;
+    }
     load();
   }
 
@@ -160,13 +165,13 @@ function BudgetSetupForm({ onSubmit }) {
       <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 10 }}>Set up budget for this activity</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
         <div>
-          <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4, display: 'block' }}>Fee per student (₹)</label>
-          <input value={fee} onChange={(e) => setFee(e.target.value.replace(/\D/g, ''))} placeholder="500"
+          <label htmlFor="act-fin-fee" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4, display: 'block' }}>Fee per student (₹)</label>
+          <input id="act-fin-fee" name="act-fin-fee" value={fee} onChange={(e) => setFee(e.target.value.replace(/\D/g, ''))} placeholder="500"
             style={{ width: '100%', padding: '8px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: '#fff', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
         <div>
-          <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4, display: 'block' }}>Expected students</label>
-          <input value={count} onChange={(e) => setCount(e.target.value.replace(/\D/g, ''))} placeholder="30"
+          <label htmlFor="act-fin-count" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4, display: 'block' }}>Expected students</label>
+          <input id="act-fin-count" name="act-fin-count" value={count} onChange={(e) => setCount(e.target.value.replace(/\D/g, ''))} placeholder="30"
             style={{ width: '100%', padding: '8px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, color: '#fff', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit' }} />
         </div>
       </div>

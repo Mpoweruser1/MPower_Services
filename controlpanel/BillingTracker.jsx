@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import ControlPanelNav from '../shared/ControlPanelNav';
 import BugReporter from '../shared/BugReporter';
+import PayButton from '../shared/PayButton';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -107,9 +108,17 @@ export default function BillingTracker() {
     // client actually paid (payment_mode existed on the table but was
     // never being set by anything).
     const today = new Date().toISOString().slice(0, 10);
-    await supabase.from('client_invoices')
+    // Previously unchecked — the invoice showed as paid in the UI even
+    // if this write failed, meaning your own revenue records could
+    // silently diverge from what's actually in the database.
+    const { error } = await supabase.from('client_invoices')
       .update({ status: 'paid', paid_date: today, payment_mode: mode })
       .eq('id', invoiceId);
+    if (error) {
+      console.error('Marking invoice paid failed:', error);
+      alert(`Failed to mark invoice as paid: ${error.message || 'please try again.'}`);
+      return;
+    }
     setInvoices((prev) => prev.map((inv) => inv.id === invoiceId ? { ...inv, status: 'paid', paid_date: today, payment_mode: mode } : inv));
   }
 
@@ -133,7 +142,8 @@ export default function BillingTracker() {
     const actuallySent = !error && data?.sent > 0;
     if (actuallySent) {
       const newCount = (invoice.reminder_count || 0) + 1;
-      await supabase.from('client_invoices').update({ reminder_count: newCount }).eq('id', invoice.id);
+      const { error: countErr } = await supabase.from('client_invoices').update({ reminder_count: newCount }).eq('id', invoice.id);
+      if (countErr) console.error('Reminder count update failed (message was still sent):', countErr);
       setInvoices((prev) => prev.map((inv) => inv.id === invoice.id ? { ...inv, reminder_count: newCount } : inv));
     } else {
       const reason = data?.skipped
@@ -269,7 +279,7 @@ export default function BillingTracker() {
 
                     {inv.status !== 'paid' && (
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <select value={paymentMode[inv.id] || ''} onChange={(e) => setPaymentMode((m) => ({ ...m, [inv.id]: e.target.value }))}
+                        <select id={`billing-payment-mode-${inv.id}`} name={`billing-payment-mode-${inv.id}`} aria-label="Payment mode" value={paymentMode[inv.id] || ''} onChange={(e) => setPaymentMode((m) => ({ ...m, [inv.id]: e.target.value }))}
                           style={{ padding: '8px 10px', fontSize: 12, borderRadius: 7, border: '1px solid rgba(255,255,255,0.15)', background: '#111113', color: paymentMode[inv.id] ? '#fff' : 'rgba(255,255,255,0.4)', fontFamily: 'inherit' }}>
                           <option value="">Payment mode...</option>
                           <option value="UPI">UPI</option>
@@ -285,6 +295,34 @@ export default function BillingTracker() {
                           style={{ flex: 1, padding: '8px 0', background: 'rgba(37,211,102,0.08)', color: '#25D366', border: '1px solid rgba(37,211,102,0.25)', borderRadius: 7, cursor: sendingReminder[inv.id] ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
                           {sendingReminder[inv.id] ? 'Sending…' : '📱 Remind'}
                         </button>
+                      </div>
+                    )}
+
+                    {/* Verified online payment via Razorpay. Unlike the
+                        counter QR used in School/Hospital billing, this
+                        payment IS confirmed server-side — so on success
+                        the invoice marks itself paid automatically,
+                        rather than relying on someone reconciling a
+                        bank statement by hand. "Mark paid" above stays
+                        for clients who pay by transfer/cheque/cash. */}
+                    {inv.status !== 'paid' && (
+                      <div style={{ marginTop: 10 }}>
+                        <PayButton
+                          amount={Number(inv.amount)}
+                          label={`💳 Pay online — ₹${Number(inv.amount).toLocaleString('en-IN')}`}
+                          purpose="subscription_invoice"
+                          clientId={inv.client_id}
+                          invoiceId={inv.id}
+                          customerName={inv.crm_clients?.org_name}
+                          customerPhone={inv.crm_clients?.phone}
+                          description={`MPower subscription — ${inv.month || 'invoice'}`}
+                          onSuccess={() => {
+                            const today = new Date().toISOString().slice(0, 10);
+                            setInvoices((prev) => prev.map((i) =>
+                              i.id === inv.id ? { ...i, status: 'paid', paid_date: today, payment_mode: 'Online' } : i));
+                          }}
+                          style={{ padding: '10px 16px', fontSize: 13 }}
+                        />
                       </div>
                     )}
 

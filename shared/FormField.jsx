@@ -113,6 +113,7 @@ export default function FormField({
     if (type === 'select') {
       return (
         <select
+          id={name} name={name}
           value={value || ''}
           onChange={handleChange}
           onBlur={handleBlur}
@@ -130,6 +131,7 @@ export default function FormField({
     if (type === 'textarea') {
       return (
         <textarea
+          id={name} name={name}
           value={value || ''}
           onChange={handleChange}
           onBlur={handleBlur}
@@ -145,6 +147,7 @@ export default function FormField({
     if (type === 'date') {
       return (
         <input
+          id={name} name={name}
           type="date"
           value={value || ''}
           onChange={handleChange}
@@ -171,6 +174,7 @@ export default function FormField({
             </span>
           )}
           <input
+            id={name} name={name}
             type={inputType}
             value={value || ''}
             onChange={handleChange}
@@ -198,6 +202,7 @@ export default function FormField({
 
     return (
       <input
+        id={name} name={name}
         type={inputType}
         value={value || ''}
         onChange={handleChange}
@@ -215,11 +220,17 @@ export default function FormField({
 
   return (
     <div style={S.wrapper}>
+      {/* Was a plain <div> — visually a label, but not programmatically
+          associated with the field at all, so a screen reader would
+          announce the input with no name. Now a real <label htmlFor>,
+          paired with the id added to every input variant below. The
+          `name` prop was already being passed in by every caller; it
+          just was never actually reaching the DOM element. */}
       {label && (
-        <div style={S.label}>
+        <label htmlFor={name} style={S.label}>
           {label}
           {required && <span style={S.required}>*</span>}
-        </div>
+        </label>
       )}
 
       {renderInput()}

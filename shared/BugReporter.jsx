@@ -50,7 +50,7 @@ export default function BugReporter({ screenName }) {
                   <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.4)', padding: 0 }}>✕</button>
                 </div>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', margin: '0 0 12px' }}>Screen: {screenName}</p>
-                <textarea
+                <textarea id="bug-description" name="bug-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What went wrong? What did you expect to happen?"

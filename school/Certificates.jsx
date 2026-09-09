@@ -169,8 +169,8 @@ export default function Certificates() {
             {/* Student search */}
             {!student ? (
               <div style={S.card}>
-                <label style={S.label}>Search student</label>
-                <input
+                <label htmlFor="cert-search-query" style={S.label}>Search student</label>
+                <input id="cert-search-query" name="cert-search-query"
                   value={searchQuery}
                   onChange={(e) => searchStudents(e.target.value)}
                   placeholder="Name or SID..."

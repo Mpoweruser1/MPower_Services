@@ -95,16 +95,16 @@ export default function ClientPortal() {
           <div style={S.card}>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Profile</p>
             <div style={{ marginBottom: 14 }}>
-              <label style={S.label}>Organisation name</label>
-              <input value={orgName} onChange={(e) => setOrgName(e.target.value)} style={S.input} />
+              <label htmlFor="portal-org-name" style={S.label}>Organisation name</label>
+              <input id="portal-org-name" name="portal-org-name" value={orgName} onChange={(e) => setOrgName(e.target.value)} style={S.input} />
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={S.label}>Contact phone</label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} style={S.input} />
+              <label htmlFor="portal-phone" style={S.label}>Contact phone</label>
+              <input id="portal-phone" name="portal-phone" value={phone} onChange={(e) => setPhone(e.target.value)} style={S.input} />
             </div>
             <div style={{ marginBottom: 16 }}>
-              <label style={S.label}>Role</label>
-              <input value={tenant?.role || '—'} readOnly style={{ ...S.input, opacity: 0.5 }} />
+              <label htmlFor="portal-tenant--role" style={S.label}>Role</label>
+              <input id="portal-tenant--role" name="portal-tenant--role" value={tenant?.role || '—'} readOnly style={{ ...S.input, opacity: 0.5 }} />
             </div>
             {saved ? (
               <p style={{ fontSize: 13, color: '#6AAA90', fontWeight: 500 }}>✓ Profile updated</p>
@@ -165,8 +165,8 @@ export default function ClientPortal() {
           <div style={S.card}>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 16 }}>Change password</p>
             <div style={{ marginBottom: 14 }}>
-              <label style={S.label}>New password</label>
-              <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="Min 8 characters" style={S.input} />
+              <label htmlFor="portal-new-pwd" style={S.label}>New password</label>
+              <input id="portal-new-pwd" name="portal-new-pwd" type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="Min 8 characters" style={S.input} />
             </div>
             {pwdMsg && (
               <p style={{ fontSize: 13, color: pwdMsg.startsWith('✓') ? '#6AAA90' : '#E05A5A', marginBottom: 12 }}>{pwdMsg}</p>

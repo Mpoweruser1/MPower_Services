@@ -233,10 +233,10 @@ function RequestCard({ request, onDecision, tenant }) {
           {showReject ? (
             <div>
               <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
+                <label htmlFor="correction-q-reject-note" style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
                   Reason for rejection *
                 </label>
-                <input value={rejectNote} onChange={(e) => setRejectNote(e.target.value)}
+                <input id="correction-q-reject-note" name="correction-q-reject-note" value={rejectNote} onChange={(e) => setRejectNote(e.target.value)}
                   placeholder="Why is this request being rejected?" style={S.input} autoFocus />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -380,7 +380,7 @@ export default function CorrectionApprovalQueue() {
               {t.l}
             </button>
           ))}
-          <select value={filterModule} onChange={(e) => setFilterModule(e.target.value)}
+          <select id="correction-q-filter-module" name="correction-q-filter-module" value={filterModule} onChange={(e) => setFilterModule(e.target.value)}
             style={{ padding: '7px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, fontSize: 12, color: '#fff', outline: 'none', fontFamily: 'inherit', cursor: 'pointer' }}>
             <option value="">All modules</option>
             {Object.entries(MODULE_CONFIG).map(([k, v]) => (

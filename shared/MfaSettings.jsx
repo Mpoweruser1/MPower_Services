@@ -111,7 +111,7 @@ export default function MfaSettings() {
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 10 }}>
             2. Enter the 6-digit code it shows:
           </p>
-          <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          <input id="mfa-code" name="mfa-code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             placeholder="000000" style={{ ...S.input, marginBottom: 14 }} autoFocus />
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={cancelEnroll} style={S.secondaryButton}>Cancel</button>

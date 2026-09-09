@@ -163,12 +163,21 @@ export default function OpdVisit() {
     if (visitErr) { setSubmitError('Failed to save visit. Please try again.'); setSaving(false); return; }
 
     if (validMeds.length > 0) {
-      await supabase.from('prescriptions').insert({
+      // Previously unchecked — the visit would save and show success
+      // while the prescription silently failed, so the patient's
+      // medicines simply wouldn't exist on their record.
+      const { error: rxErr } = await supabase.from('prescriptions').insert({
         patient_id:   selectedPatient.id,
         opd_visit_id: visitRow.id,
         doctor_id:    form.doctor_id || null,
         medicines:    validMeds,
       });
+      if (rxErr) {
+        console.error('Saving prescription failed:', rxErr);
+        setSubmitError(`Visit was saved, but the prescription failed to save: ${rxErr.message}. Please re-enter the medicines.`);
+        setSaving(false);
+        return;
+      }
     }
 
     if (selectedPatient.phone && validMeds.length > 0) {

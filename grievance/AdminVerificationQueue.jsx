@@ -1,7 +1,7 @@
 // grievance/AdminVerificationQueue.jsx
 // Admin screen — verify staff access requests and manage constituency assignments
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import GrievanceNav from './GrievanceNav';
@@ -128,10 +128,19 @@ export default function AdminVerificationQueue() {
       })
       .eq('id', id);
 
-    if (!error) {
-      setNote((n) => ({ ...n, [id]: '' }));
-      loadRequests();
+    // Previously: if (!error) { ...success... } with no else at all —
+    // a failed rejection re-enabled the button with zero explanation,
+    // leaving the request sitting there with no indication anything
+    // went wrong. Now matches approveRequest's error handling.
+    if (error) {
+      console.error('Reject request failed:', error);
+      setApproveError((e) => ({ ...e, [id]: error.message || 'Failed to reject this request.' }));
+      setProcessing(null);
+      return;
     }
+
+    setNote((n) => ({ ...n, [id]: '' }));
+    loadRequests();
     setProcessing(null);
   }
 
@@ -139,6 +148,7 @@ export default function AdminVerificationQueue() {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontFamily: 'Inter, sans-serif' }}>
         Access restricted to grievance admins only.
+        <GrievanceNav />
       </div>
     );
   }
@@ -242,7 +252,7 @@ export default function AdminVerificationQueue() {
                 {/* Action buttons — only for pending */}
                 {activeTab === 'pending' && (
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <select
+                    <select id={`admin-verify-method-${r.id}`} name={`admin-verify-method-${r.id}`} aria-label="Verification method"
                       value={verificationMethod[r.id] || ''}
                       onChange={e => { setVerificationMethod(v => ({ ...v, [r.id]: e.target.value })); setApproveError(er => ({ ...er, [r.id]: '' })); }}
                       style={{
@@ -256,7 +266,7 @@ export default function AdminVerificationQueue() {
                         <option key={m.value} value={m.value}>{m.label}</option>
                       ))}
                     </select>
-                    <input
+                    <input id={`admin-verify-note-${r.id}`} name={`admin-verify-note-${r.id}`} aria-label="Note"
                       value={note[r.id] || ''}
                       onChange={e => setNote(n => ({ ...n, [r.id]: e.target.value }))}
                       placeholder="Add a note (optional)"
@@ -269,10 +279,10 @@ export default function AdminVerificationQueue() {
                     />
                     {REP_TIERS.includes(r.role_requested) && (
                       <div>
-                        <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4 }}>
+                        <label htmlFor="admin-verify-file" style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4 }}>
                           {r.role_requested} photo (optional) — shown on printed Batch Reports for this constituency
                         </label>
-                        <input
+                        <input id="admin-verify-file" name="admin-verify-file"
                           type="file"
                           accept="image/*"
                           onChange={e => setRepPhotoFile(f => ({ ...f, [r.id]: e.target.files?.[0] || null }))}
@@ -327,7 +337,7 @@ export default function AdminVerificationQueue() {
           <button onClick={() => window.history.back()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
             ← Back
           </button>
-          <a href="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</a>
+          <Link to="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</Link>
           <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
             Sign out
           </button>

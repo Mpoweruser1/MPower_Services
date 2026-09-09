@@ -1,5 +1,5 @@
 // school/TransferCertificate.jsx — FINAL (Supabase wired)
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
@@ -40,6 +40,18 @@ export default function TransferCertificate() {
   const [searching, setSearching] = useState(false);
   const [student, setStudent] = useState(null);
   const [feeDues, setFeeDues] = useState([]);
+  // Distinct from "dues pending" — this tracks whether the student
+  // has ANY fee_dues rows at all. Zero rows currently reads as
+  // "nothing owed", which is correct for a genuinely fee-exempt
+  // student, but is exactly as likely to mean "nobody ever set up
+  // this student's fee structure" — a real risk worth surfacing
+  // rather than silently treating as cleared.
+  const [noFeeRecordsFound, setNoFeeRecordsFound] = useState(false);
+  // Tracks the currently-selected student id synchronously — a
+  // React ref updates immediately, unlike state (which is batched/
+  // async), so an in-flight fetch from a previous selection can
+  // reliably detect it's now stale by the time it resolves.
+  const studentIdRef = useRef(null);
   const [attendancePct, setAttendancePct] = useState(null);
 
   // TC form fields
@@ -72,25 +84,40 @@ export default function TransferCertificate() {
 
   async function selectStudent(s) {
     setStudent(s);
+    studentIdRef.current = s.id;
     setSearchResults([]);
     setSearchQuery('');
     setIssuedTc(null);
     setError('');
+    setFeeDues([]); // clear immediately — don't show a previous student's stale figures even briefly
+    setNoFeeRecordsFound(false);
+
+    // Guards against a real race condition: if someone selects a
+    // student, then quickly selects a DIFFERENT one before the first
+    // fetch finishes, the first (now-stale) fetch could resolve LATER
+    // and overwrite the second, correct student's data — while the
+    // screen still shows the second student's name and profile. This
+    // is very likely the actual explanation behind "TC shows dues
+    // pending even though paid": the pending amount may have
+    // genuinely belonged to a different, previously-viewed student,
+    // not the one actually being certified. Only apply this fetch's
+    // result if `s` is still the currently-selected student once it
+    // resolves.
+    const requestedStudentId = s.id;
 
     // Check fee dues
     // Previously read amount_paid directly from fee_dues — but that
     // column is never actually updated by any real payment anywhere
     // in the app (FeeCollection.jsx only ever inserts into
-    // fee_payments). This meant TC always saw every due as fully
-    // unpaid, forever, regardless of what the family actually paid —
-    // the root cause behind the reported "shows ₹10,000 pending" and
-    // "TC blocked" confusion. Now sums the real fee_payments rows per
-    // due, matching the correct pattern already used in
+    // fee_payments). Now sums the real fee_payments rows per due,
+    // matching the correct pattern already used in
     // FeeStructureReport.jsx and the Dashboard defaulters count.
     const { data: dues } = await supabase
       .from('fee_dues')
       .select('fee_type, amount_due, fee_payments(amount)')
       .eq('student_id', s.id);
+
+    if (requestedStudentId !== studentIdRef.current) return; // a newer selection has since happened — discard this stale result
 
     const duesWithRealPaid = (dues || []).map((d) => ({
       ...d,
@@ -98,6 +125,7 @@ export default function TransferCertificate() {
     }));
     const pendingDues = duesWithRealPaid.filter((d) => d.paid < Number(d.amount_due));
     setFeeDues(pendingDues);
+    setNoFeeRecordsFound((dues || []).length === 0);
 
     // Get attendance percentage
     const yearStart = `${new Date().getFullYear()}-06-01`;
@@ -108,7 +136,11 @@ export default function TransferCertificate() {
 
   const hasPendingDues = feeDues.length > 0;
   const totalPending   = feeDues.reduce((s, d) => s + Number(d.amount_due) - Number(d.paid), 0);
-  const isBlocked      = hasPendingDues && !overrideReason.trim();
+  // Now blocks the same way as pending dues, not just a passive
+  // warning — TC is irreversible, and a warning banner alone is too
+  // easy to click past during a busy bulk-TC period. The override
+  // reason field also doubles as a genuine audit trail on file.
+  const isBlocked      = (hasPendingDues || noFeeRecordsFound) && !overrideReason.trim();
 
   function validate() {
     if (!reason)                           { setError('Select reason for leaving.'); return false; }
@@ -116,7 +148,9 @@ export default function TransferCertificate() {
     if (!leavingDate)                      { setError('Select date of leaving.'); return false; }
     if (new Date(leavingDate) > new Date()) { setError('Date of leaving cannot be in the future.'); return false; }
     if (isBlocked) {
-      setError(`Fee dues of ₹${totalPending.toLocaleString('en-IN')} are pending. Clear dues or provide an override reason.`);
+      setError(hasPendingDues
+        ? `Fee dues of ₹${totalPending.toLocaleString('en-IN')} are pending. Clear dues or provide an override reason.`
+        : 'No fee records found for this student. Confirm this is intentional before issuing TC.');
       setShowOverride(true);
       return false;
     }
@@ -189,7 +223,16 @@ export default function TransferCertificate() {
     }
 
     // Update student status
-    await supabase.from('students').update({ status: 'tc_issued' }).eq('id', student.id);
+    // Previously unchecked — a TC could be issued and printed while
+    // the student silently stayed 'active' in the database, so they'd
+    // still appear in class lists, fee dues, and attendance.
+    const { error: statusErr } = await supabase.from('students').update({ status: 'tc_issued' }).eq('id', student.id);
+    if (statusErr) {
+      console.error('Updating student status to tc_issued failed:', statusErr);
+      setError(`TC record was created, but updating the student's status failed: ${statusErr.message}. Please contact support — this student may still appear as active.`);
+      setIssuing(false);
+      return;
+    }
 
     setIssuedTc({
       ...tc,
@@ -261,7 +304,7 @@ export default function TransferCertificate() {
                       </p>
                     )}
                   </div>
-                  <button onClick={() => { setStudent(null); setFeeDues([]); setError(''); setIssuedTc(null); }}
+                  <button onClick={() => { studentIdRef.current = null; setStudent(null); setFeeDues([]); setNoFeeRecordsFound(false); setError(''); setIssuedTc(null); }}
                     style={{ padding: '6px 12px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
                     Change
                   </button>
@@ -285,6 +328,28 @@ export default function TransferCertificate() {
                     </div>
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
                       TC is blocked until dues are cleared. Provide override reason if exception needed.
+                    </p>
+                  </div>
+                )}
+
+                {/* Distinct from the pending-dues warning above — this
+                    fires when a student has NO fee_dues rows at all.
+                    That currently reads as "nothing owed", which is
+                    correct for a genuinely fee-exempt student, but
+                    just as likely means nobody ever set up this
+                    student's fee structure. Amber, not red — this is
+                    "please verify", not "definitely wrong" — and it
+                    does NOT block TC, since blocking every zero-fee
+                    student (including real scholarship/RTE cases)
+                    would be too disruptive. It exists purely so this
+                    can never again pass by completely unnoticed. */}
+                {!hasPendingDues && noFeeRecordsFound && (
+                  <div style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.2)', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: '#E8A020', fontWeight: 500 }}>
+                      ⚠️ No fee records found for this student
+                    </p>
+                    <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+                      This could genuinely mean nothing is owed (scholarship, RTE, etc.) — or it could mean their fee structure was never set up. TC is blocked until this is confirmed below.
                     </p>
                   </div>
                 )}
@@ -334,12 +399,16 @@ export default function TransferCertificate() {
                     </div>
                   </div>
 
-                  {(showOverride || hasPendingDues) && (
+                  {(showOverride || hasPendingDues || noFeeRecordsFound) && (
                     <div style={{ marginBottom: 14 }}>
-                      <label htmlFor="tc-override-reason" style={S.label}>Override reason (required to issue TC with pending dues) *</label>
+                      <label htmlFor="tc-override-reason" style={S.label}>
+                        {hasPendingDues
+                          ? 'Override reason (required to issue TC with pending dues) *'
+                          : 'Confirmation (required to issue TC with no fee records) *'}
+                      </label>
                       <input id="tc-override-reason" name="tc-override-reason" value={overrideReason} onChange={(e) => { setOverrideReason(e.target.value); setError(''); }}
-                        placeholder="e.g. Parent request, fees to be collected separately"
-                        style={S.input(hasPendingDues && !overrideReason.trim())} />
+                        placeholder={hasPendingDues ? "e.g. Parent request, fees to be collected separately" : "e.g. RTE quota confirmed, Scholarship verified by principal"}
+                        style={S.input((hasPendingDues || noFeeRecordsFound) && !overrideReason.trim())} />
                     </div>
                   )}
 

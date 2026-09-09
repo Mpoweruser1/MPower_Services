@@ -1,5 +1,6 @@
 // grievance/ReportsDashboard.jsx
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import { fetchReportRollup, fetchEnrichedComplaints, detectPatterns } from './grievanceApi';
@@ -77,7 +78,7 @@ export default function ReportsDashboard() {
   const patternCount = hotspots.length + familyPatterns.length + exactDuplicates.length;
 
   if (tenantLoading) {
-    return <div style={{ padding: 30, textAlign: 'center', color: '#5B6473', fontSize: 13.5 }}>Loading…</div>;
+    return <><div style={{ padding: 30, textAlign: 'center', color: '#5B6473', fontSize: 13.5 }}>Loading…</div><GrievanceNav /></>;
   }
 
   // Was completely missing before — any authenticated visitor, including
@@ -85,9 +86,12 @@ export default function ReportsDashboard() {
   // list as StaffDashboard.jsx, which correctly already has this check.
   if (!tenant || !['representative', 'authority', 'grievance_admin', 'grievance_staff'].includes(tenant.role)) {
     return (
-      <div style={{ padding: 30, textAlign: 'center', color: '#5B6473', fontSize: 13.5 }}>
-        This page is for representatives, authorities, or grievance admins.
-      </div>
+      <>
+        <div style={{ padding: 30, textAlign: 'center', color: '#5B6473', fontSize: 13.5 }}>
+          This page is for representatives, authorities, or grievance admins.
+        </div>
+        <GrievanceNav />
+      </>
     );
   }
 
@@ -375,7 +379,7 @@ export default function ReportsDashboard() {
           <button onClick={() => window.history.back()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
             ← Back
           </button>
-          <a href="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</a>
+          <Link to="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</Link>
           <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
             Sign out
           </button>
