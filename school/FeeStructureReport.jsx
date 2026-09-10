@@ -17,7 +17,7 @@ import { exportToExcel } from '../shared/exportExcel';
 import TierGate from '../shared/TierGate';
 import BugReporter from '../shared/BugReporter';
 
-function currency(n) { return `\u20b9${Number(n || 0).toLocaleString('en-IN')}`; }
+function currency(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -100,7 +100,7 @@ function FeeStructureReportContent() {
         <div className="no-print" style={{ marginBottom: 20 }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Reports</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Fee Structure Report</h1>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>Every fee defined, rolled up by term and class \u2014 not just by date</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>Every fee defined, rolled up by term and class — not just by date</p>
         </div>
 
         <div className="no-print">
@@ -136,7 +136,7 @@ function FeeStructureReportContent() {
                   </div>
                 )}
                 {isExpanded && r.unpaidStudents.length === 0 && (
-                  <p style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 12, color: '#6AAA90' }}>Fully collected \u2014 no one owes anything on this fee.</p>
+                  <p style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 12, color: '#6AAA90' }}>Fully collected — no one owes anything on this fee.</p>
                 )}
               </div>
             );

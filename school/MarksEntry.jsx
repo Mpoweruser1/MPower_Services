@@ -152,15 +152,26 @@ export default function MarksEntry() {
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Academics</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Marks Entry</h1>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>
-            Grading as {tenant.boardType === 'cbse' ? 'CBSE' : 'State Board (AP/TS SSC)'} \u2014 pass mark {passThresholdFor(tenant.boardType)}%
+            Grading as {tenant.boardType === 'cbse' ? 'CBSE' : 'State Board (AP/TS SSC)'} — pass mark {passThresholdFor(tenant.boardType)}%
           </p>
         </div>
 
-        {message && (
-          <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#6AAA90' }}>
-            {message}
-          </div>
-        )}
+        {/* One `message` state carries both successes and failures, and
+            this banner was hardcoded to success green — so "Failed to
+            save marks" appeared in the same reassuring green as a
+            successful save. Now it detects failure wording and styles
+            itself red instead. */}
+        {message && (() => {
+          const isError = /fail|error|could not|unable|invalid/i.test(message);
+          const tone = isError
+            ? { bg: 'rgba(224,90,90,0.08)', border: 'rgba(224,90,90,0.2)', text: '#E05A5A' }
+            : { bg: 'rgba(106,170,144,0.08)', border: 'rgba(106,170,144,0.2)', text: '#6AAA90' };
+          return (
+            <div style={{ background: tone.bg, border: `1px solid ${tone.border}`, borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: tone.text }}>
+              {isError ? '⚠️ ' : ''}{message}
+            </div>
+          );
+        })()}
 
         {exams.length === 0 && !showNewExam && (
           <div style={{ background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.15)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>

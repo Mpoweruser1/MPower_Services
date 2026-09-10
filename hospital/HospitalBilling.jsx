@@ -148,9 +148,9 @@ export default function HospitalBilling() {
         invoiceId: null, // no invoice exists yet — created only after verification
         customerName: selectedPatient.full_name,
         customerPhone: selectedPatient.phone,
-        description: `Hospital bill \u2014 ${selectedPatient.full_name}`,
+        description: `Hospital bill — ${selectedPatient.full_name}`,
         onSuccess: (paymentId) => createInvoiceRecord(paymentId),
-        onFailure: (reason) => setSubmitError(`Online payment ${reason === 'payment_dismissed' ? 'was cancelled' : 'failed'}. No invoice was created \u2014 try again or choose a different payment mode.`),
+        onFailure: (reason) => setSubmitError(`Online payment ${reason === 'payment_dismissed' ? 'was cancelled' : 'failed'}. No invoice was created — try again or choose a different payment mode.`),
       });
       return;
     }

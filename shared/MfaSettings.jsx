@@ -48,7 +48,7 @@ export default function MfaSettings() {
     const { error: verifyErr } = await supabase.auth.mfa.verify({
       factorId, challengeId: challenge.id, code: code.trim(),
     });
-    if (verifyErr) { setError('Incorrect code \u2014 please try again.'); return; }
+    if (verifyErr) { setError('Incorrect code — please try again.'); return; }
 
     setEnrolling(false);
     setCode('');
@@ -79,7 +79,7 @@ export default function MfaSettings() {
       <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Security</p>
       <h3 style={{ fontSize: 16, fontWeight: 600, color: '#fff', margin: '0 0 6px' }}>Two-Factor Authentication</h3>
       <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 16, lineHeight: 1.6 }}>
-        Adds a second step at login using an authenticator app (Google Authenticator, Authy, etc.) \u2014 so a password alone isn't enough to sign in.
+        Adds a second step at login using an authenticator app (Google Authenticator, Authy, etc.) — so a password alone isn't enough to sign in.
       </p>
 
       {error && (
@@ -123,7 +123,7 @@ export default function MfaSettings() {
       {!enrolling && factors.length > 0 && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 8 }}>
-            <span style={{ fontSize: 13, color: '#6AAA90' }}>\u2713 Enabled \u2014 {factors[0].friendly_name || 'Authenticator app'}</span>
+            <span style={{ fontSize: 13, color: '#6AAA90' }}>✓ Enabled — {factors[0].friendly_name || 'Authenticator app'}</span>
             <button onClick={() => removeFactor(factors[0].id)}
               style={{ background: 'none', border: '1px solid rgba(224,90,90,0.3)', borderRadius: 6, color: '#E05A5A', padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>
               Turn off

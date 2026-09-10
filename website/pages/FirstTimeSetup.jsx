@@ -279,7 +279,7 @@ export default function FirstTimeSetup() {
                   <option value="cbse">CBSE</option>
                 </select>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
-                  Sets your pass mark and grading rules for report cards \u2014 State Board pass mark is 35%, CBSE is 33%
+                  Sets your pass mark and grading rules for report cards — State Board pass mark is 35%, CBSE is 33%
                 </p>
               </div>
             )}

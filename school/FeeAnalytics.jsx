@@ -42,6 +42,7 @@ const S = {
 function FeeAnalyticsContent() {
   const { tenant } = useTenant();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [dues, setDues] = useState([]);
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
@@ -62,10 +63,23 @@ function FeeAnalyticsContent() {
     const studentIds = (studentRows || []).map((s) => s.id);
     if (studentIds.length === 0) { setDues([]); setLoading(false); return; }
 
-    const { data: dueRows } = await supabase
+    // 'category' was never a real column on fee_dues (confirmed real
+    // schema: id, student_id, fee_structure_id, fee_type, amount_due,
+    // amount_paid, due_date, status, created_at, updated_at). Naming a
+    // nonexistent column makes PostgREST reject the WHOLE query, so
+    // dues came back empty and every figure on this screen showed ₹0
+    // — even with ₹20,000 actually collected. The error was also
+    // discarded, so it failed completely silently.
+    const { data: dueRows, error: duesErr } = await supabase
       .from('fee_dues')
-      .select('id, student_id, amount_due, due_date, fee_type, category, fee_payments(amount)')
+      .select('id, student_id, amount_due, due_date, fee_type, fee_payments(amount)')
       .in('student_id', studentIds);
+    if (duesErr) {
+      console.error('Loading fee dues failed:', duesErr);
+      setLoadError(duesErr.message || 'Could not load fee data.');
+      setLoading(false);
+      return;
+    }
     setDues(dueRows || []);
 
     const { data: classRows } = await supabase.from('classes').select('id, class_name, class_order').eq('app_id', tenant.appId).order('class_order');
@@ -124,7 +138,7 @@ function FeeAnalyticsContent() {
 
   const exportRows = enriched.map((d) => [
     d.student?.full_name || '', d.student?.sid || '', d.student?.classes?.class_name || '',
-    d.fee_type || d.category || '', d.amount_due, d.paid, d.balance, d.overdueDays,
+    d.fee_type || '', d.amount_due, d.paid, d.balance, d.overdueDays,
   ]);
   const exportHeaders = ['Student', 'SID', 'Class', 'Fee type', 'Amount due', 'Paid', 'Balance', 'Days overdue'];
 
@@ -149,6 +163,17 @@ function FeeAnalyticsContent() {
   // page with no way back. Same fix already applied to StudentDetail,
   // PatientDetail, and the CTS staff screens.
   if (loading) return <div style={{ ...S.page, textAlign: 'center', paddingTop: 60 }}><p style={{ color: 'rgba(255,255,255,0.3)' }}>Loading...</p><SchoolNav /></div>;
+
+  if (loadError) return (
+    <div style={{ ...S.page, paddingTop: 40 }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: 20 }}>
+        <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#E05A5A' }}>
+          ⚠️ {loadError}
+        </div>
+      </div>
+      <SchoolNav />
+    </div>
+  );
 
   return (
     <div style={S.page}>
@@ -302,7 +327,7 @@ function FeeAnalyticsContent() {
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.full_name}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.sid}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.classes?.class_name}</td>
-                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.fee_type || d.category}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.fee_type || '—'}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(d.amount_due)}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(d.paid)}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(d.balance)}</td>
