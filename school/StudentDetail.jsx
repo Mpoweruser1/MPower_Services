@@ -108,12 +108,19 @@ export default function StudentDetail({ studentId }) {
       .update({ [editingField]: fieldDraft.trim() })
       .eq('id', id);
 
-    if (!error) {
-      setStudent((s) => ({ ...s, [editingField]: fieldDraft.trim() }));
-      logActivity(tenant, 'student_field_direct_edit', 'info', {
-        studentId: id, field: editingField,
-      });
+    // Previously `if (!error)` with no else — a failed save closed the
+    // editor and left the old value on screen, indistinguishable from
+    // a successful save that simply didn't change anything.
+    if (error) {
+      console.error('Saving student field failed:', error);
+      alert(`Could not save: ${error.message || 'please try again.'}`);
+      setSaving(false);
+      return;
     }
+    setStudent((s) => ({ ...s, [editingField]: fieldDraft.trim() }));
+    logActivity(tenant, 'student_field_direct_edit', 'info', {
+      studentId: id, field: editingField,
+    });
     setSaving(false);
     setEditingField(null);
   }
@@ -167,8 +174,6 @@ export default function StudentDetail({ studentId }) {
         <div style={S.card}>
           <div style={S.row}><span style={S.label}>Date of birth</span><span style={S.value}>{student.dob || '—'}</span></div>
           <div style={S.row}><span style={S.label}>Gender</span><span style={S.value}>{student.gender || '—'}</span></div>
-          <div style={S.row}><span style={S.label}>Father's name</span><span style={S.value}>{student.father_name || '—'}</span></div>
-          <div style={S.row}><span style={S.label}>Mother's name</span><span style={S.value}>{student.mother_name || '—'}</span></div>
           <div style={S.row}><span style={S.label}>Village</span><span style={S.value}>{student.villages?.name ? `${student.villages.name}${student.villages.mandals?.name ? ` (${student.villages.mandals.name})` : ''}` : '—'}</span></div>
           <div style={{ ...S.row, borderBottom: 'none' }}><span style={S.label}>Admission no</span><span style={S.value}>{student.admission_no || '—'}</span></div>
         </div>
@@ -176,6 +181,43 @@ export default function StudentDetail({ studentId }) {
         {/* Directly editable — safety/time critical */}
         <div style={{ ...S.card, background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.2)' }}>
           <p style={{ fontSize: 11, color: '#E8A020', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 10px' }}>Editable directly</p>
+
+          {/* Father's / Mother's name are editable here because every
+              student admitted before the admission form was split into
+              two fields has these blank — and a Transfer Certificate
+              prints "Father's name: —" without them. There was no way
+              to fill them in for existing students at all. */}
+          <div style={S.row}>
+            <span style={S.label}>Father's name</span>
+            {editingField === 'father_name' ? (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input id="student-edit-father-name" name="student-edit-father-name" aria-label="Father's name" value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={S.input} autoFocus />
+                <button onClick={saveDirectEdit} disabled={saving} style={{ padding: '0 12px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  {saving ? '...' : 'Save'}
+                </button>
+              </div>
+            ) : (
+              <span style={S.value} onClick={() => startEdit('father_name')} title="Click to edit">
+                {student.father_name || '—'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>✎</span>
+              </span>
+            )}
+          </div>
+
+          <div style={S.row}>
+            <span style={S.label}>Mother's name</span>
+            {editingField === 'mother_name' ? (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input id="student-edit-mother-name" name="student-edit-mother-name" aria-label="Mother's name" value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value)} style={S.input} autoFocus />
+                <button onClick={saveDirectEdit} disabled={saving} style={{ padding: '0 12px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  {saving ? '...' : 'Save'}
+                </button>
+              </div>
+            ) : (
+              <span style={S.value} onClick={() => startEdit('mother_name')} title="Click to edit">
+                {student.mother_name || '—'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>✎</span>
+              </span>
+            )}
+          </div>
 
           <div style={S.row}>
             <span style={S.label}>Parent phone</span>

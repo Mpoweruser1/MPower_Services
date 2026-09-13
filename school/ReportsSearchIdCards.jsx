@@ -161,14 +161,18 @@ async function runReportQuery(reportId, appId, extraFilters) {
     case 'new_admissions': {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 90); // last 90 days by default
+      // Deliberately NOT filtered by status: this is a historical
+      // record of who joined in the period, so a student who has since
+      // left still belongs in the count. The Status column below makes
+      // it clear at a glance who is still with the school.
       const { data, error: qErr } = await supabase
         .from('students')
-        .select('id, full_name, sid, admission_date, admission_no, classes(class_name)')
+        .select('id, full_name, sid, admission_date, admission_no, status, classes(class_name)')
         .eq('app_id', appId)
         .gte('admission_date', cutoff.toISOString().slice(0, 10))
         .order('admission_date', { ascending: false });
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Name', 'SID', 'Admission no', 'Class', 'Admission date', 'Remarks'] };
+      return { data: data || [], columns: ['Name', 'SID', 'Admission no', 'Class', 'Admission date', 'Status', 'Remarks'] };
     }
     case 'tc_issued': {
       const { data: appStudents } = await supabase.from('students').select('id').eq('app_id', appId);
@@ -659,6 +663,17 @@ export function ReportEngine({ userTier = 'basic' }) {
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.admission_no}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.classes?.class_name}</td>
                             <td style={{ padding: '8px 0', color: '#6AAA90' }}>{row.admission_date}</td>
+                            <td style={{ padding: '8px 8px' }}>
+                              {(() => {
+                                const LABELS = { active: 'Active', tc_issued: 'TC issued', passed_out: 'Passed out', promoted: 'Promoted' };
+                                const COLORS = { active: '#6AAA90', tc_issued: '#E05A5A', passed_out: '#E8A020', promoted: '#5A9ADF' };
+                                return (
+                                  <span style={{ color: COLORS[row.status] || 'rgba(255,255,255,0.4)', fontWeight: row.status === 'active' ? 400 : 600 }}>
+                                    {LABELS[row.status] || row.status || '—'}
+                                  </span>
+                                );
+                              })()}
+                            </td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="new_admissions" rowKey={row.id} /></td>
                           </>
                         )}
@@ -666,8 +681,12 @@ export function ReportEngine({ userTier = 'basic' }) {
                           <>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.students?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.tc_no}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.reason_leaving}</td>
-                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{row.date_of_leaving}</td>
+                            {/* Query selects `reason` and `issue_date` — the real
+                                columns. These cells still read the old
+                                reason_leaving/date_of_leaving names, so both
+                                printed blank on every row. */}
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.reason || '—'}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{row.issue_date || '—'}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="tc_issued" rowKey={row.id} /></td>
                           </>
                         )}
@@ -676,7 +695,10 @@ export function ReportEngine({ userTier = 'basic' }) {
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.students?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: '#E8A020' }}>{row.cert_type}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.cert_no}</td>
-                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{new Date(row.issued_at).toLocaleDateString('en-IN')}</td>
+                            {/* issued_at was never a real column — issue_date is,
+                                and it's a plain date, so no Date parsing needed
+                                (new Date(undefined) rendered "Invalid Date"). */}
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{row.issue_date || '—'}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="certificates_issued" rowKey={row.id} /></td>
                           </>
                         )}

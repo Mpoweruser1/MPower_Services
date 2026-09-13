@@ -116,7 +116,14 @@ export default function TopNav({ screen }) {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         @media print { .no-print { display: none !important; } }
       `}</style>
-      <nav style={NAV_STYLE}>
+      {/* no-print: this is the app's own navigation bar, not part of any
+          document. Without it, the whole bar (logo, module badge, user
+          name, Sign out) printed on every report and certificate —
+          and because NAV_STYLE is sticky, it landed in the MIDDLE of
+          multi-page printouts, overlapping real data. TopNav renders on
+          every authenticated screen, so this affected every printed
+          document in the app. */}
+      <nav className="no-print" style={NAV_STYLE}>
         {/* Left: logo + module badge + screen */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{

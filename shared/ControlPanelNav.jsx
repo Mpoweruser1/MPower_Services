@@ -71,7 +71,10 @@ export default function ControlPanelNav() {
         </div>
       )}
 
-      <nav style={{
+      {/* no-print + the rule below: this fixed bottom bar would
+          otherwise print on every Control Panel document. */}
+      <style>{`@media print { .no-print { display: none !important; } }`}</style>
+      <nav className="no-print" style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
         background: '#111113',
         borderTop: '1px solid rgba(255,255,255,0.08)',

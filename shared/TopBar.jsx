@@ -18,9 +18,13 @@ export default function TopBar({ screenTitle }) {
         @media print {
           .mpower-topbar { display: none !important; }
         }
+        @media print { .no-print { display: none !important; } }
       `}</style>
+      {/* no-print: a sticky header that would otherwise print on every
+          document, and (being sticky) could land mid-page on multi-page
+          printouts. Same bug already fixed in TopNav. */}
       <div
-        className="mpower-topbar"
+        className="mpower-topbar no-print"
         style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           padding: '10px 16px', background: '#0D1B2A', color: '#fff',
