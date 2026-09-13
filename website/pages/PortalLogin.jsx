@@ -286,7 +286,7 @@ export default function PortalLogin() {
             <div>
               <label htmlFor="login-email" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email</label>
               <input
-                id="login-email" name="login-email" autoComplete="email"
+                id="login-email" name="login-email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={handleKeyDown}
