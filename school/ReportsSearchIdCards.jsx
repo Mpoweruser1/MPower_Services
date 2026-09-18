@@ -24,63 +24,145 @@ const S = {
 // REPORT ENGINE
 // ─────────────────────────────────────────────────────────────
 const REPORT_CATALOG = [
-  { id: 'daily_attendance',    name: 'Daily attendance — class-wise',            tier: 'basic',      icon: '✅' },
-  { id: 'low_attendance',      name: 'Below 75% attendance list',                tier: 'basic',      icon: '⚠️' },
-  { id: 'fee_defaulters',      name: 'Fee defaulters list',                      tier: 'basic',      icon: '💰' },
-  { id: 'class_rank',          name: 'Class rank list (latest exam)',             tier: 'basic',      icon: '🏆' },
+  { id: 'daily_attendance',    name: 'Daily attendance — class-wise',            tier: 'basic',      icon: '✅', params: ['class', 'dateRange'] },
+  { id: 'low_attendance',      name: 'Low attendance list',                tier: 'basic',      icon: '⚠️', params: ['class', 'dateRange', 'threshold', 'minDays'] },
+  { id: 'fee_defaulters',      name: 'Fee defaulters list',                      tier: 'basic',      icon: '💰', params: ['class', 'overdueOnly'] },
+  { id: 'class_rank',          name: 'Class rank list',                           tier: 'basic',      icon: '🏆', params: ['class', 'exam'] },
   { id: 'class_strength',      name: 'Class-wise strength',                      tier: 'basic',      icon: '🏫' },
-  { id: 'gender_distribution', name: 'Gender distribution',                      tier: 'basic',      icon: '👥' },
-  { id: 'new_admissions',      name: 'New admissions (date range)',              tier: 'basic',      icon: '🆕' },
-  { id: 'tc_issued',           name: 'Transfer certificates issued',             tier: 'basic',      icon: '📜' },
-  { id: 'certificates_issued', name: 'Certificates issued',                      tier: 'basic',      icon: '📄' },
+  { id: 'gender_distribution', name: 'Gender distribution',                      tier: 'basic',      icon: '👥', params: ['class', 'academicYear'] },
+  { id: 'new_admissions',      name: 'New admissions (date range)',              tier: 'basic',      icon: '🆕', params: ['class', 'academicYear'] },
+  { id: 'tc_issued',           name: 'Transfer certificates issued',             tier: 'basic',      icon: '📜', params: ['class', 'academicYear'] },
+  { id: 'certificates_issued', name: 'Certificates issued',                      tier: 'basic',      icon: '📄', params: ['class', 'academicYear'] },
   { id: 'transport_enrollment',name: 'Transport enrollment by route',            tier: 'standard',   icon: '🚌' },
   { id: 'activities_participation', name: 'Activities & coaching participation', tier: 'standard',   icon: '🎭' },
-  { id: 'hostel_outings_current', name: 'Hostel — students currently out',       tier: 'standard',   icon: '🏠' },
-  { id: 'welfare_eligible',    name: 'Welfare scheme eligible students',          tier: 'standard',   icon: '🌿' },
-  { id: 'admissions_village_category_class', name: 'Admissions by village, category & class', tier: 'standard', icon: '📍' },
-  { id: 'monthly_fee_collection', name: 'Monthly fee collection trend',        tier: 'standard', icon: '📈' },
+  { id: 'hostel_outings_current', name: 'Hostel — students currently out',       tier: 'standard',   icon: '🏠', params: ['class', 'dateRange'] },
+  { id: 'welfare_eligible',    name: 'Welfare scheme eligible students',          tier: 'standard',   icon: '🌿', params: ['class', 'academicYear'] },
+  { id: 'admissions_village_category_class', name: 'Admissions by village, category & class', tier: 'standard', icon: '📍', params: ['academicYear'] },
+  { id: 'monthly_fee_collection', name: 'Monthly fee collection trend',        tier: 'standard', icon: '📈', params: ['class', 'academicYear'] },
   { id: 'pending_corrections',    name: 'Pending correction requests',          tier: 'standard', icon: '📝' },
   { id: 'homework_compliance',    name: 'Homework posting compliance',          tier: 'standard', icon: '📔' },
   { id: 'ptm_engagement',         name: 'PTM booking engagement',               tier: 'standard', icon: '🗓️' },
-  { id: 'caste_gender_filter', name: 'Multi-filter — caste + village + gender',  tier: 'advanced',   icon: '🔍' },
+  { id: 'caste_gender_filter', name: 'Multi-filter — caste + village + gender',  tier: 'advanced',   icon: '🔍', params: ['class', 'caste', 'gender', 'village'] },
   { id: 'udise_format',        name: 'UDISE+ format export',                     tier: 'specialised', icon: '📋' },
 ];
+
+// Indian academic year runs June to May, so "2026-27" means
+// 1 Jun 2026 to 31 May 2027. Six reports need this same range, so it
+// lives here rather than being rewritten in each.
+function academicRange(startYear) {
+  if (!startYear) return null;
+  return { from: `${startYear}-06-01`, to: `${Number(startYear) + 1}-05-31` };
+}
 
 async function runReportQuery(reportId, appId, extraFilters) {
   const today = new Date().toISOString().slice(0, 10);
 
   switch (reportId) {
     case 'daily_attendance': {
-      const { data: appStudents } = await supabase
-        .from('students').select('id').eq('app_id', appId).eq('status', 'active');
-      const ids = (appStudents || []).map((s) => s.id);
-      if (ids.length === 0) return { data: [], columns: ['Name', 'SID', 'Class', 'Status', 'Remarks'] };
+      // Was today-only with every class mixed together. Now a date
+      // range per class: from = to gives a single day's register,
+      // a wider range gives the summary. Same report, both uses.
+      const from = extraFilters?.date_from || today;
+      const to = extraFilters?.date_to || from;
+      const cols = ['S.No', 'Name', 'SID', 'Class', 'Present', 'Absent', 'Days recorded', 'Attendance %', 'Remarks'];
+
+      let sq = supabase
+        .from('students').select('id, full_name, sid, section, classes(class_name)')
+        .eq('app_id', appId).eq('status', 'active');
+      if (extraFilters?.class_id) sq = sq.eq('class_id', extraFilters.class_id);
+      const { data: students, error: sErr } = await sq;
+      if (sErr) { console.error('Report query failed:', sErr); throw sErr; }
+
+      const ids = (students || []).map((s) => s.id);
+      if (ids.length === 0) return { data: [], columns: cols };
+
       const { data, error: qErr } = await supabase
-        .from('attendance')
-        .select('student_id, status, students(full_name, sid, section, classes(class_name))')
-        .eq('date', today)
+        .from('attendance').select('student_id, status')
+        .gte('date', from).lte('date', to)
         .in('student_id', ids);
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Name', 'SID', 'Class', 'Status', 'Remarks'] };
+
+      const tally = {};
+      for (const r of data || []) {
+        if (!tally[r.student_id]) tally[r.student_id] = { total: 0, present: 0 };
+        tally[r.student_id].total += 1;
+        if (r.status === 'P') tally[r.student_id].present += 1;
+      }
+
+      const rows = (students || []).map((s) => {
+        const t = tally[s.id] || { total: 0, present: 0 };
+        return {
+          ...s,
+          present: t.present,
+          absent: t.total - t.present,
+          total: t.total,
+          pct: t.total > 0 ? Math.round((t.present / t.total) * 100) : 0,
+          class: `${s.classes?.class_name || ''}${s.section ? `-${s.section}` : ''}`,
+        };
+      }).sort((a, b) => a.pct - b.pct);
+
+      return { data: rows, columns: cols };
     }
     case 'low_attendance': {
-      const { data: students } = await supabase
-        .from('students').select('id, full_name, sid, classes(class_name)')
-        .eq('app_id', appId).eq('status', 'active');
+      // Every constraint here used to be hardcoded and invisible: the
+      // window was fixed to June of the current year, students with 10
+      // or fewer records were silently skipped, and only the FIRST 100
+      // students were checked at all. That last one was a real
+      // correctness bug — students beyond 100 were never evaluated,
+      // so a genuinely struggling student could be missing from the
+      // report entirely. All three are now explicit parameters, and
+      // the cap is gone.
+      const from = extraFilters?.date_from || `${new Date().getFullYear()}-06-01`;
+      const to = extraFilters?.date_to || new Date().toISOString().slice(0, 10);
+      const minDays = Number(extraFilters?.min_days ?? 10);
+      const limitPct = Number(extraFilters?.threshold ?? 75);
+      const classId = extraFilters?.class_id;
 
-      const yearStart = `${new Date().getFullYear()}-06-01`;
-      const results = [];
-      for (const s of (students || []).slice(0, 100)) {
-        const { count: total }   = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', s.id).gte('date', yearStart);
-        const { count: present } = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', s.id).eq('status', 'P').gte('date', yearStart);
-        const pct = total > 0 ? Math.round(((present || 0) / total) * 100) : 0;
-        if (pct < 75 && total > 10) results.push({ ...s, pct, class: s.classes?.class_name });
+      let sq = supabase
+        .from('students').select('id, full_name, sid, class_id, section, classes(class_name)')
+        .eq('app_id', appId).eq('status', 'active');
+      if (classId) sq = sq.eq('class_id', classId);
+      const { data: students, error: sErr } = await sq;
+      if (sErr) { console.error('Report query failed:', sErr); throw sErr; }
+
+      const ids = (students || []).map((s) => s.id);
+      const cols = ['S.No', 'Name', 'SID', 'Class', 'Days present', 'Days recorded', 'Attendance %', 'Remarks'];
+      if (ids.length === 0) return { data: [], columns: cols };
+
+      // One query for all students instead of two per student — the old
+      // loop fired 200 separate queries for 100 students, which is why
+      // it needed a cap in the first place.
+      const { data: att, error: aErr } = await supabase
+        .from('attendance').select('student_id, status')
+        .in('student_id', ids).gte('date', from).lte('date', to);
+      if (aErr) { console.error('Report query failed:', aErr); throw aErr; }
+
+      const tally = {};
+      for (const r of att || []) {
+        if (!tally[r.student_id]) tally[r.student_id] = { total: 0, present: 0 };
+        tally[r.student_id].total += 1;
+        if (r.status === 'P') tally[r.student_id].present += 1;
       }
-      return { data: results, columns: ['Name', 'SID', 'Class', 'Attendance %', 'Remarks'] };
+
+      const results = [];
+      for (const s of students || []) {
+        const t = tally[s.id];
+        if (!t || t.total < minDays) continue;
+        const pct = Math.round((t.present / t.total) * 100);
+        if (pct < limitPct) {
+          results.push({
+            ...s, pct, present: t.present, total: t.total,
+            class: `${s.classes?.class_name || ''}${s.section ? `-${s.section}` : ''}`,
+          });
+        }
+      }
+      results.sort((a, b) => a.pct - b.pct);
+      return { data: results, columns: cols };
     }
     case 'fee_defaulters': {
-      const { data: appStudents } = await supabase
-        .from('students').select('id').eq('app_id', appId);
+      let stq = supabase.from('students').select('id').eq('app_id', appId);
+      if (extraFilters?.class_id) stq = stq.eq('class_id', extraFilters.class_id);
+      const { data: appStudents } = await stq;
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: ['Name', 'SID', 'Class', 'Fee type', 'Balance', 'Due date', 'Remarks'] };
       // Previously read amount_paid directly from fee_dues — never
@@ -89,11 +171,14 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // was actually collected via FeeCollection.jsx. Now sums the
       // real fee_payments rows per due, same fix already applied to
       // Dashboard.jsx and TransferCertificate.jsx for this identical bug.
-      const { data, error: qErr } = await supabase
+      // Overdue-only used to be hardcoded, so a fee due next month
+      // never appeared — indistinguishable from "nothing owed".
+      let fdQuery = supabase
         .from('fee_dues')
         .select('id, amount_due, fee_type, due_date, fee_payments(amount), students(full_name, sid, parent_phone, classes(class_name))')
-        .lt('due_date', today)
         .in('student_id', ids);
+      if (extraFilters?.overdue_only !== false) fdQuery = fdQuery.lt('due_date', today);
+      const { data, error: qErr } = await fdQuery;
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const withRealPaid = (data || []).map((d) => ({
         ...d,
@@ -103,37 +188,55 @@ async function runReportQuery(reportId, appId, extraFilters) {
       return { data: filtered, columns: ['Name', 'SID', 'Class', 'Fee type', 'Balance', 'Due date', 'Remarks'] };
     }
     case 'class_rank': {
-      const { data: appStudents } = await supabase
-        .from('students').select('id').eq('app_id', appId).eq('status', 'active');
-      const ids = (appStudents || []).map((s) => s.id);
-      if (ids.length === 0) return { data: [], columns: ['Rank', 'Name', 'SID', 'Class', 'Percentage', 'Remarks'] };
+      // Ranked per exam, on the TOTAL across all subjects — which is
+      // how an Indian school rank list actually works. The previous
+      // version pulled every marks row ever recorded and ranked each
+      // subject row separately, so a student with 5 subjects appeared
+      // 5 times, and marks from different exams were mixed together.
+      const classId = extraFilters?.class_id;
+      const examId  = extraFilters?.exam_id;
+      const cols = ['Rank', 'Name', 'SID', 'Subjects', 'Total', 'Percentage', 'Remarks'];
+      if (!classId || !examId) return { data: [], columns: cols };
+
       const { data, error: qErr } = await supabase
         .from('marks')
-        .select('student_id, percentage, students(full_name, sid, class_id, classes(class_name, class_order))')
-        .in('student_id', ids);
+        .select('student_id, total, students(full_name, sid, status)')
+        .eq('exam_id', examId);
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
 
-      // Genuinely rank WITHIN each class — the previous version sorted
-      // everyone school-wide and capped at 100, which silently dropped
-      // entire lower classes from the list whenever other classes'
-      // students dominated that top-100 cutoff, and the row number
-      // shown was a meaningless global position rather than an actual
-      // rank within the student's own class.
-      const byClass = {};
+      // Sum every subject per student for this one exam.
+      const byStudent = {};
       for (const row of data || []) {
-        const classId = row.students?.class_id || 'unknown';
-        if (!byClass[classId]) byClass[classId] = [];
-        byClass[classId].push(row);
+        if (row.students?.status !== 'active') continue;
+        const sid = row.student_id;
+        if (!byStudent[sid]) {
+          byStudent[sid] = { student_id: sid, students: row.students, total: 0, subjects: 0 };
+        }
+        byStudent[sid].total += Number(row.total || 0);
+        byStudent[sid].subjects += 1;
       }
-      const grouped = Object.values(byClass)
-        .sort((a, b) => (a[0]?.students?.classes?.class_order ?? 0) - (b[0]?.students?.classes?.class_order ?? 0))
-        .flatMap((rows) =>
-          rows
-            .sort((a, b) => Number(b.percentage) - Number(a.percentage))
-            .map((row, i) => ({ ...row, class_rank: i + 1 }))
-        );
 
-      return { data: grouped, columns: ['Rank', 'Name', 'SID', 'Class', 'Percentage', 'Remarks'] };
+      // Percentage = total obtained / total maximum, computed once —
+      // NOT an average of per-subject percentages, which only agrees
+      // when every subject carries the same maximum. Each subject is
+      // out of 100 in this system.
+      const rows = Object.values(byStudent).map((r) => ({
+        ...r,
+        percentage: r.subjects > 0 ? Math.round((r.total / (r.subjects * 100)) * 1000) / 10 : 0,
+      }));
+
+      rows.sort((a, b) => b.total - a.total);
+
+      // Dense ranking: equal totals share a rank, and the next distinct
+      // total takes the very next number (1, 1, 1, 1, 2 — not 1, 1, 1, 1, 5).
+      let rank = 0;
+      let lastTotal = null;
+      for (const r of rows) {
+        if (r.total !== lastTotal) { rank += 1; lastTotal = r.total; }
+        r.class_rank = rank;
+      }
+
+      return { data: rows, columns: cols };
     }
     case 'class_strength': {
       const { data: classRows } = await supabase.from('classes').select('id, class_name, class_order').eq('app_id', appId).order('class_order');
@@ -151,60 +254,108 @@ async function runReportQuery(reportId, appId, extraFilters) {
       return { data: rows, columns: ['Class', 'Section', 'Students', 'Remarks'] };
     }
     case 'gender_distribution': {
-      const { data, error: qErr } = await supabase.from('students').select('id, gender').eq('app_id', appId).eq('status', 'active');
+      // Was a single school-wide total. Now broken down per class,
+      // with a Total row — and an academic year filter so previous
+      // years can be looked at, not just the students on roll today.
+      const range = academicRange(extraFilters?.academicYearStart);
+      let q = supabase.from('students')
+        .select('id, gender, class_id, admission_date, classes(class_name, medium)')
+        .eq('app_id', appId);
+      if (extraFilters?.class_id) q = q.eq('class_id', extraFilters.class_id);
+      // Without a year chosen, show who is on roll now. With one,
+      // show everyone admitted during that year regardless of status.
+      if (range) q = q.gte('admission_date', range.from).lte('admission_date', range.to);
+      else q = q.eq('status', 'active');
+      const { data, error: qErr } = await q;
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      const counts = {};
-      (data || []).forEach((s) => { const g = s.gender || 'Unspecified'; counts[g] = (counts[g] || 0) + 1; });
-      const rows = Object.entries(counts).map(([gender, count]) => ({ id: gender, gender, count }));
-      return { data: rows, columns: ['Gender', 'Count', 'Remarks'] };
+
+      const byClass = {};
+      for (const s of data || []) {
+        const key = s.classes?.class_name
+          ? `${s.classes.class_name}${s.classes.medium ? ` · ${s.classes.medium}` : ''}`
+          : 'Unassigned';
+        if (!byClass[key]) byClass[key] = { male: 0, female: 0, other: 0, total: 0 };
+        const g = (s.gender || '').toLowerCase();
+        if (g === 'male') byClass[key].male += 1;
+        else if (g === 'female') byClass[key].female += 1;
+        else byClass[key].other += 1;
+        byClass[key].total += 1;
+      }
+      const rows = Object.entries(byClass)
+        .map(([cls, v]) => ({ id: cls, class: cls, ...v }))
+        .sort((a, b) => a.class.localeCompare(b.class));
+      if (rows.length > 1) {
+        rows.push({
+          id: '__total__', class: 'TOTAL', isTotal: true,
+          male: rows.reduce((s, r) => s + r.male, 0),
+          female: rows.reduce((s, r) => s + r.female, 0),
+          other: rows.reduce((s, r) => s + r.other, 0),
+          total: rows.reduce((s, r) => s + r.total, 0),
+        });
+      }
+      return { data: rows, columns: ['S.No', 'Class', 'Male', 'Female', 'Other', 'Total', 'Remarks'] };
     }
     case 'new_admissions': {
+      // Was a fixed 90-day window with no way to change it, so older
+      // admissions simply couldn't be looked at. Now the academic year
+      // if one is chosen, otherwise the last 90 days as before.
+      const admRange = academicRange(extraFilters?.academicYearStart);
       const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 90); // last 90 days by default
+      cutoff.setDate(cutoff.getDate() - 90);
       // Deliberately NOT filtered by status: this is a historical
       // record of who joined in the period, so a student who has since
       // left still belongs in the count. The Status column below makes
       // it clear at a glance who is still with the school.
-      const { data, error: qErr } = await supabase
+      let naQuery = supabase
         .from('students')
-        .select('id, full_name, sid, admission_date, admission_no, status, classes(class_name)')
+        .select('id, full_name, sid, admission_date, admission_no, status, class_id, classes(class_name)')
         .eq('app_id', appId)
-        .gte('admission_date', cutoff.toISOString().slice(0, 10))
-        .order('admission_date', { ascending: false });
+        .gte('admission_date', admRange ? admRange.from : cutoff.toISOString().slice(0, 10))
+        .lte('admission_date', admRange ? admRange.to : '9999-12-31');
+      if (extraFilters?.class_id) naQuery = naQuery.eq('class_id', extraFilters.class_id);
+      const { data, error: qErr } = await naQuery.order('admission_date', { ascending: false });
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Name', 'SID', 'Admission no', 'Class', 'Admission date', 'Status', 'Remarks'] };
+      return { data: data || [], columns: ['S.No', 'Name', 'SID', 'Admission no', 'Class', 'Admission date', 'Status', 'Remarks'] };
     }
     case 'tc_issued': {
-      const { data: appStudents } = await supabase.from('students').select('id').eq('app_id', appId);
+      let stQ = supabase.from('students').select('id').eq('app_id', appId);
+      if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
+      const { data: appStudents } = await stQ;
+      const tcRange = academicRange(extraFilters?.academicYearStart);
       const ids = (appStudents || []).map((s) => s.id);
-      if (ids.length === 0) return { data: [], columns: ['Name', 'TC no', 'Reason', 'Date of leaving', 'Remarks'] };
+      if (ids.length === 0) return { data: [], columns: ['S.No', 'Name', 'TC no', 'Reason', 'Date of leaving', 'Remarks'] };
       // reason_leaving/date_of_leaving were never real columns — this
       // exact mismatch was already found and fixed in
       // TransferCertificate.jsx itself; this report had the identical
       // stale field names and has likely been failing outright every
       // time it ran, since these columns don't exist to select at all.
-      const { data, error } = await supabase
+      let tcQ = supabase
         .from('transfer_certificates')
-        .select('id, tc_no, reason, issue_date, students(full_name, sid)')
-        .in('student_id', ids)
-        .order('issue_date', { ascending: false });
+        .select('id, tc_no, reason, issue_date, students(full_name, sid, classes(class_name))')
+        .in('student_id', ids);
+      if (tcRange) tcQ = tcQ.gte('issue_date', tcRange.from).lte('issue_date', tcRange.to);
+      const { data, error } = await tcQ.order('issue_date', { ascending: false });
       if (error) { console.error('tc_issued report failed:', error); throw error; }
-      return { data: data || [], columns: ['Name', 'TC no', 'Reason', 'Date of leaving', 'Remarks'] };
+      return { data: data || [], columns: ['S.No', 'Name', 'TC no', 'Reason', 'Date of leaving', 'Remarks'] };
     }
     case 'certificates_issued': {
-      const { data: appStudents } = await supabase.from('students').select('id').eq('app_id', appId);
+      let stQ = supabase.from('students').select('id').eq('app_id', appId);
+      if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
+      const { data: appStudents } = await stQ;
+      const certRange = academicRange(extraFilters?.academicYearStart);
       const ids = (appStudents || []).map((s) => s.id);
-      if (ids.length === 0) return { data: [], columns: ['Name', 'Certificate type', 'Cert no', 'Issued', 'Remarks'] };
+      if (ids.length === 0) return { data: [], columns: ['S.No', 'Name', 'Certificate type', 'Cert no', 'Issued', 'Remarks'] };
       // issued_at was never a real column — the real column is
       // issue_date (a date, not a timestamp). Same mismatch already
       // found and fixed in Certificates.jsx itself.
-      const { data, error } = await supabase
+      let certQ = supabase
         .from('certificates')
-        .select('id, cert_type, cert_no, issue_date, students(full_name, sid)')
-        .in('student_id', ids)
-        .order('issue_date', { ascending: false });
+        .select('id, cert_type, cert_no, issue_date, students(full_name, sid, classes(class_name))')
+        .in('student_id', ids);
+      if (certRange) certQ = certQ.gte('issue_date', certRange.from).lte('issue_date', certRange.to);
+      const { data, error } = await certQ.order('issue_date', { ascending: false });
       if (error) { console.error('certificates_issued report failed:', error); throw error; }
-      return { data: data || [], columns: ['Name', 'Certificate type', 'Cert no', 'Issued', 'Remarks'] };
+      return { data: data || [], columns: ['S.No', 'Name', 'Certificate type', 'Cert no', 'Issued', 'Remarks'] };
     }
     case 'transport_enrollment': {
       const { data: routes } = await supabase.from('transport_routes').select('id, route_no, driver_name, vehicle_no').eq('app_id', appId);
@@ -229,27 +380,42 @@ async function runReportQuery(reportId, appId, extraFilters) {
       return { data: rows, columns: ['Activity', 'Type', 'Date', 'Participants', 'Remarks'] };
     }
     case 'hostel_outings_current': {
-      const { data: appStudents } = await supabase.from('students').select('id').eq('app_id', appId);
+      // Was currently-out only, with no date filter — so there was no
+      // way to review a past day or month. A date range now shows the
+      // outings in that window whatever their status; with no range
+      // chosen it still shows who is out right now.
+      const cols = ['S.No', 'Name', 'SID', 'Class', 'Reason', 'Out since', 'Expected return', 'Status', 'Remarks'];
+      let stQ = supabase.from('students').select('id').eq('app_id', appId);
+      if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
+      const { data: appStudents } = await stQ;
       const ids = (appStudents || []).map((s) => s.id);
-      if (ids.length === 0) return { data: [], columns: ['Name', 'SID', 'Reason', 'Out since', 'Expected return', 'Remarks'] };
-      const { data, error: qErr } = await supabase
+      if (ids.length === 0) return { data: [], columns: cols };
+
+      let hoQ = supabase
         .from('hostel_outings')
-        .select('id, reason, out_date, out_time, return_expected, students(full_name, sid)')
-        .in('student_id', ids)
-        .eq('status', 'out')
-        .order('out_date', { ascending: false });
+        .select('id, reason, out_date, out_time, return_expected, status, students(full_name, sid, classes(class_name))')
+        .in('student_id', ids);
+      if (extraFilters?.date_from) hoQ = hoQ.gte('out_date', extraFilters.date_from).lte('out_date', extraFilters.date_to);
+      else hoQ = hoQ.eq('status', 'out');
+      const { data, error: qErr } = await hoQ.order('out_date', { ascending: false });
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Name', 'SID', 'Reason', 'Out since', 'Expected return', 'Remarks'] };
+      return { data: data || [], columns: cols };
     }
     case 'welfare_eligible': {
-      const { data, error: qErr } = await supabase
+      const weRange = academicRange(extraFilters?.academicYearStart);
+      let weQ = supabase
         .from('students')
-        .select('id, full_name, sid, caste_category, classes(class_name)')
+        .select('id, full_name, sid, caste_category, admission_date, classes(class_name)')
         .eq('app_id', appId)
-        .eq('status', 'active')
         .in('caste_category', ['SC', 'ST', 'BC-A', 'BC-B', 'BC-C', 'BC-D', 'BC-E', 'EWS']);
+      if (extraFilters?.class_id) weQ = weQ.eq('class_id', extraFilters.class_id);
+      // A past year means everyone admitted then; no year means who is
+      // on roll now.
+      if (weRange) weQ = weQ.gte('admission_date', weRange.from).lte('admission_date', weRange.to);
+      else weQ = weQ.eq('status', 'active');
+      const { data, error: qErr } = await weQ;
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Name', 'SID', 'Class', 'Category', 'Remarks'] };
+      return { data: data || [], columns: ['S.No', 'Name', 'SID', 'Class', 'Category', 'Remarks'] };
     }
     case 'admissions_village_category_class': {
       const startYear = extraFilters?.academicYearStart;
@@ -282,22 +448,49 @@ async function runReportQuery(reportId, appId, extraFilters) {
       return { data: rows, columns: ['Village', 'Category', 'Class', 'Count', 'Remarks'] };
     }
     case 'monthly_fee_collection': {
-      const { data: appStudents } = await supabase.from('students').select('id').eq('app_id', appId);
-      const dueIds = (appStudents || []).length
-        ? (await supabase.from('fee_dues').select('id').in('student_id', (appStudents || []).map((s) => s.id))).data || []
-        : [];
-      const dueIdList = dueIds.map((d) => d.id);
-      if (dueIdList.length === 0) return { data: [], columns: ['Month', 'Total collected', 'Remarks'] };
-      const { data, error: qErr } = await supabase.from('fee_payments').select('amount, paid_at').in('due_id', dueIdList);
+      // Was one lump figure per month across the whole school. Now
+      // filterable by class and academic year, and each month also
+      // shows how many payments made it up — a bare total doesn't say
+      // whether it came from 2 families or 40.
+      const mfRange = academicRange(extraFilters?.academicYearStart);
+      const cols = ['S.No', 'Month', 'Payments', 'Total collected', 'Remarks'];
+
+      let stQ = supabase.from('students').select('id').eq('app_id', appId);
+      if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
+      const { data: appStudents } = await stQ;
+      const sIds = (appStudents || []).map((s) => s.id);
+      if (sIds.length === 0) return { data: [], columns: cols };
+
+      const { data: dueRows } = await supabase.from('fee_dues').select('id').in('student_id', sIds);
+      const dueIdList = (dueRows || []).map((d) => d.id);
+      if (dueIdList.length === 0) return { data: [], columns: cols };
+
+      let fpQ = supabase.from('fee_payments').select('amount, paid_at').in('due_id', dueIdList);
+      if (mfRange) fpQ = fpQ.gte('paid_at', mfRange.from).lte('paid_at', `${mfRange.to}T23:59:59`);
+      const { data, error: qErr } = await fpQ;
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+
       const byMonth = {};
       (data || []).forEach((p) => {
-        const month = new Date(p.paid_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-        byMonth[month] = (byMonth[month] || 0) + Number(p.amount || 0);
+        const d = new Date(p.paid_at);
+        // Sort key keeps chronological order; the label is what prints.
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+        if (!byMonth[key]) byMonth[key] = { month: label, total: 0, count: 0 };
+        byMonth[key].total += Number(p.amount || 0);
+        byMonth[key].count += 1;
       });
-      const rows = Object.entries(byMonth).map(([month, total]) => ({ id: month, month, total }))
-        .sort((a, b) => new Date(a.month) - new Date(b.month));
-      return { data: rows, columns: ['Month', 'Total collected', 'Remarks'] };
+      const rows = Object.entries(byMonth)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([key, v]) => ({ id: key, ...v }));
+      if (rows.length > 1) {
+        rows.push({
+          id: '__total__', month: 'TOTAL', isTotal: true,
+          count: rows.reduce((s, r) => s + r.count, 0),
+          total: rows.reduce((s, r) => s + r.total, 0),
+        });
+      }
+      return { data: rows, columns: cols };
     }
     case 'pending_corrections': {
       // created_at was never a real column on correction_requests —
@@ -326,7 +519,7 @@ async function runReportQuery(reportId, appId, extraFilters) {
         const cls = (classRows || []).find((c) => c.id === classId);
         return { id: key, class_name: cls?.class_name || 'Unknown', section, posted: postedSet.has(key) };
       }).sort((a, b) => a.class_name.localeCompare(b.class_name) || a.section.localeCompare(b.section));
-      return { data: rows, columns: ['Class', 'Section', 'Homework posted (last 7 days)', 'Remarks'] };
+      return { data: rows, columns: ['S.No', 'Class', 'Section', 'Homework posted (last 7 days)', 'Remarks'] };
     }
     case 'ptm_engagement': {
       const { data: sessions } = await supabase.from('ptm_sessions').select('id, title, session_date').eq('app_id', appId).order('session_date', { ascending: false });
@@ -351,6 +544,7 @@ async function runReportQuery(reportId, appId, extraFilters) {
       if (filters.caste_category) query = query.eq('caste_category', filters.caste_category);
       if (filters.gender) query = query.eq('gender', filters.gender);
       if (filters.village_id) query = query.eq('village_id', filters.village_id);
+      if (filters.class_id) query = query.eq('class_id', filters.class_id);
       const { data } = await query;
       return { data: data || [], columns: ['Name', 'SID', 'Class', 'Category', 'Gender', 'Village', 'Remarks'] };
     }
@@ -365,12 +559,26 @@ export function ReportEngine({ userTier = 'basic' }) {
   const [result, setResult]     = useState(null);
   const [error, setError]       = useState('');
 
-  // caste_gender_filter needs real inputs before it can run — every
-  // other report runs immediately with zero params, so this is a
-  // deliberate one-off case rather than a redesign of the whole
-  // interaction model.
+  // Reusable parameter system: a report declares what it needs via
+  // `params` in REPORT_CATALOG, and one generic panel renders the
+  // matching controls. Previously each report needing inputs had its
+  // own hardcoded panel and its own entry in a hardcoded if-check,
+  // which meant adding a filter to any other report required
+  // duplicating the whole panel again.
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [filterPanelFor, setFilterPanelFor] = useState(null);
+  const [paramClasses, setParamClasses] = useState([]);
+  const [paramExams, setParamExams] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const [selectedExamId, setSelectedExamId] = useState('');
+  // Date range defaults to the current academic year (June onwards) —
+  // the same window the attendance report used to hardcode invisibly.
+  const academicStart = `${new Date().getMonth() >= 5 ? new Date().getFullYear() : new Date().getFullYear() - 1}-06-01`;
+  const [dateFrom, setDateFrom] = useState(academicStart);
+  const [dateTo, setDateTo] = useState(new Date().toISOString().slice(0, 10));
+  const [minDays, setMinDays] = useState('10');
+  const [threshold, setThreshold] = useState('75');
+  const [overdueOnly, setOverdueOnly] = useState(true);
   const [casteFilter, setCasteFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [academicYearStart, setAcademicYearStart] = useState(String(new Date().getFullYear() - (new Date().getMonth() < 5 ? 1 : 0)));
@@ -386,14 +594,123 @@ export function ReportEngine({ userTier = 'basic' }) {
     setVillageFilterResults(data || []);
   }
 
+  // Classes load once when a class-parameter report is opened.
+  async function loadParamClasses() {
+    const { data, error } = await supabase
+      .from('classes').select('id, class_name, class_order, medium')
+      .eq('app_id', tenant.appId).order('class_order');
+    if (error) { console.error('Loading classes failed:', error); return; }
+    setParamClasses(data || []);
+  }
+
+  // Exams cascade off the chosen class — confirmed real schema: every
+  // exams row carries its own class_id, so "Exam-1" exists separately
+  // per class rather than school-wide.
+  async function loadParamExams(classId) {
+    setSelectedExamId('');
+    if (!classId) { setParamExams([]); return; }
+    const { data, error } = await supabase
+      .from('exams').select('id, exam_name, academic_year, start_date')
+      .eq('app_id', tenant.appId).eq('class_id', classId)
+      .order('start_date', { ascending: false });
+    if (error) { console.error('Loading exams failed:', error); return; }
+    setParamExams(data || []);
+  }
+
+  // Collects whatever the open panel's report declared it needs.
+  function collectParams(report) {
+    const p = report.params || [];
+    const out = {};
+    if (p.includes('class')) out.class_id = selectedClassId;
+    if (p.includes('exam')) out.exam_id = selectedExamId;
+    if (p.includes('academicYear')) out.academicYearStart = academicYearStart;
+    if (p.includes('caste')) out.caste_category = casteFilter;
+    if (p.includes('gender')) out.gender = genderFilter;
+    if (p.includes('village')) out.village_id = villageFilterId;
+    if (p.includes('dateRange')) { out.date_from = dateFrom; out.date_to = dateTo; }
+    if (p.includes('minDays')) out.min_days = Number(minDays) || 0;
+    if (p.includes('threshold')) out.threshold = Number(threshold) || 75;
+    if (p.includes('overdueOnly')) out.overdue_only = overdueOnly;
+    return out;
+  }
+
+  // Class-wise totals shown ABOVE the detail rows. A principal reads
+  // the headline first ("4 in Class 2-A") and the names second, and on
+  // a printed page both need to be present — a toggle would lose one.
+  function buildSummary(report, rows) {
+    const SUMMARISED = ['low_attendance', 'fee_defaulters', 'caste_gender_filter', 'welfare_eligible'];
+    if (!SUMMARISED.includes(report.id) || !rows?.length) return null;
+    const counts = {};
+    for (const r of rows) {
+      const key = r.class
+        || r.classes?.class_name
+        || r.students?.classes?.class_name
+        || 'Unassigned';
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }
+
+  // Turns the chosen parameters into a readable line shown in the
+  // report header — on screen AND in print. Without it a printed rank
+  // list doesn't say which class or exam it covers, which makes the
+  // document ambiguous once it's filed. Driven by the report's own
+  // `params`, so any report given a filter later gets its label for
+  // free. "All" values are shown explicitly rather than omitted:
+  // silence can't be told apart from a filter someone forgot to set.
+  function buildFilterLabel(report, params) {
+    const p = report.params || [];
+    const parts = [];
+    if (p.includes('class')) {
+      const cl = paramClasses.find((x) => x.id === params.class_id);
+      if (cl) parts.push(`${cl.class_name}${cl.medium ? ` · ${cl.medium}` : ''}`);
+    }
+    if (p.includes('exam')) {
+      const ex = paramExams.find((x) => x.id === params.exam_id);
+      if (ex) parts.push(`${ex.exam_name}${ex.start_date ? ` (${ex.start_date})` : ''}`);
+    }
+    if (p.includes('academicYear') && params.academicYearStart) {
+      const y = Number(params.academicYearStart);
+      parts.push(`Academic year ${y}-${String(y + 1).slice(-2)}`);
+    }
+    if (p.includes('caste')) parts.push(params.caste_category || 'All categories');
+    if (p.includes('gender')) parts.push(params.gender || 'All genders');
+    if (p.includes('village')) parts.push(params.village_id ? (villageFilterDisplay || 'Selected village') : 'All villages');
+    if (p.includes('dateRange') && params.date_from) parts.push(`${params.date_from} to ${params.date_to}`);
+    if (p.includes('threshold')) parts.push(`below ${params.threshold}%`);
+    if (p.includes('minDays')) parts.push(`min ${params.min_days} days recorded`);
+    if (p.includes('overdueOnly')) parts.push(params.overdue_only ? 'Overdue only' : 'All unpaid dues');
+    return parts.join('  •  ');
+  }
+
+  // A report can't run until every parameter it marks as required has
+  // a value — otherwise it silently returns an empty table, which
+  // reads as "no data" rather than "you haven't chosen yet".
+  function paramsReady(report) {
+    const p = report.params || [];
+    if (p.includes('class') && !selectedClassId) return false;
+    if (p.includes('exam') && !selectedExamId) return false;
+    return true;
+  }
+
   async function runReport(report, extraFilters) {
     if (!canAccess(userTier, report.tier)) {
       setError(`This report needs the "${report.tier}" plan or higher — your current plan doesn't include it.`);
       return;
     }
-    if ((report.id === 'caste_gender_filter' || report.id === 'admissions_village_category_class') && !extraFilters) {
+    // Any report that declares `params` opens the panel first, rather
+    // than a hardcoded list of report ids.
+    if (report.params?.length && !extraFilters) {
       setFilterPanelFor(report.id);
       setShowFilterPanel(true);
+      setResult(null);
+      setError('');
+      if (report.params.includes('class')) {
+        setSelectedClassId('');
+        setSelectedExamId('');
+        setParamExams([]);
+        loadParamClasses();
+      }
       return;
     }
     setShowFilterPanel(false);
@@ -402,7 +719,12 @@ export function ReportEngine({ userTier = 'basic' }) {
     setError('');
     try {
       const res = await runReportQuery(report.id, tenant.appId, extraFilters);
-      setResult({ report, ...res, generatedAt: new Date().toLocaleString('en-IN') });
+      setResult({
+        report,
+        ...res,
+        filterLabel: extraFilters ? buildFilterLabel(report, extraFilters) : '',
+        generatedAt: new Date().toLocaleString('en-IN'),
+      });
 
       // Log to report_history
       await supabase.from('report_history').insert({
@@ -484,86 +806,186 @@ export function ReportEngine({ userTier = 'basic' }) {
         {/* Filter panel — shown before running whichever report needs
             real inputs first, unlike every other report here which
             runs immediately */}
-        {showFilterPanel && filterPanelFor === 'caste_gender_filter' && (
-          <div className="no-print" style={{ ...S.card, border: '1px solid rgba(232,160,32,0.3)' }}>
-            <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>Multi-filter — caste + village + gender</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-              <div>
-                <label htmlFor="reports-caste-filter" style={S.label}>Caste category</label>
-                <select id="reports-caste-filter" name="reports-caste-filter" value={casteFilter} onChange={(e) => setCasteFilter(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
-                  <option value="">All categories</option>
-                  {FILTER_CASTE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="reports-gender-filter" style={S.label}>Gender</label>
-                <select id="reports-gender-filter" name="reports-gender-filter" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
-                  <option value="">All genders</option>
-                  {FILTER_GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <label style={S.label}>Village (optional)</label>
-              {villageFilterDisplay ? (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 8 }}>
-                  <span style={{ fontSize: 13, color: '#fff' }}>{villageFilterDisplay}</span>
-                  <button onClick={() => { setVillageFilterId(''); setVillageFilterDisplay(''); }}
-                    style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'rgba(255,255,255,0.5)', padding: '3px 8px', fontSize: 11, cursor: 'pointer' }}>
-                    Clear
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <input id="reports-village-filter-query" name="reports-village-filter-query" value={villageFilterQuery} onChange={(e) => searchVillageFilter(e.target.value)} placeholder="Search village name..." style={S.input} />
-                  {villageFilterResults.map((v) => (
-                    <div key={v.id} onClick={() => { setVillageFilterId(v.id); setVillageFilterDisplay(`${v.name}${v.mandals?.name ? ` (${v.mandals.name})` : ''}`); setVillageFilterQuery(''); setVillageFilterResults([]); }}
-                      style={{ padding: '7px 10px', cursor: 'pointer', fontSize: 12, color: '#fff', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                      {v.name}{v.mandals?.name ? <span style={{ color: 'rgba(255,255,255,0.4)' }}> · {v.mandals.name}</span> : ''}
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setShowFilterPanel(false)}
-                style={{ flex: 1, padding: 10, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
-                Cancel
-              </button>
-              <button onClick={() => runReport(REPORT_CATALOG.find((r) => r.id === 'caste_gender_filter'), { caste_category: casteFilter, gender: genderFilter, village_id: villageFilterId })}
-                style={{ flex: 2, padding: 10, border: 'none', borderRadius: 8, background: '#E8A020', color: '#111113', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
-                Run filtered report →
-              </button>
-            </div>
-          </div>
-        )}
+        {/* ONE generic parameter panel for every report that declares
+            `params`. Renders only the controls that report asks for,
+            so adding a filter to another report is a catalog change
+            rather than another copy of this markup. */}
+        {showFilterPanel && (() => {
+          const report = REPORT_CATALOG.find((r) => r.id === filterPanelFor);
+          if (!report) return null;
+          const p = report.params || [];
+          const ready = paramsReady(report);
+          return (
+            <div className="no-print" style={{ ...S.card, border: '1px solid rgba(232,160,32,0.3)' }}>
+              <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 14 }}>{report.name}</p>
 
-        {showFilterPanel && filterPanelFor === 'admissions_village_category_class' && (
-          <div className="no-print" style={{ ...S.card, border: '1px solid rgba(232,160,32,0.3)' }}>
-            <p style={{ fontSize: 12, color: '#E8A020', fontWeight: 600, marginBottom: 4 }}>Admissions by village, category & class</p>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 14 }}>
-              Academic year treated as an admission-date range — June through the following May.
-            </p>
-            <div style={{ marginBottom: 16 }}>
-              <label htmlFor="reports-academic-year-start" style={S.label}>Academic year starting</label>
-              <select id="reports-academic-year-start" name="reports-academic-year-start" value={academicYearStart} onChange={(e) => setAcademicYearStart(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
-                {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((y) => (
-                  <option key={y} value={y}>{y}-{String(y + 1).slice(-2)} (June {y} – May {y + 1})</option>
-                ))}
-              </select>
+              {p.includes('class') && (
+                <div style={{ marginBottom: 14 }}>
+                  <label htmlFor="reports-param-class" style={S.label}>Class *</label>
+                  <select id="reports-param-class" name="reports-param-class" value={selectedClassId}
+                    onChange={(e) => { setSelectedClassId(e.target.value); loadParamExams(e.target.value); }}
+                    style={{ ...S.input, cursor: 'pointer' }}>
+                    <option value="">-- Select class --</option>
+                    {/* Medium shown because a bilingual school legitimately has two
+                        classes with the same name — e.g. "Class 2" exists as both
+                        English Medium and Telugu Medium, each with its own students
+                        and exams. Without the medium they are indistinguishable in
+                        the dropdown. */}
+                    {paramClasses.map((cl) => (
+                      <option key={cl.id} value={cl.id}>
+                        {cl.class_name}{cl.medium ? ` · ${cl.medium}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {p.includes('exam') && (
+                <div style={{ marginBottom: 14 }}>
+                  <label htmlFor="reports-param-exam" style={S.label}>Exam *</label>
+                  <select id="reports-param-exam" name="reports-param-exam" value={selectedExamId}
+                    onChange={(e) => setSelectedExamId(e.target.value)}
+                    disabled={!selectedClassId}
+                    style={{ ...S.input, cursor: selectedClassId ? 'pointer' : 'not-allowed', opacity: selectedClassId ? 1 : 0.5 }}>
+                    <option value="">{selectedClassId ? '-- Select exam --' : 'Choose a class first'}</option>
+                    {paramExams.map((ex) => (
+                      <option key={ex.id} value={ex.id}>
+                        {ex.exam_name}{ex.start_date ? ` · ${ex.start_date}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedClassId && paramExams.length === 0 && (
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>
+                      No exams recorded for this class yet.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {p.includes('academicYear') && (
+                <div style={{ marginBottom: 14 }}>
+                  <label htmlFor="reports-academic-year-start" style={S.label}>Academic year starting</label>
+                  <select id="reports-academic-year-start" name="reports-academic-year-start" value={academicYearStart}
+                    onChange={(e) => setAcademicYearStart(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
+                    {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                      <option key={y} value={y}>{y}-{String(y + 1).slice(-2)} (June {y} – May {y + 1})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {p.includes('dateRange') && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <label htmlFor="reports-date-from" style={S.label}>From</label>
+                    <input id="reports-date-from" name="reports-date-from" type="date" value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)} style={S.input} />
+                  </div>
+                  <div>
+                    <label htmlFor="reports-date-to" style={S.label}>To</label>
+                    <input id="reports-date-to" name="reports-date-to" type="date" value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)} style={S.input} />
+                  </div>
+                </div>
+              )}
+
+              {(p.includes('threshold') || p.includes('minDays')) && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                  {p.includes('threshold') && (
+                    <div>
+                      <label htmlFor="reports-threshold" style={S.label}>Below (%)</label>
+                      <input id="reports-threshold" name="reports-threshold" inputMode="numeric" value={threshold}
+                        onChange={(e) => setThreshold(e.target.value.replace(/\D/g, '').slice(0, 3))} style={S.input} />
+                    </div>
+                  )}
+                  {p.includes('minDays') && (
+                    <div>
+                      {/* Stops a student with 2 records being flagged at 50%.
+                          Was hardcoded at 10 and invisible, which made an
+                          empty report impossible to explain. */}
+                      <label htmlFor="reports-min-days" style={S.label}>Min days recorded</label>
+                      <input id="reports-min-days" name="reports-min-days" inputMode="numeric" value={minDays}
+                        onChange={(e) => setMinDays(e.target.value.replace(/\D/g, '').slice(0, 3))} style={S.input} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {p.includes('overdueOnly') && (
+                <div style={{ marginBottom: 14 }}>
+                  <label htmlFor="reports-overdue-only" style={S.label}>Which dues</label>
+                  <select id="reports-overdue-only" name="reports-overdue-only" value={overdueOnly ? 'yes' : 'no'}
+                    onChange={(e) => setOverdueOnly(e.target.value === 'yes')} style={{ ...S.input, cursor: 'pointer' }}>
+                    <option value="yes">Overdue only (past due date)</option>
+                    <option value="no">All unpaid dues</option>
+                  </select>
+                </div>
+              )}
+
+              {(p.includes('caste') || p.includes('gender')) && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                  {p.includes('caste') && (
+                    <div>
+                      <label htmlFor="reports-caste-filter" style={S.label}>Caste category</label>
+                      <select id="reports-caste-filter" name="reports-caste-filter" value={casteFilter}
+                        onChange={(e) => setCasteFilter(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
+                        <option value="">All categories</option>
+                        {FILTER_CASTE_CATEGORIES.map((x) => <option key={x} value={x}>{x}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {p.includes('gender') && (
+                    <div>
+                      <label htmlFor="reports-gender-filter" style={S.label}>Gender</label>
+                      <select id="reports-gender-filter" name="reports-gender-filter" value={genderFilter}
+                        onChange={(e) => setGenderFilter(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
+                        <option value="">All genders</option>
+                        {FILTER_GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {p.includes('village') && (
+                <div style={{ marginBottom: 14 }}>
+                  <label style={S.label}>Village (optional)</label>
+                  {villageFilterDisplay ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 8 }}>
+                      <span style={{ fontSize: 13, color: '#fff' }}>{villageFilterDisplay}</span>
+                      <button onClick={() => { setVillageFilterId(''); setVillageFilterDisplay(''); }}
+                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'rgba(255,255,255,0.5)', padding: '3px 8px', fontSize: 11, cursor: 'pointer' }}>
+                        Clear
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <input id="reports-village-filter-query" name="reports-village-filter-query" value={villageFilterQuery}
+                        onChange={(e) => searchVillageFilter(e.target.value)} placeholder="Search village name..." style={S.input} />
+                      {villageFilterResults.map((v) => (
+                        <div key={v.id} onClick={() => { setVillageFilterId(v.id); setVillageFilterDisplay(`${v.name}${v.mandals?.name ? ` (${v.mandals.name})` : ''}`); setVillageFilterQuery(''); setVillageFilterResults([]); }}
+                          style={{ padding: '7px 10px', cursor: 'pointer', fontSize: 12, color: '#fff', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                          {v.name}{v.mandals?.name ? <span style={{ color: 'rgba(255,255,255,0.4)' }}> · {v.mandals.name}</span> : ''}
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setShowFilterPanel(false)}
+                  style={{ flex: 1, padding: 10, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                  Cancel
+                </button>
+                <button onClick={() => runReport(report, collectParams(report))} disabled={!ready}
+                  style={{ flex: 2, padding: 10, border: 'none', borderRadius: 8, background: ready ? '#E8A020' : 'rgba(255,255,255,0.08)', color: ready ? '#111113' : 'rgba(255,255,255,0.3)', cursor: ready ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
+                  Run report →
+                </button>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setShowFilterPanel(false)}
-                style={{ flex: 1, padding: 10, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
-                Cancel
-              </button>
-              <button onClick={() => runReport(REPORT_CATALOG.find((r) => r.id === 'admissions_village_category_class'), { academicYearStart })}
-                style={{ flex: 2, padding: 10, border: 'none', borderRadius: 8, background: '#E8A020', color: '#111113', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
-                Run report →
-              </button>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Report result */}
         {result && (
@@ -573,6 +995,11 @@ export function ReportEngine({ userTier = 'basic' }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{result.report.name}</p>
+                {result.filterLabel && (
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: '#E8A020', fontWeight: 600 }}>
+                    {result.filterLabel}
+                  </p>
+                )}
                 <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
                   {result.data.length} records · Generated {result.generatedAt}
                 </p>
@@ -591,6 +1018,20 @@ export function ReportEngine({ userTier = 'basic' }) {
               </p>
             ) : (
               <div className="report-table-wrap" style={{ overflowX: 'auto' }}>
+                {(() => {
+                  const summary = buildSummary(result.report, result.data);
+                  if (!summary) return null;
+                  return (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      {summary.map(([label, n]) => (
+                        <div key={label} style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.2)', borderRadius: 8, padding: '6px 12px' }}>
+                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{label}: </span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#E8A020' }}>{n}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
@@ -604,18 +1045,28 @@ export function ReportEngine({ userTier = 'basic' }) {
                       <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                         {result.report.id === 'daily_attendance' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.students?.full_name}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.students?.sid}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.students?.classes?.class_name}</td>
-                            <td style={{ padding: '8px 0', color: row.status === 'A' ? '#E05A5A' : '#6AAA90', fontWeight: 600 }}>{row.status === 'P' ? 'Present' : row.status === 'A' ? 'Absent' : row.status}</td>
-                            <td style={{ padding: '8px 8px' }}><ReportRemark reportId="daily_attendance" rowKey={row.student_id} /></td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.full_name}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.sid}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.class}</td>
+                            <td style={{ padding: '8px 8px', color: '#6AAA90' }}>{row.present}</td>
+                            <td style={{ padding: '8px 8px', color: row.absent > 0 ? '#E05A5A' : 'rgba(255,255,255,0.4)' }}>{row.absent}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.total}</td>
+                            <td style={{ padding: '8px 0', color: row.pct < 75 ? '#E05A5A' : '#6AAA90', fontWeight: 600 }}>{row.total > 0 ? `${row.pct}%` : '—'}</td>
+                            <td style={{ padding: '8px 8px' }}><ReportRemark reportId="daily_attendance" rowKey={row.id} /></td>
                           </>
                         )}
                         {result.report.id === 'low_attendance' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.full_name}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.sid}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.class}</td>
+                            {/* Present/recorded shown so the percentage can be
+                                checked — "62%" alone doesn't say whether it's
+                                5 of 8 days or 50 of 80. */}
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.present}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.total}</td>
                             <td style={{ padding: '8px 0', color: '#E05A5A', fontWeight: 600 }}>{row.pct}%</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="low_attendance" rowKey={row.id} /></td>
                           </>
@@ -636,7 +1087,12 @@ export function ReportEngine({ userTier = 'basic' }) {
                             <td style={{ padding: '8px 0', color: '#E8A020', fontWeight: 700 }}>#{row.class_rank}</td>
                             <td style={{ padding: '8px 8px', color: '#fff' }}>{row.students?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.students?.sid}</td>
-                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.students?.classes?.class_name}</td>
+                            {/* Class column dropped — every row is already the
+                                same class, since the report is now run per
+                                class. Subjects and Total shown instead, so the
+                                percentage can be checked at a glance. */}
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.subjects}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.6)' }}>{row.total} / {row.subjects * 100}</td>
                             <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: 600 }}>{row.percentage}%</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="class_rank" rowKey={row.student_id} /></td>
                           </>
@@ -651,13 +1107,22 @@ export function ReportEngine({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'gender_distribution' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.gender}</td>
-                            <td style={{ padding: '8px 0', color: '#5A9ADF', fontWeight: 600 }}>{row.count}</td>
-                            <td style={{ padding: '8px 8px' }}><ReportRemark reportId="gender_distribution" rowKey={row.id} /></td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{row.isTotal ? '' : i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff', fontWeight: row.isTotal ? 700 : 400 }}>{row.class}</td>
+                            <td style={{ padding: '8px 8px', color: '#5A9ADF', fontWeight: row.isTotal ? 700 : 400 }}>{row.male}</td>
+                            <td style={{ padding: '8px 8px', color: '#E8A020', fontWeight: row.isTotal ? 700 : 400 }}>{row.female}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)', fontWeight: row.isTotal ? 700 : 400 }}>{row.other}</td>
+                            <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: 700 }}>{row.total}</td>
+                            <td style={{ padding: '8px 8px' }}>{row.isTotal ? null : <ReportRemark reportId="gender_distribution" rowKey={row.id} />}</td>
                           </>
                         )}
                         {result.report.id === 'new_admissions' && (
                           <>
+                            {/* S.No — a school register is normally numbered,
+                                and a printed list without it is hard to refer
+                                to ("row 7" in a phone call). Uses the render
+                                index, so it follows the report's own sort. */}
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.sid}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.admission_no}</td>
@@ -679,6 +1144,7 @@ export function ReportEngine({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'tc_issued' && (
                           <>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.students?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.tc_no}</td>
                             {/* Query selects `reason` and `issue_date` — the real
@@ -692,6 +1158,7 @@ export function ReportEngine({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'certificates_issued' && (
                           <>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.students?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: '#E8A020' }}>{row.cert_type}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.cert_no}</td>
@@ -722,16 +1189,20 @@ export function ReportEngine({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'hostel_outings_current' && (
                           <>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.students?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.students?.sid}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.students?.classes?.class_name || '—'}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.reason}</td>
                             <td style={{ padding: '8px 8px', color: '#E8A020' }}>{row.out_date} {row.out_time}</td>
                             <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{row.return_expected}</td>
+                            <td style={{ padding: '8px 8px', color: row.status === 'out' ? '#E05A5A' : '#6AAA90', fontWeight: 600 }}>{row.status === 'out' ? 'Out' : 'Returned'}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="hostel_outings_current" rowKey={row.id} /></td>
                           </>
                         )}
                         {result.report.id === 'welfare_eligible' && (
                           <>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.sid}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.classes?.class_name}</td>
@@ -741,9 +1212,11 @@ export function ReportEngine({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'monthly_fee_collection' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.month}</td>
-                            <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: 600 }}>₹{row.total.toLocaleString('en-IN')}</td>
-                            <td style={{ padding: '8px 8px' }}><ReportRemark reportId="monthly_fee_collection" rowKey={row.id} /></td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{row.isTotal ? '' : i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff', fontWeight: row.isTotal ? 700 : 400 }}>{row.month}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)', fontWeight: row.isTotal ? 700 : 400 }}>{row.count}</td>
+                            <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: row.isTotal ? 700 : 600 }}>₹{row.total.toLocaleString('en-IN')}</td>
+                            <td style={{ padding: '8px 8px' }}>{row.isTotal ? null : <ReportRemark reportId="monthly_fee_collection" rowKey={row.id} />}</td>
                           </>
                         )}
                         {result.report.id === 'pending_corrections' && (
@@ -758,6 +1231,7 @@ export function ReportEngine({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'homework_compliance' && (
                           <>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.class_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.section}</td>
                             <td style={{ padding: '8px 0', color: row.posted ? '#6AAA90' : '#E05A5A', fontWeight: 600 }}>{row.posted ? '✓ Posted' : '✗ Not posted'}</td>
@@ -832,7 +1306,7 @@ export function IdCardPrinter() {
   async function loadClasses() {
     const { data } = await supabase
       .from('classes')
-      .select('id, class_name, class_order')
+      .select('id, class_name, class_order, medium')
       .eq('app_id', tenant.appId)
       .order('class_order');
     setClasses(data || []);
@@ -902,7 +1376,11 @@ export function IdCardPrinter() {
               onChange={(e) => loadStudents(e.target.value)}
               style={{ ...S.input, cursor: 'pointer' }}>
               <option value="">-- Select class --</option>
-              {classes.map((c) => <option key={c.id} value={c.id}>{c.class_name}</option>)}
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.class_name}{c.medium ? ` · ${c.medium}` : ''}
+                </option>
+              ))}
             </select>
           </div>
           <button onClick={printCards}
