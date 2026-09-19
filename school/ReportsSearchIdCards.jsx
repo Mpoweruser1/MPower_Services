@@ -24,6 +24,13 @@ const S = {
 // REPORT ENGINE
 // ─────────────────────────────────────────────────────────────
 const REPORT_CATALOG = [
+  // Every field the school actually collects at admission (confirmed
+  // against StudentAdmission.jsx's real insert payload), one row per
+  // student — matches the traditional General Register every Indian
+  // school is required to maintain. Required class param: a real
+  // register is kept per class, and 22 columns across every class at
+  // once would be unreadable either way.
+  { id: 'student_full_details', name: 'Student full details register', tier: 'basic', icon: '📋', params: ['class'] },
   { id: 'daily_attendance',    name: 'Daily attendance — class-wise',            tier: 'basic',      icon: '✅', params: ['class', 'dateRange'] },
   { id: 'low_attendance',      name: 'Low attendance list',                tier: 'basic',      icon: '⚠️', params: ['class', 'dateRange', 'threshold', 'minDays'] },
   { id: 'fee_defaulters',      name: 'Fee defaulters list',                      tier: 'basic',      icon: '💰', params: ['class', 'overdueOnly'] },
@@ -58,6 +65,41 @@ async function runReportQuery(reportId, appId, extraFilters) {
   const today = new Date().toISOString().slice(0, 10);
 
   switch (reportId) {
+    case 'student_full_details': {
+      // Every field confirmed present in StudentAdmission.jsx's real
+      // insert payload, plus sid (auto-generated, not asked on the
+      // form, but the real identifier used everywhere else — TCs, fee
+      // receipts, ID cards). village_name/mandal_name/district_name/
+      // state are the plain-text columns now in use (see
+      // StudentAdmission.jsx and StudentDetail.jsx) — NOT the old
+      // village_id, which pointed at CTS's unrelated electoral table.
+      const cols = [
+        'S.No', 'SID', 'Full name', 'Full name (Telugu)', 'DOB', 'Gender',
+        'Blood group', 'Caste category', 'Religion', 'Annual income', 'APAAR ID',
+        'Admission no', 'Admission date', 'Class', 'Section', 'Medium', 'Student type',
+        "Father's name", "Mother's name", 'Parent phone',
+        'Village', 'Mandal', 'District', 'State', 'Remarks',
+      ];
+      const classId = extraFilters?.class_id;
+      if (!classId) return { data: [], columns: cols };
+
+      const { data, error: qErr } = await supabase
+        .from('students')
+        .select(`
+          id, sid, full_name, full_name_telugu, dob, gender, blood_group,
+          caste_category, religion, annual_income, apaar_id,
+          admission_no, admission_date, section, medium, student_type,
+          father_name, mother_name, parent_phone,
+          village_name, mandal_name, district_name, state,
+          classes(class_name)
+        `)
+        .eq('app_id', appId)
+        .eq('class_id', classId)
+        .eq('status', 'active')
+        .order('full_name');
+      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+      return { data: data || [], columns: cols };
+    }
     case 'daily_attendance': {
       // Was today-only with every class mixed together. Now a date
       // range per class: from = to gives a single day's register,
@@ -991,7 +1033,10 @@ export function ReportEngine({ userTier = 'basic' }) {
         {result && (
           <>
           <PrintHeader documentTitle={result.report.name} />
-          <div className="print-safe" style={S.card}>
+          {/* print-wide-report only applies to the one report wide
+              enough to need landscape — every other report keeps
+              PrintHeader's default portrait page. */}
+          <div className={`print-safe${result.report.id === 'student_full_details' ? ' print-wide-report' : ''}`} style={S.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{result.report.name}</p>
@@ -1043,6 +1088,35 @@ export function ReportEngine({ userTier = 'basic' }) {
                   <tbody>
                     {result.data.map((row, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        {result.report.id === 'student_full_details' && (
+                          <>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '6px 6px', color: '#E8A020', fontWeight: 600 }}>{row.sid}</td>
+                            <td style={{ padding: '6px 6px', color: '#fff' }}>{row.full_name}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.full_name_telugu || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.dob || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.gender || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.blood_group || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.caste_category || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.religion || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.annual_income ? `₹${Number(row.annual_income).toLocaleString('en-IN')}` : '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.apaar_id || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.admission_no || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.admission_date || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.classes?.class_name || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.section || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.medium || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.student_type || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.father_name || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.mother_name || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.parent_phone || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.village_name || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.mandal_name || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.district_name || '—'}</td>
+                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.state || '—'}</td>
+                            <td style={{ padding: '6px 6px' }}><ReportRemark reportId="student_full_details" rowKey={row.id} /></td>
+                          </>
+                        )}
                         {result.report.id === 'daily_attendance' && (
                           <>
                             <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
@@ -1338,6 +1412,14 @@ export function IdCardPrinter() {
     <div style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        /* Named landscape page — 23+ columns of the classwise full-detail
+           register don't fit portrait at all. Follows the same proven
+           pattern already used in ComplaintPrint.jsx: a named @page
+           rule applied only via a className, so it has zero effect on
+           every other report here, which stay on PrintHeader's default
+           portrait page. */
+        @page wide-report { size: A4 landscape; margin: 10mm; }
+        .print-wide-report { page: wide-report; }
         @media print {
           .no-print { display: none !important; }
           /* Deliberately does NOT declare its own @page rule —

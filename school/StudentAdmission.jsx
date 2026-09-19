@@ -52,7 +52,15 @@ const EMPTY_FORM = {
   class_id: '', section: '', medium: 'Telugu Medium',
   caste_category: '', blood_group: '', religion: '', annual_income: '',
   father_name: '', mother_name: '', parent_phone: '',
-  address: '', apaar_id: '',
+  // Was a single free-text 'address' field whose placeholder
+  // ("Village / Town, Mandal, District") already hinted at this exact
+  // structure — but it was never split, and more seriously was never
+  // even saved to the database at all (confirmed: absent from the
+  // insert payload below). Real, separate columns already exist on
+  // students (village_name, mandal_name, district_name); only `state`
+  // needed adding, via migration.
+  village_name: '', mandal_name: '', district_name: '', state: 'Andhra Pradesh',
+  apaar_id: '',
   student_type: 'day_scholar',
 };
 
@@ -137,6 +145,15 @@ export default function StudentAdmission() {
         father_name:    form.father_name.trim(),
         mother_name:    form.mother_name.trim() || null,
         parent_phone:   form.parent_phone.trim(),
+        // THE BUG: the old 'address' field was collected into form
+        // state, validated, and shown in the UI — but never appeared
+        // anywhere in this insert. Every family's address, for every
+        // student ever admitted through this form, was silently
+        // discarded. These four replace it and are actually saved.
+        village_name:   form.village_name.trim() || null,
+        mandal_name:    form.mandal_name.trim() || null,
+        district_name:  form.district_name.trim() || null,
+        state:          form.state.trim() || null,
         student_type:   form.student_type,
         apaar_id:       form.apaar_id.trim() || null,
         status:         'active',
@@ -516,17 +533,57 @@ export default function StudentAdmission() {
             hint="Attendance alerts and fee receipts sent here"
           />
 
+          {/* Village/Mandal/District/State as their own fields — the
+              old single "Address" box asked for exactly this ("Village
+              / Town, Mandal, District" was its own placeholder) but
+              never split it, and separately never saved any of it at
+              all. Plain text, not a lookup: the only structured
+              village table in this app belongs to CTS's electoral
+              hierarchy (scoped to registered constituencies), which
+              would wrongly exclude any family living outside one. */}
           <FormField
-            label="Address"
-            name="address"
-            type="textarea"
-            value={form.address}
+            label="Village / Town"
+            name="village_name"
+            value={form.village_name}
             onChange={update}
             onBlur={touch}
-            error={errors.address}
-            touched={touched.address}
-            placeholder="Village / Town, Mandal, District"
-            rows={2}
+            error={errors.village_name}
+            touched={touched.village_name}
+            placeholder="e.g. Dwarapudi"
+          />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <FormField
+              label="Mandal"
+              name="mandal_name"
+              value={form.mandal_name}
+              onChange={update}
+              onBlur={touch}
+              error={errors.mandal_name}
+              touched={touched.mandal_name}
+              placeholder="e.g. Mandapeta"
+            />
+            <FormField
+              label="District"
+              name="district_name"
+              value={form.district_name}
+              onChange={update}
+              onBlur={touch}
+              error={errors.district_name}
+              touched={touched.district_name}
+              placeholder="e.g. East Godavari"
+            />
+          </div>
+
+          <FormField
+            label="State"
+            name="state"
+            value={form.state}
+            onChange={update}
+            onBlur={touch}
+            error={errors.state}
+            touched={touched.state}
+            required
           />
         </div>
 

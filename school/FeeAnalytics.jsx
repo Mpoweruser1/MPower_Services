@@ -43,6 +43,11 @@ function FeeAnalyticsContent() {
   const { tenant } = useTenant();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  // Was no way to narrow which fees this screen looked at — it always
+  // loaded every fee due ever created. Optional range on due_date;
+  // left blank, behaviour is unchanged (shows everything).
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [dues, setDues] = useState([]);
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
@@ -56,7 +61,7 @@ function FeeAnalyticsContent() {
   async function loadData() {
     setLoading(true);
     const { data: studentRows } = await supabase
-      .from('students').select('id, full_name, sid, class_id, parent_phone, classes(class_name)')
+      .from('students').select('id, full_name, sid, class_id, parent_phone, classes(class_name, class_order)')
       .eq('app_id', tenant.appId).eq('status', 'active');
     setStudents(studentRows || []);
 
@@ -70,10 +75,13 @@ function FeeAnalyticsContent() {
     // dues came back empty and every figure on this screen showed ₹0
     // — even with ₹20,000 actually collected. The error was also
     // discarded, so it failed completely silently.
-    const { data: dueRows, error: duesErr } = await supabase
+    let duesQuery = supabase
       .from('fee_dues')
       .select('id, student_id, amount_due, due_date, fee_type, fee_payments(amount)')
       .in('student_id', studentIds);
+    if (dateFrom) duesQuery = duesQuery.gte('due_date', dateFrom);
+    if (dateTo) duesQuery = duesQuery.lte('due_date', dateTo);
+    const { data: dueRows, error: duesErr } = await duesQuery;
     if (duesErr) {
       console.error('Loading fee dues failed:', duesErr);
       setLoadError(duesErr.message || 'Could not load fee data.');
@@ -90,11 +98,23 @@ function FeeAnalyticsContent() {
 
   const enriched = useMemo(() => {
     const studentMap = Object.fromEntries(students.map((s) => [s.id, s]));
-    return dues.map((d) => {
+    const rows = dues.map((d) => {
       const paid = (d.fee_payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
       const balance = Math.max(0, Number(d.amount_due) - paid);
       const student = studentMap[d.student_id];
       return { ...d, paid, balance, student, overdueDays: balance > 0 ? daysOverdue(d.due_date) : 0 };
+    });
+    // Was unsorted (raw insertion order) — sorted by class_order (the
+    // real ordering column; class_name alone sorts "Class 10" before
+    // "Class 2"), then student name, then fee type — so a student with
+    // two fees appears as adjacent rows, not scattered across the list.
+    return rows.sort((a, b) => {
+      const oa = a.student?.classes?.class_order ?? 999;
+      const ob = b.student?.classes?.class_order ?? 999;
+      if (oa !== ob) return oa - ob;
+      const nameCompare = (a.student?.full_name || '').localeCompare(b.student?.full_name || '');
+      if (nameCompare !== 0) return nameCompare;
+      return (a.fee_type || '').localeCompare(b.fee_type || '');
     });
   }, [dues, students]);
 
@@ -186,6 +206,35 @@ function FeeAnalyticsContent() {
         <div className="no-print" style={{ marginBottom: 20 }}>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Analytics</p>
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Fee Collection Analytics</h1>
+        </div>
+
+        {/* Optional due-date range — previously no way to narrow which
+            fees this screen looked at; it always loaded every fee due
+            ever created. Blank on both sides shows everything, same
+            as before. */}
+        <div className="no-print" style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}>
+          <div>
+            <label htmlFor="fee-analytics-date-from" style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 4 }}>Due date from</label>
+            <input id="fee-analytics-date-from" name="fee-analytics-date-from" type="date" value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              style={{ padding: '7px 10px', background: '#111113', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, fontSize: 13, color: '#fff', fontFamily: 'inherit' }} />
+          </div>
+          <div>
+            <label htmlFor="fee-analytics-date-to" style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 4 }}>to</label>
+            <input id="fee-analytics-date-to" name="fee-analytics-date-to" type="date" value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              style={{ padding: '7px 10px', background: '#111113', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, fontSize: 13, color: '#fff', fontFamily: 'inherit' }} />
+          </div>
+          <button onClick={loadData}
+            style={{ padding: '8px 16px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Apply
+          </button>
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(''); setDateTo(''); }}
+              style={{ padding: '8px 12px', background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, fontSize: 12, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Clear
+            </button>
+          )}
         </div>
 
         <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16 }}>
@@ -319,11 +368,12 @@ function FeeAnalyticsContent() {
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
-              <tr>{exportHeaders.map((h) => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>{h}</th>)}</tr>
+              <tr><th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>S.No</th>{exportHeaders.map((h) => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {enriched.map((d) => (
+              {enriched.map((d, i) => (
                 <tr key={d.id}>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd', color: '#666' }}>{i + 1}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.full_name}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.sid}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.classes?.class_name}</td>

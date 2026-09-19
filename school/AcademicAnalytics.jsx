@@ -38,7 +38,7 @@ function AcademicAnalyticsContent() {
   async function loadData() {
     setLoading(true);
     const { data: studentRows } = await supabase
-      .from('students').select('id, full_name, sid, class_id, classes(class_name)')
+      .from('students').select('id, full_name, sid, class_id, classes(class_name, class_order)')
       .eq('app_id', tenant.appId).eq('status', 'active');
     setStudents(studentRows || []);
 
@@ -71,23 +71,54 @@ function AcademicAnalyticsContent() {
     });
 
     return Object.entries(byStudent).map(([studentId, markList]) => {
-      const sorted = markList
-        .filter((m) => examMap[m.exam_id])
-        .sort((a, b) => new Date(examMap[a.exam_id].start_date) - new Date(examMap[b.exam_id].start_date));
+      // Was comparing the last TWO MARK ROWS, not the last two EXAMS.
+      // Marks are stored one row per subject per exam, so with any
+      // exam having 2+ subjects, "latest" and "previous" could simply
+      // be two different subjects from the SAME exam — e.g. English
+      // 88% next to Maths 60% — producing a "decline" that has nothing
+      // to do with how the student is actually trending. Confirmed:
+      // a student who genuinely went from 91% to 80% (a real 11-point
+      // drop) showed as a fabricated 28-point drop under the old
+      // logic, purely from which two subject-rows happened to sort
+      // next to each other. Now aggregates every subject within each
+      // exam first (same approach as the class_rank fix), so "latest"
+      // and "previous" are real exam averages, not arbitrary subject
+      // pairs.
+      const byExam = {};
+      markList.forEach((m) => {
+        if (!examMap[m.exam_id]) return;
+        if (!byExam[m.exam_id]) byExam[m.exam_id] = { examId: m.exam_id, total: 0, count: 0 };
+        byExam[m.exam_id].total += Number(m.percentage || 0);
+        byExam[m.exam_id].count += 1;
+      });
+      const sorted = Object.values(byExam)
+        .map((e) => ({ ...e, percentage: e.count > 0 ? e.total / e.count : 0 }))
+        .sort((a, b) => new Date(examMap[a.examId].start_date) - new Date(examMap[b.examId].start_date));
 
-      const avgPct = sorted.length > 0 ? sorted.reduce((s, m) => s + Number(m.percentage || 0), 0) / sorted.length : 0;
+      const avgPct = sorted.length > 0 ? sorted.reduce((s, e) => s + e.percentage, 0) / sorted.length : 0;
       const latest = sorted[sorted.length - 1];
       const previous = sorted[sorted.length - 2];
-      const trend = latest && previous ? Number(latest.percentage) - Number(previous.percentage) : null;
+      const trend = latest && previous ? latest.percentage - previous.percentage : null;
       const isDeclining = trend !== null && trend <= -10;
 
       return {
         studentId, student: studentMap[studentId],
         avgPct, examCount: sorted.length, trend, isDeclining,
-        latestPct: latest ? Number(latest.percentage) : null,
+        latestPct: latest ? latest.percentage : null,
       };
     });
   }, [marks, students, exams]);
+
+  // Was unsorted (raw insertion order) for the print table specifically
+  // — the on-screen "By class" cards were already correctly ordered
+  // separately. Sorted by class_order (real ordering column; class_name
+  // alone sorts "Class 10" before "Class 2"), then student name.
+  const sortedForPrint = [...perStudent].sort((a, b) => {
+    const oa = a.student?.classes?.class_order ?? 999;
+    const ob = b.student?.classes?.class_order ?? 999;
+    if (oa !== ob) return oa - ob;
+    return (a.student?.full_name || '').localeCompare(b.student?.full_name || '');
+  });
 
   const decliningStudents = perStudent.filter((s) => s.isDeclining).sort((a, b) => a.trend - b.trend);
 
@@ -279,11 +310,12 @@ function AcademicAnalyticsContent() {
           <p style={{ fontSize: 12, marginBottom: 16 }}>School average: <strong>{overallAvg}%</strong> · Declining trend: <strong>{decliningStudents.length}</strong> students</p>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
-              <tr>{exportHeaders.map((h) => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>{h}</th>)}</tr>
+              <tr><th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>S.No</th>{exportHeaders.map((h) => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {perStudent.map((s) => (
+              {sortedForPrint.map((s, i) => (
                 <tr key={s.studentId}>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd', color: '#666' }}>{i + 1}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.student?.full_name}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.student?.sid}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.student?.classes?.class_name}</td>

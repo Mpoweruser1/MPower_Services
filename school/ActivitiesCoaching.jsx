@@ -20,6 +20,47 @@ const TYPE_ICONS = {
   Trip: '🚌', Cultural: '🎭', Other: '📋',
 };
 
+// Shared by both the Activities and Coaching tabs — enrolled list,
+// search-to-add below it. Search results already exclude students
+// who are already enrolled (filtered in searchStudentsToEnroll).
+function ParticipantManager({ participants, studentQuery, studentResults, enrolling, onSearch, onEnroll, onRemove }) {
+  return (
+    <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 8px' }}>
+        Participants {participants.length > 0 ? `(${participants.length})` : ''}
+      </p>
+
+      {participants.length === 0 ? (
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginBottom: 10 }}>No students enrolled yet.</p>
+      ) : (
+        <div style={{ marginBottom: 10 }}>
+          {participants.map((p) => (
+            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <span style={{ fontSize: 12.5, color: '#fff' }}>
+                {p.students?.full_name} <span style={{ color: 'rgba(255,255,255,0.4)' }}>· {p.students?.sid} · {p.students?.classes?.class_name}</span>
+              </span>
+              <button onClick={() => onRemove(p.id)}
+                style={{ background: 'none', border: 'none', color: '#E05A5A', cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }}>
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <input value={studentQuery} onChange={(e) => onSearch(e.target.value)}
+        placeholder="Search student to add..." disabled={enrolling}
+        style={{ width: '100%', padding: '8px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, fontSize: 12.5, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+      {studentResults.map((s) => (
+        <div key={s.id} onClick={() => onEnroll(s.id)}
+          style={{ padding: '7px 10px', cursor: enrolling ? 'not-allowed' : 'pointer', fontSize: 12, color: '#fff', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          {s.full_name} <span style={{ color: 'rgba(255,255,255,0.4)' }}>· {s.sid} · {s.classes?.class_name}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ActivitiesCoaching() {
   const { tenant } = useTenant();
   const [tab, setTab]               = useState('activities');
@@ -31,6 +72,17 @@ export default function ActivitiesCoaching() {
   const [submitError, setSubmitError] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [participantCounts, setParticipantCounts] = useState({});
+
+  // Enrollment — items #10/#16: both Activities and Coaching showed
+  // 0 participants everywhere, because there was no screen to actually
+  // enroll a student into either. Uses the already-declared but never-
+  // wired `expandedId` above: click a card to expand it and manage who's
+  // enrolled, matching how the original code's own naming suggested it
+  // was meant to work.
+  const [participants, setParticipants] = useState([]); // for whichever card is expanded
+  const [studentQuery, setStudentQuery] = useState('');
+  const [studentResults, setStudentResults] = useState([]);
+  const [enrolling, setEnrolling] = useState(false);
 
   const [newActivity, setNewActivity] = useState({
     activity_name: '', activity_type: 'Sports', activity_date: '',
@@ -78,6 +130,76 @@ export default function ActivitiesCoaching() {
     }
 
     setLoading(false);
+  }
+
+  // One set of functions serves both tabs — the two participant
+  // tables differ only in their join-column name (activity_id vs
+  // coaching_id), passed in as `linkCol`.
+  function participantTable() { return tab === 'activities' ? 'activity_participants' : 'coaching_participants'; }
+  function linkCol() { return tab === 'activities' ? 'activity_id' : 'coaching_id'; }
+
+  async function toggleExpand(id) {
+    if (expandedId === id) { setExpandedId(null); setParticipants([]); setStudentQuery(''); setStudentResults([]); return; }
+    setExpandedId(id);
+    setStudentQuery('');
+    setStudentResults([]);
+    await loadParticipants(id);
+  }
+
+  async function loadParticipants(recordId) {
+    const { data, error } = await supabase
+      .from(participantTable())
+      .select('id, student_id, students(full_name, sid, classes(class_name))')
+      .eq(linkCol(), recordId);
+    if (error) { console.error('Loading participants failed:', error); return; }
+    setParticipants(data || []);
+  }
+
+  async function searchStudentsToEnroll(q) {
+    setStudentQuery(q);
+    if (q.trim().length < 2) { setStudentResults([]); return; }
+    const alreadyIn = new Set(participants.map((p) => p.student_id));
+    const { data, error } = await supabase
+      .from('students')
+      .select('id, full_name, sid, classes(class_name)')
+      .eq('app_id', tenant.appId)
+      .eq('status', 'active')
+      .or(`full_name.ilike.%${q}%,sid.ilike.%${q}%`)
+      .limit(8);
+    if (error) { console.error('Searching students failed:', error); return; }
+    setStudentResults((data || []).filter((s) => !alreadyIn.has(s.id)));
+  }
+
+  async function enrollStudent(studentId) {
+    setEnrolling(true);
+    // onConflict on the real unique constraint just added — re-adding
+    // an already-enrolled student is a harmless no-op instead of a
+    // duplicate row or a thrown error.
+    const { error } = await supabase
+      .from(participantTable())
+      .upsert({ [linkCol()]: expandedId, student_id: studentId }, { onConflict: `${linkCol()},student_id` });
+    if (error) {
+      console.error('Enrolling student failed:', error);
+      alert(`Could not enroll: ${error.message || 'please try again.'}`);
+      setEnrolling(false);
+      return;
+    }
+    setStudentQuery('');
+    setStudentResults([]);
+    setEnrolling(false);
+    await loadParticipants(expandedId);
+    loadAll(); // refresh the card's participant count
+  }
+
+  async function removeParticipant(participantRowId) {
+    const { error } = await supabase.from(participantTable()).delete().eq('id', participantRowId);
+    if (error) {
+      console.error('Removing participant failed:', error);
+      alert(`Could not remove: ${error.message || 'please try again.'}`);
+      return;
+    }
+    await loadParticipants(expandedId);
+    loadAll();
   }
 
   function validateActivity() {
@@ -181,7 +303,7 @@ export default function ActivitiesCoaching() {
               ) : (
                 activities.map((a) => (
                   <div key={a.id} style={S.card}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div onClick={() => toggleExpand(a.id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }}>
                       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                         <span style={{ fontSize: 24, flexShrink: 0 }}>{TYPE_ICONS[a.activity_type] || '📋'}</span>
                         <div>
@@ -192,7 +314,14 @@ export default function ActivitiesCoaching() {
                           </p>
                         </div>
                       </div>
+                      <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>{expandedId === a.id ? '▲' : '▼'}</span>
                     </div>
+                    {expandedId === a.id && (
+                      <ParticipantManager
+                        participants={participants} studentQuery={studentQuery} studentResults={studentResults}
+                        enrolling={enrolling} onSearch={searchStudentsToEnroll} onEnroll={enrollStudent} onRemove={removeParticipant}
+                      />
+                    )}
                   </div>
                 ))
               )
@@ -208,15 +337,26 @@ export default function ActivitiesCoaching() {
               ) : (
                 coaching.map((c) => (
                   <div key={c.id} style={S.card}>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{c.subject}</p>
-                    <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
-                      {c.class_range ? `Class ${c.class_range}` : ''}
-                      {c.class_range && c.schedule ? ' · ' : ''}
-                      {c.schedule || ''}
-                      {(c.coaching_participants || []).length > 0
-                        ? ` · ${c.coaching_participants.length} students`
-                        : ''}
-                    </p>
+                    <div onClick={() => toggleExpand(c.id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }}>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{c.subject}</p>
+                        <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                          {c.class_range ? `Class ${c.class_range}` : ''}
+                          {c.class_range && c.schedule ? ' · ' : ''}
+                          {c.schedule || ''}
+                          {(c.coaching_participants || []).length > 0
+                            ? ` · ${c.coaching_participants.length} students`
+                            : ''}
+                        </p>
+                      </div>
+                      <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>{expandedId === c.id ? '▲' : '▼'}</span>
+                    </div>
+                    {expandedId === c.id && (
+                      <ParticipantManager
+                        participants={participants} studentQuery={studentQuery} studentResults={studentResults}
+                        enrolling={enrolling} onSearch={searchStudentsToEnroll} onEnroll={enrollStudent} onRemove={removeParticipant}
+                      />
+                    )}
                   </div>
                 ))
               )

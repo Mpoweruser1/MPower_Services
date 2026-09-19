@@ -50,7 +50,7 @@ function AttendanceAnalyticsContent() {
   async function loadData() {
     setLoading(true);
     const { data: studentRows } = await supabase
-      .from('students').select('id, full_name, sid, class_id, classes(class_name)')
+      .from('students').select('id, full_name, sid, class_id, classes(class_name, class_order)')
       .eq('app_id', tenant.appId).eq('status', 'active');
     setStudents(studentRows || []);
 
@@ -85,10 +85,20 @@ function AttendanceAnalyticsContent() {
     // test suite for coverage, including the exact 10% threshold and
     // the min-tracked-days guard that stops a brand-new student from
     // being flagged chronic after missing one day out of two.
-    return Object.entries(byStudent).map(([studentId, recs]) => ({
+    const rows = Object.entries(byStudent).map(([studentId, recs]) => ({
       studentId, student: studentMap[studentId],
       ...computeAttendanceStats(recs),
     }));
+    // Was unsorted — Object.entries gives insertion order, not class
+    // order, which is why the printed list jumped between classes with
+    // no visible logic. Sorted by class_order (the real ordering column
+    // — class_name alone sorts "Class 10" before "Class 2"), then name.
+    return rows.sort((a, b) => {
+      const oa = a.student?.classes?.class_order ?? 999;
+      const ob = b.student?.classes?.class_order ?? 999;
+      if (oa !== ob) return oa - ob;
+      return (a.student?.full_name || '').localeCompare(b.student?.full_name || '');
+    });
   }, [records, students]);
 
   const overallRate = useMemo(() => {
@@ -297,11 +307,12 @@ function AttendanceAnalyticsContent() {
           <p style={{ fontSize: 12, marginBottom: 16 }}>Last {WINDOW_DAYS} days · Overall attendance: <strong>{overallRate}%</strong> · Chronically absent: <strong>{chronicStudents.length}</strong></p>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
-              <tr>{exportHeaders.map((h) => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>{h}</th>)}</tr>
+              <tr><th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>S.No</th>{exportHeaders.map((h) => <th key={h} style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '2px solid #000' }}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {perStudent.map((s) => (
+              {perStudent.map((s, i) => (
                 <tr key={s.studentId}>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd', color: '#666' }}>{i + 1}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.student?.full_name}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.student?.sid}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{s.student?.classes?.class_name}</td>
