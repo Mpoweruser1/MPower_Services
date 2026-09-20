@@ -23,6 +23,75 @@ const S = {
 // ─────────────────────────────────────────────────────────────
 // REPORT ENGINE
 // ─────────────────────────────────────────────────────────────
+// Field groups for the Student Full Details register — lets someone
+// print just "Personal" or "Academic" instead of always all 25
+// columns. S.No and Full name are always included regardless of
+// selection (a register with names hidden isn't useful) and aren't
+// part of any group here.
+const FIELD_GROUPS = {
+  personal: {
+    label: 'Personal',
+    fields: [
+      { header: 'SID', key: 'sid' },
+      { header: 'Full name (Telugu)', key: 'full_name_telugu' },
+      { header: 'DOB', key: 'dob' },
+      { header: 'Gender', key: 'gender' },
+      { header: 'Blood group', key: 'blood_group' },
+    ],
+  },
+  academic: {
+    label: 'Academic',
+    fields: [
+      { header: 'Admission no', key: 'admission_no' },
+      { header: 'Admission date', key: 'admission_date' },
+      { header: 'Class', key: 'class_name' },
+      { header: 'Section', key: 'section' },
+      { header: 'Medium', key: 'medium' },
+      { header: 'Student type', key: 'student_type' },
+    ],
+  },
+  family: {
+    label: 'Family',
+    fields: [
+      { header: "Father's name", key: 'father_name' },
+      { header: "Mother's name", key: 'mother_name' },
+      { header: 'Parent phone', key: 'parent_phone' },
+      { header: 'Annual income', key: 'annual_income' },
+    ],
+  },
+  location: {
+    label: 'Location',
+    fields: [
+      { header: 'Village', key: 'village_name' },
+      { header: 'Mandal', key: 'mandal_name' },
+      { header: 'District', key: 'district_name' },
+      { header: 'State', key: 'state' },
+    ],
+  },
+  identity: {
+    label: 'Identity / Welfare',
+    fields: [
+      { header: 'Caste category', key: 'caste_category' },
+      { header: 'Religion', key: 'religion' },
+      { header: 'APAAR ID', key: 'apaar_id' },
+    ],
+  },
+};
+
+// Given which groups are selected (an object like { personal: true,
+// academic: false, ... }), returns the ordered field list — S.No and
+// Full name first always, then each selected group's fields in a
+// fixed order, then Remarks last.
+function selectedFieldList(selectedGroups) {
+  const groups = selectedGroups || { personal: true, academic: true, family: true, location: true, identity: true };
+  const fields = [{ header: 'S.No', key: '__sno' }, { header: 'Full name', key: 'full_name' }];
+  ['personal', 'academic', 'family', 'location', 'identity'].forEach((g) => {
+    if (groups[g] !== false) fields.push(...FIELD_GROUPS[g].fields);
+  });
+  fields.push({ header: 'Remarks', key: '__remarks' });
+  return fields;
+}
+
 const REPORT_CATALOG = [
   // Every field the school actually collects at admission (confirmed
   // against StudentAdmission.jsx's real insert payload), one row per
@@ -30,7 +99,7 @@ const REPORT_CATALOG = [
   // school is required to maintain. Required class param: a real
   // register is kept per class, and 22 columns across every class at
   // once would be unreadable either way.
-  { id: 'student_full_details', name: 'Student full details register', tier: 'basic', icon: '📋', params: ['class'] },
+  { id: 'student_full_details', name: 'Student full details register', tier: 'basic', icon: '📋', params: ['class', 'academicYear', 'fieldGroups'] },
   { id: 'daily_attendance',    name: 'Daily attendance — class-wise',            tier: 'basic',      icon: '✅', params: ['class', 'dateRange'] },
   { id: 'low_attendance',      name: 'Low attendance list',                tier: 'basic',      icon: '⚠️', params: ['class', 'dateRange', 'threshold', 'minDays'] },
   { id: 'fee_defaulters',      name: 'Fee defaulters list',                      tier: 'basic',      icon: '💰', params: ['class', 'overdueOnly'] },
@@ -73,17 +142,25 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // state are the plain-text columns now in use (see
       // StudentAdmission.jsx and StudentDetail.jsx) — NOT the old
       // village_id, which pointed at CTS's unrelated electoral table.
-      const cols = [
-        'S.No', 'SID', 'Full name', 'Full name (Telugu)', 'DOB', 'Gender',
-        'Blood group', 'Caste category', 'Religion', 'Annual income', 'APAAR ID',
-        'Admission no', 'Admission date', 'Class', 'Section', 'Medium', 'Student type',
-        "Father's name", "Mother's name", 'Parent phone',
-        'Village', 'Mandal', 'District', 'State', 'Remarks',
-      ];
+      //
+      // Columns are now driven by which field groups were selected
+      // (see FIELD_GROUPS/selectedFieldList above) rather than a fixed
+      // list — the query itself always fetches every column regardless
+      // (the read cost is trivial either way), and only the returned
+      // `columns` header list and the display row change based on
+      // selection.
+      const fields = selectedFieldList(extraFilters?.field_groups);
+      const cols = fields.map((f) => f.header);
       const classId = extraFilters?.class_id;
       if (!classId) return { data: [], columns: cols };
 
-      const { data, error: qErr } = await supabase
+      // Year-wise: filters to students admitted in that academic year
+      // specifically, rather than only "everyone currently active" —
+      // lets a class's admission register be pulled up for a past
+      // year, not just today's roster.
+      const admRange = academicRange(extraFilters?.academicYearStart);
+
+      let sfdQuery = supabase
         .from('students')
         .select(`
           id, sid, full_name, full_name_telugu, dob, gender, blood_group,
@@ -94,11 +171,15 @@ async function runReportQuery(reportId, appId, extraFilters) {
           classes(class_name)
         `)
         .eq('app_id', appId)
-        .eq('class_id', classId)
-        .eq('status', 'active')
-        .order('full_name');
+        .eq('class_id', classId);
+      if (admRange) {
+        sfdQuery = sfdQuery.gte('admission_date', admRange.from).lte('admission_date', admRange.to);
+      } else {
+        sfdQuery = sfdQuery.eq('status', 'active');
+      }
+      const { data, error: qErr } = await sfdQuery.order('full_name');
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: cols };
+      return { data: data || [], columns: cols, fieldsUsed: fields };
     }
     case 'daily_attendance': {
       // Was today-only with every class mixed together. Now a date
@@ -465,9 +546,16 @@ async function runReportQuery(reportId, appId, extraFilters) {
       const rangeStart = `${startYear}-06-01`;
       const rangeEnd = `${Number(startYear) + 1}-05-31`;
 
+      // village_id/villages(name) removed — that join points at CTS's
+      // electoral village table, which was never populated at
+      // admission (confirmed: StudentAdmission.jsx never wrote to it)
+      // and has no real foreign key relationship PostgREST can use
+      // here, which is exactly the "could not find relationship"
+      // error this was producing. village_name is the real, plain-text
+      // column StudentAdmission.jsx actually saves to.
       const { data, error: qErr } = await supabase
         .from('students')
-        .select('caste_category, village_id, class_id, villages(name), classes(class_name)')
+        .select('caste_category, village_name, class_id, classes(class_name)')
         .eq('app_id', appId)
         .gte('admission_date', rangeStart)
         .lte('admission_date', rangeEnd);
@@ -475,7 +563,7 @@ async function runReportQuery(reportId, appId, extraFilters) {
 
       const grouped = {};
       (data || []).forEach((s) => {
-        const village = s.villages?.name || 'Not recorded';
+        const village = s.village_name || 'Not recorded';
         const category = s.caste_category || 'Not recorded';
         const className = s.classes?.class_name || 'Not recorded';
         const key = `${village}|${category}|${className}`;
@@ -578,14 +666,16 @@ async function runReportQuery(reportId, appId, extraFilters) {
     }
     case 'caste_gender_filter': {
       const filters = extraFilters || {};
+      // village_id/villages(name) removed — same fix as
+      // admissions_village_category_class above.
       let query = supabase
         .from('students')
-        .select('id, full_name, sid, caste_category, gender, village_id, villages(name), classes(class_name)')
+        .select('id, full_name, sid, caste_category, gender, village_name, classes(class_name)')
         .eq('app_id', appId)
         .eq('status', 'active');
       if (filters.caste_category) query = query.eq('caste_category', filters.caste_category);
       if (filters.gender) query = query.eq('gender', filters.gender);
-      if (filters.village_id) query = query.eq('village_id', filters.village_id);
+      if (filters.village_name) query = query.eq('village_name', filters.village_name);
       if (filters.class_id) query = query.eq('class_id', filters.class_id);
       const { data } = await query;
       return { data: data || [], columns: ['Name', 'SID', 'Class', 'Category', 'Gender', 'Village', 'Remarks'] };
@@ -621,19 +711,39 @@ export function ReportEngine({ userTier = 'basic' }) {
   const [minDays, setMinDays] = useState('10');
   const [threshold, setThreshold] = useState('75');
   const [overdueOnly, setOverdueOnly] = useState(true);
+  // All checked by default — matches the report's original behaviour
+  // (every field shown) unless someone deliberately narrows it.
+  const [fieldGroups, setFieldGroups] = useState({ personal: true, academic: true, family: true, location: true, identity: true });
   const [casteFilter, setCasteFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [academicYearStart, setAcademicYearStart] = useState(String(new Date().getFullYear() - (new Date().getMonth() < 5 ? 1 : 0)));
   const [villageFilterQuery, setVillageFilterQuery] = useState('');
   const [villageFilterResults, setVillageFilterResults] = useState([]);
-  const [villageFilterId, setVillageFilterId] = useState('');
-  const [villageFilterDisplay, setVillageFilterDisplay] = useState('');
+  // Was villageFilterId + a separate villages(name) lookup — village_name
+  // is plain text with no id, so the chosen value IS the filter value,
+  // nothing to look up separately.
+  const [villageFilterName, setVillageFilterName] = useState('');
 
+  // Was searching CTS's electoral villages table — unrelated to
+  // student data, never populated by admission, and the source of
+  // the "could not find relationship" error once village_id stopped
+  // being used. Now searches DISTINCT village_name values that
+  // actually exist among this school's own students — real
+  // suggestions from real data, so staff pick a spelling that's
+  // guaranteed to actually match students, rather than free-typing
+  // and risking "Dwarapudi" vs "dwarapudi" silently finding nothing.
   async function searchVillageFilter(q) {
     setVillageFilterQuery(q);
     if (q.trim().length < 2) { setVillageFilterResults([]); return; }
-    const { data } = await supabase.from('villages').select('id, name, mandals(name)').ilike('name', `%${q}%`).limit(8);
-    setVillageFilterResults(data || []);
+    const { data, error } = await supabase
+      .from('students').select('village_name')
+      .eq('app_id', tenant.appId)
+      .not('village_name', 'is', null)
+      .ilike('village_name', `%${q}%`)
+      .limit(50);
+    if (error) { console.error('Searching villages failed:', error); return; }
+    const distinct = [...new Set((data || []).map((s) => s.village_name).filter(Boolean))].slice(0, 8);
+    setVillageFilterResults(distinct);
   }
 
   // Classes load once when a class-parameter report is opened.
@@ -668,11 +778,12 @@ export function ReportEngine({ userTier = 'basic' }) {
     if (p.includes('academicYear')) out.academicYearStart = academicYearStart;
     if (p.includes('caste')) out.caste_category = casteFilter;
     if (p.includes('gender')) out.gender = genderFilter;
-    if (p.includes('village')) out.village_id = villageFilterId;
+    if (p.includes('village')) out.village_name = villageFilterName;
     if (p.includes('dateRange')) { out.date_from = dateFrom; out.date_to = dateTo; }
     if (p.includes('minDays')) out.min_days = Number(minDays) || 0;
     if (p.includes('threshold')) out.threshold = Number(threshold) || 75;
     if (p.includes('overdueOnly')) out.overdue_only = overdueOnly;
+    if (p.includes('fieldGroups')) out.field_groups = fieldGroups;
     return out;
   }
 
@@ -717,11 +828,16 @@ export function ReportEngine({ userTier = 'basic' }) {
     }
     if (p.includes('caste')) parts.push(params.caste_category || 'All categories');
     if (p.includes('gender')) parts.push(params.gender || 'All genders');
-    if (p.includes('village')) parts.push(params.village_id ? (villageFilterDisplay || 'Selected village') : 'All villages');
+    if (p.includes('village')) parts.push(params.village_name || 'All villages');
     if (p.includes('dateRange') && params.date_from) parts.push(`${params.date_from} to ${params.date_to}`);
     if (p.includes('threshold')) parts.push(`below ${params.threshold}%`);
     if (p.includes('minDays')) parts.push(`min ${params.min_days} days recorded`);
     if (p.includes('overdueOnly')) parts.push(params.overdue_only ? 'Overdue only' : 'All unpaid dues');
+    if (p.includes('fieldGroups') && params.field_groups) {
+      const included = Object.entries(params.field_groups).filter(([, v]) => v !== false).map(([k]) => FIELD_GROUPS[k]?.label).filter(Boolean);
+      const allSelected = included.length === Object.keys(FIELD_GROUPS).length;
+      parts.push(allSelected ? 'All fields' : (included.length ? included.join(', ') : 'S.No + Name only'));
+    }
     return parts.join('  •  ');
   }
 
@@ -964,6 +1080,32 @@ export function ReportEngine({ userTier = 'basic' }) {
                 </div>
               )}
 
+              {p.includes('fieldGroups') && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label style={S.label}>Which fields to include</label>
+                    <button type="button"
+                      onClick={() => {
+                        const allOn = Object.values(fieldGroups).every((v) => v !== false);
+                        const next = {}; Object.keys(FIELD_GROUPS).forEach((g) => { next[g] = !allOn; });
+                        setFieldGroups(next);
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#E8A020', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {Object.values(fieldGroups).every((v) => v !== false) ? 'Deselect all' : 'Select all'}
+                    </button>
+                  </div>
+                  {Object.entries(FIELD_GROUPS).map(([key, group]) => (
+                    <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 13, color: '#fff', cursor: 'pointer' }}>
+                      <input type="checkbox" id={`reports-field-group-${key}`} name={`reports-field-group-${key}`}
+                        checked={fieldGroups[key] !== false}
+                        onChange={(e) => setFieldGroups((prev) => ({ ...prev, [key]: e.target.checked }))} />
+                      {group.label}
+                    </label>
+                  ))}
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>S.No and Full name are always included.</p>
+                </div>
+              )}
+
               {(p.includes('caste') || p.includes('gender')) && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
                   {p.includes('caste') && (
@@ -992,10 +1134,14 @@ export function ReportEngine({ userTier = 'basic' }) {
               {p.includes('village') && (
                 <div style={{ marginBottom: 14 }}>
                   <label style={S.label}>Village (optional)</label>
-                  {villageFilterDisplay ? (
+                  {/* Suggestions are real village_name values already used by
+                      this school's own students, not a lookup-table search —
+                      selecting one guarantees an exact match against real
+                      records. */}
+                  {villageFilterName ? (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 8 }}>
-                      <span style={{ fontSize: 13, color: '#fff' }}>{villageFilterDisplay}</span>
-                      <button onClick={() => { setVillageFilterId(''); setVillageFilterDisplay(''); }}
+                      <span style={{ fontSize: 13, color: '#fff' }}>{villageFilterName}</span>
+                      <button onClick={() => setVillageFilterName('')}
                         style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'rgba(255,255,255,0.5)', padding: '3px 8px', fontSize: 11, cursor: 'pointer' }}>
                         Clear
                       </button>
@@ -1004,10 +1150,10 @@ export function ReportEngine({ userTier = 'basic' }) {
                     <>
                       <input id="reports-village-filter-query" name="reports-village-filter-query" value={villageFilterQuery}
                         onChange={(e) => searchVillageFilter(e.target.value)} placeholder="Search village name..." style={S.input} />
-                      {villageFilterResults.map((v) => (
-                        <div key={v.id} onClick={() => { setVillageFilterId(v.id); setVillageFilterDisplay(`${v.name}${v.mandals?.name ? ` (${v.mandals.name})` : ''}`); setVillageFilterQuery(''); setVillageFilterResults([]); }}
+                      {villageFilterResults.map((name) => (
+                        <div key={name} onClick={() => { setVillageFilterName(name); setVillageFilterQuery(''); setVillageFilterResults([]); }}
                           style={{ padding: '7px 10px', cursor: 'pointer', fontSize: 12, color: '#fff', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                          {v.name}{v.mandals?.name ? <span style={{ color: 'rgba(255,255,255,0.4)' }}> · {v.mandals.name}</span> : ''}
+                          {name}
                         </div>
                       ))}
                     </>
@@ -1033,10 +1179,16 @@ export function ReportEngine({ userTier = 'basic' }) {
         {result && (
           <>
           <PrintHeader documentTitle={result.report.name} />
-          {/* print-wide-report only applies to the one report wide
-              enough to need landscape — every other report keeps
-              PrintHeader's default portrait page. */}
-          <div className={`print-safe${result.report.id === 'student_full_details' ? ' print-wide-report' : ''}`} style={S.card}>
+          {/* Landscape is now decided by actual column count, not a
+              fixed report id — the Student Full Details register can
+              now have anywhere from 3 columns (S.No, Name, Remarks
+              only — everything deselected) up to 25 (everything
+              selected), and printing 3 columns in landscape would
+              waste as much space sideways as 25 columns crammed into
+              portrait would waste vertically. Checked against every
+              OTHER report's real column count (max 9) to confirm this
+              threshold never accidentally changes their layout. */}
+          <div className={`print-safe${(result.columns?.length || 0) > 10 ? ' print-wide-report' : ''}`} style={S.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{result.report.name}</p>
@@ -1077,7 +1229,17 @@ export function ReportEngine({ userTier = 'basic' }) {
                     </div>
                   );
                 })()}
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <table style={{
+                  width: '100%', borderCollapse: 'collapse', fontSize: 12,
+                  // Even column widths, scoped to just this report so the
+                  // other 17 reports' content-fitted columns are untouched.
+                  // width:100% alone stretches the TABLE but still lets
+                  // individual columns size by content — table-layout:fixed
+                  // is what actually forces them even, which is what makes
+                  // a portrait printout with only 1-2 field groups selected
+                  // look deliberately filled rather than lopsided.
+                  ...(result.report.id === 'student_full_details' ? { tableLayout: 'fixed' } : {}),
+                }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                       {result.columns.map((col) => (
@@ -1090,31 +1252,20 @@ export function ReportEngine({ userTier = 'basic' }) {
                       <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                         {result.report.id === 'student_full_details' && (
                           <>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
-                            <td style={{ padding: '6px 6px', color: '#E8A020', fontWeight: 600 }}>{row.sid}</td>
-                            <td style={{ padding: '6px 6px', color: '#fff' }}>{row.full_name}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.full_name_telugu || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.dob || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.gender || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.blood_group || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.caste_category || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.religion || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.annual_income ? `₹${Number(row.annual_income).toLocaleString('en-IN')}` : '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.apaar_id || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.admission_no || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.admission_date || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.classes?.class_name || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.section || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.medium || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.student_type || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.father_name || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.mother_name || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.parent_phone || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.village_name || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.mandal_name || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.district_name || '—'}</td>
-                            <td style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.state || '—'}</td>
-                            <td style={{ padding: '6px 6px' }}><ReportRemark reportId="student_full_details" rowKey={row.id} /></td>
+                            {(result.fieldsUsed || []).map((f, fi) => {
+                              // Three keys are special: S.No/Remarks aren't real
+                              // student columns, and class comes through the
+                              // nested classes(class_name) relation rather than
+                              // a flat field. annual_income gets ₹ formatting;
+                              // everything else prints as-is.
+                              if (f.key === '__sno') return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>;
+                              if (f.key === '__remarks') return <td key={fi} style={{ padding: '6px 6px' }}><ReportRemark reportId="student_full_details" rowKey={row.id} /></td>;
+                              if (f.key === 'full_name') return <td key={fi} style={{ padding: '6px 6px', color: '#fff' }}>{row.full_name}</td>;
+                              if (f.key === 'sid') return <td key={fi} style={{ padding: '6px 6px', color: '#E8A020', fontWeight: 600 }}>{row.sid}</td>;
+                              if (f.key === 'class_name') return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.classes?.class_name || '—'}</td>;
+                              if (f.key === 'annual_income') return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.annual_income ? `₹${Number(row.annual_income).toLocaleString('en-IN')}` : '—'}</td>;
+                              return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row[f.key] || '—'}</td>;
+                            })}
                           </>
                         )}
                         {result.report.id === 'daily_attendance' && (
@@ -1328,7 +1479,7 @@ export function ReportEngine({ userTier = 'basic' }) {
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.classes?.class_name}</td>
                             <td style={{ padding: '8px 8px', color: '#E8A020' }}>{row.caste_category}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.gender}</td>
-                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{row.villages?.name || '—'}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{row.village_name || '—'}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="caste_gender_filter" rowKey={row.id} /></td>
                           </>
                         )}

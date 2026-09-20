@@ -59,22 +59,39 @@ export default function PTMBooking() {
 
   async function bookSlot(slotId) {
     setError('');
-    const { error: bookErr, count } = await supabase
+    // Was relying on `count: 'exact'` to tell success from failure —
+    // confirmed unreliable: a genuine, verified-successful booking
+    // (proven directly in the database) was still reported as failed
+    // on every later attempt, for any student or slot, with no
+    // database-side cause found (RLS, grants, constraints, and
+    // triggers all checked and confirmed correct). Asking for the
+    // updated row back with .select() and checking whether a row
+    // actually came back is the standard, reliable way to tell a
+    // real update apart from one that matched zero rows — this row
+    // is already covered by the same UPDATE policy that permits the
+    // write itself, so no separate SELECT permission is needed.
+    const { data: bookedSlot, error: bookErr } = await supabase
       .from('ptm_slots')
-      .update({ student_id: selectedStudent.id, status: 'booked', booked_at: new Date().toISOString() }, { count: 'exact' })
+      .update({ student_id: selectedStudent.id, status: 'booked', booked_at: new Date().toISOString() })
       .eq('id', slotId)
-      .eq('status', 'open'); // only succeeds if still open — avoids double-booking
+      .eq('status', 'open') // only succeeds if still open — avoids double-booking
+      .select('id, slot_time')
+      .maybeSingle();
 
-    if (bookErr || !count) {
+    if (bookErr) {
+      console.error('Booking slot failed:', bookErr);
+      setError(`Could not book this slot: ${bookErr.message || 'please try again.'}`);
+      loadSlots();
+      return;
+    }
+    if (!bookedSlot) {
+      // A real "someone else got there first" — the row genuinely
+      // didn't match (status was no longer 'open'), not a reporting
+      // glitch.
       setError('That slot was just taken by someone else — please pick another.');
       loadSlots();
       return;
     }
-    // Confirmation built from the slot already held locally — it was
-    // loaded before booking, so there's no need to read it back from
-    // the server, avoiding any dependency on anonymous SELECT access
-    // to the real table.
-    const bookedSlot = slots.find((s) => s.id === slotId);
     setBooked(bookedSlot);
   }
 
