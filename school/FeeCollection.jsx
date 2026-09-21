@@ -45,6 +45,13 @@ export default function FeeCollection() {
   const [saving, setSaving]                 = useState(false);
   const [receipt, setReceipt]               = useState(null);
   const [submitError, setSubmitError]       = useState('');
+  // Was a real, working remote-payment page (PayFee.jsx, genuine
+  // Razorpay checkout, server-verified) that nothing in this screen
+  // ever actually created or sent a link to — same bug shape as the
+  // missing routes found elsewhere this session: a real feature with
+  // no path leading to it.
+  const [sendingLink, setSendingLink] = useState(false);
+  const [linkSent, setLinkSent]       = useState(false);
 
   useEffect(() => {
     if (!tenant?.branchId) return;
@@ -138,6 +145,63 @@ export default function FeeCollection() {
 
   const discountAmount  = Math.min(subtotal, (subtotal * Number(discountPct || 0)) / 100);
   const totalToCollect  = Math.max(0, subtotal - discountAmount);
+
+  async function sendPaymentLink() {
+    if (selectedDueIds.length === 0) { setSubmitError('Select at least one fee first.'); return; }
+    if (!student?.parent_phone) { setSubmitError('No WhatsApp number on file for this student.'); return; }
+    setSubmitError('');
+    setSendingLink(true);
+
+    // link_token is the sole access control on the public /pay/:token
+    // page (no login there) — a real, unguessable random value, same
+    // idea as the session_id used for PTM booking links.
+    const linkToken = crypto.randomUUID();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const { error: linkErr } = await supabase.from('fee_payment_links').insert({
+      app_id: tenant.appId,
+      student_id: student.id,
+      due_ids: selectedDueIds,
+      amount: totalToCollect,
+      status: 'pending',
+      link_token: linkToken,
+      expires_at: expiresAt.toISOString(),
+    });
+
+    if (linkErr) {
+      console.error('Creating payment link failed:', linkErr);
+      setSubmitError(`Could not create payment link: ${linkErr.message || 'please try again.'}`);
+      setSendingLink(false);
+      return;
+    }
+
+    const paymentUrl = `${window.location.origin}/pay/${linkToken}`;
+    // 'fee_payment_link' is a new WhatsApp message type — matches the
+    // established calling convention (see 'ptm_invite' in
+    // PTMScheduling.jsx), but send-whatsapp itself needs its own
+    // template for this type to actually produce a message. Flagged
+    // for verification since that function's source wasn't available
+    // to confirm directly.
+    const { error: waErr } = await supabase.functions.invoke('send-whatsapp', {
+      // Checked against the real send-whatsapp source: it resolves the
+      // recipient by looking up studentId itself (via resolveRecipient),
+      // NOT from a phone/studentName passed directly — those two fields
+      // would have been silently ignored, sending to nobody. paymentUrl
+      // is now in that function's variable-2 fallback chain, so the
+      // actual link reaches the message.
+      body: {
+        type: 'fee_payment_link',
+        studentId: student.id,
+        paymentUrl,
+      },
+    });
+    if (waErr) console.error('Sending payment link via WhatsApp failed:', waErr);
+
+    setSendingLink(false);
+    setLinkSent(true);
+    setTimeout(() => setLinkSent(false), 5000);
+  }
 
   async function handleCollect() {
     setSubmitError('');
@@ -454,10 +518,24 @@ export default function FeeCollection() {
                 )}
 
                 {selectedDueIds.length > 0 && (
-                  <button onClick={handleCollect} disabled={saving}
-                    style={{ width: '100%', padding: 14, background: saving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                    {saving ? 'Recording payment...' : `✓ Collect ${currency(totalToCollect)}`}
-                  </button>
+                  <>
+                    <button onClick={handleCollect} disabled={saving}
+                      style={{ width: '100%', padding: 14, background: saving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                      {saving ? 'Recording payment...' : `✓ Collect ${currency(totalToCollect)}`}
+                    </button>
+
+                    {linkSent ? (
+                      <div style={{ marginTop: 8, padding: 10, background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 8, textAlign: 'center' }}>
+                        <p style={{ margin: 0, fontSize: 12, color: '#6AAA90' }}>✓ Payment link sent via WhatsApp</p>
+                      </div>
+                    ) : (
+                      <button onClick={sendPaymentLink} disabled={sendingLink || !student?.parent_phone}
+                        title={!student?.parent_phone ? 'No WhatsApp number on file for this student' : ''}
+                        style={{ width: '100%', marginTop: 8, padding: 12, background: 'transparent', color: student?.parent_phone ? '#5A9ADF' : 'rgba(255,255,255,0.25)', border: `1px solid ${student?.parent_phone ? 'rgba(90,154,223,0.3)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: (sendingLink || !student?.parent_phone) ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                        {sendingLink ? 'Sending...' : '📱 Send payment link instead — parent pays remotely'}
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}

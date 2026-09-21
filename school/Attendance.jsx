@@ -175,6 +175,11 @@ export default function Attendance() {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         @media print {
           .no-print { display: none !important; }
+          /* .print-list is display:none inline for screen (the grid
+             shows instead) — this switches it back to visible only
+             when actually printing, so the printed register keeps
+             full name + SID rather than the compact on-screen grid. */
+          .print-list { display: block !important; }
           .print-list, .print-list * { background: #fff !important; color: #000 !important; border-color: #ccc !important; }
         }
       `}</style>
@@ -239,7 +244,16 @@ export default function Attendance() {
           </div>
         )}
 
-        {/* Student list */}
+        {/* Student list — was one full-width row per student, which
+            made marking a 60-student class a long scroll. Now a
+            compact, responsive grid on screen (auto-computed column
+            count — more columns on a tablet, fewer on a phone, rather
+            than a guessed fixed number) so a full class fits with far
+            less scrolling. Tap behaviour (cycles P → A → L, same as
+            before) is unchanged. The PRINTED register keeps the
+            original detailed layout — full name, SID, hostel flag —
+            since a paper register needs that detail and scrolling was
+            never the print problem. */}
         {loading ? (
           <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 13, marginTop: 32 }}>Loading students...</p>
         ) : students.length === 0 ? (
@@ -247,33 +261,65 @@ export default function Attendance() {
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.3)' }}>No students found for this class and section.</p>
           </div>
         ) : (
-          <div className="print-list" style={S.card}>
-            {students.map((student, i) => {
-              const status = attendance[student.id] || 'P';
-              const cfg = STATUS_CONFIG[status];
-              return (
-                <div
-                  key={student.id}
-                  onClick={() => toggleStatus(student.id)}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: i < students.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', cursor: 'pointer' }}
-                >
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', width: 24, flexShrink: 0 }}>{i + 1}</span>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 14, color: '#fff', fontWeight: 400 }}>{student.full_name}</p>
-                      <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
-                        {student.sid}{student.student_type === 'hostel' ? ' · 🏠 Hostel' : ''}
-                      </p>
+          <>
+            {/* On-screen grid */}
+            <div className="no-print" style={{ ...S.card, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))', gap: 8 }}>
+              {students.map((student, i) => {
+                const status = attendance[student.id] || 'P';
+                const cfg = STATUS_CONFIG[status];
+                const firstName = student.full_name.split(' ')[0];
+                return (
+                  <div
+                    key={student.id}
+                    onClick={() => toggleStatus(student.id)}
+                    title={`${student.full_name} · ${student.sid}`}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      gap: 3, padding: '8px 4px', minHeight: 58, borderRadius: 8, cursor: 'pointer',
+                      background: cfg.bg, border: `1px solid ${cfg.border}`, textAlign: 'center',
+                    }}
+                  >
+                    <span style={{ fontSize: 9, color: cfg.color, opacity: 0.6 }}>{i + 1}</span>
+                    <span style={{
+                      fontSize: 12, color: '#fff', fontWeight: 500, lineHeight: 1.2,
+                      maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {firstName}
+                    </span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: cfg.color }}>{cfg.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Printed register — unchanged from before, full detail */}
+            <div className="print-list" style={{ ...S.card, display: 'none' }}>
+              {students.map((student, i) => {
+                const status = attendance[student.id] || 'P';
+                const cfg = STATUS_CONFIG[status];
+                return (
+                  <div
+                    key={student.id}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: i < students.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}
+                  >
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', width: 24, flexShrink: 0 }}>{i + 1}</span>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 14, color: '#fff', fontWeight: 400 }}>{student.full_name}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+                          {student.sid}{student.student_type === 'hostel' ? ' · 🏠 Hostel' : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ padding: '6px 16px', borderRadius: 20, background: cfg.bg, border: `1px solid ${cfg.border}`, minWidth: 80, textAlign: 'center' }}>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: cfg.color }}>{cfg.label}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: cfg.color, opacity: 0.8 }}>{cfg.labelTe}</p>
                     </div>
                   </div>
-                  <div style={{ padding: '6px 16px', borderRadius: 20, background: cfg.bg, border: `1px solid ${cfg.border}`, minWidth: 80, textAlign: 'center' }}>
-                    <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: cfg.color }}>{cfg.label}</p>
-                    <p style={{ margin: 0, fontSize: 10, color: cfg.color, opacity: 0.8 }}>{cfg.labelTe}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
 
         {/* Save button */}

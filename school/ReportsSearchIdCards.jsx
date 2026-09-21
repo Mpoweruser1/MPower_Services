@@ -1188,7 +1188,21 @@ export function ReportEngine({ userTier = 'basic' }) {
               portrait would waste vertically. Checked against every
               OTHER report's real column count (max 9) to confirm this
               threshold never accidentally changes their layout. */}
-          <div className={`print-safe${(result.columns?.length || 0) > 10 ? ' print-wide-report' : ''}`} style={S.card}>
+          {/* Was column-count-based (>10 -> landscape) — real testing
+              showed this wasn't reliable: even a small selection (say,
+              just "Personal", 8 columns) can overlap in portrait once
+              actual content is involved — full names, Telugu script,
+              and dates all need more room than an even 8-way split of
+              portrait's narrower 174mm gives them. Student Full
+              Details now ALWAYS prints landscape regardless of how
+              many field groups are selected — landscape's 277mm gives
+              real breathing room even for a single group, and the
+              even-column-width behaviour (table-layout:fixed, still
+              scoped to this report below) benefits from the extra
+              width rather than needing to fit fewer columns into a
+              narrower page. Every other report is unaffected — this
+              class is still scoped to student_full_details only. */}
+          <div className={`print-safe${result.report.id === 'student_full_details' ? ' print-wide-report' : ''}`} style={S.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{result.report.name}</p>

@@ -23,100 +23,144 @@ const S = {
 };
 
 const REPORT_CATALOG = [
-  { id: 'daily_opd',        name: "Today's OPD visits",         tier: 'basic',    icon: '🩺' },
-  { id: 'lab_pending',      name: 'Pending lab tests',           tier: 'basic',    icon: '🔬' },
-  { id: 'lab_tests_completed', name: 'Completed lab tests',      tier: 'basic',    icon: '✅' },
-  { id: 'new_registrations',name: 'New patient registrations',   tier: 'basic',    icon: '🆕' },
-  { id: 'doctor_wise_opd',  name: 'OPD visits by doctor',        tier: 'standard', icon: '👨‍⚕️' },
-  { id: 'ipd_admission_history', name: 'IPD admission history',  tier: 'standard', icon: '📋' },
+  { id: 'daily_opd',        name: "Today's OPD visits",         tier: 'basic',    icon: '🩺', params: ['dateRange', 'doctor'] },
+  { id: 'lab_pending',      name: 'Pending lab tests',           tier: 'basic',    icon: '🔬', params: ['dateRange'] },
+  { id: 'lab_tests_completed', name: 'Completed lab tests',      tier: 'basic',    icon: '✅', params: ['dateRange'] },
+  { id: 'new_registrations',name: 'New patient registrations',   tier: 'basic',    icon: '🆕', params: ['dateRange'] },
+  { id: 'doctor_wise_opd',  name: 'OPD visits by doctor',        tier: 'standard', icon: '👨‍⚕️', params: ['dateRange'] },
+  { id: 'ipd_admission_history', name: 'IPD admission history',  tier: 'standard', icon: '📋', params: ['ward', 'dateRange'] },
   { id: 'bed_occupancy',    name: 'Bed occupancy by ward',       tier: 'standard', icon: '🛏️' },
-  { id: 'monthly_revenue_trend', name: 'Monthly revenue trend',      tier: 'standard', icon: '📈' },
-  { id: 'opd_appointment_engagement', name: 'OPD appointment engagement', tier: 'standard', icon: '📅' },
-  { id: 'avg_length_of_stay', name: 'Average IPD length of stay',    tier: 'standard', icon: '⏱️' },
-  { id: 'most_prescribed_medicines', name: 'Most prescribed medicines', tier: 'standard', icon: '💊' },
-  { id: 'gender_distribution',   name: 'Patient gender distribution', tier: 'standard', icon: '👥' },
+  { id: 'monthly_revenue_trend', name: 'Monthly revenue trend',      tier: 'standard', icon: '📈', params: ['financialYear'] },
+  { id: 'opd_appointment_engagement', name: 'OPD appointment engagement', tier: 'standard', icon: '📅', params: ['doctor', 'dateRange'] },
+  { id: 'avg_length_of_stay', name: 'Average IPD length of stay',    tier: 'standard', icon: '⏱️', params: ['dateRange'] },
+  { id: 'most_prescribed_medicines', name: 'Most prescribed medicines', tier: 'standard', icon: '💊', params: ['dateRange'] },
+  { id: 'gender_distribution',   name: 'Patient gender distribution', tier: 'standard', icon: '👥', params: ['calendarYear'] },
   { id: 'abha_consent_status',   name: 'ABHA consent status',         tier: 'standard', icon: '📋' },
-  { id: 'revenue_by_mode',  name: 'Revenue by payment mode',     tier: 'standard', icon: '📊' },
+  { id: 'revenue_by_mode',  name: 'Revenue by payment mode',     tier: 'standard', icon: '📊', params: ['financialYear'] },
   { id: 'abha_linked',      name: 'ABHA-linked patients',        tier: 'standard', icon: '🔗' },
 ];
 
-async function runReportQuery(reportId, appId) {
+// Hospitals have no academic calendar — School's June-to-May
+// convention was wrongly reused here at first. Indian businesses
+// report revenue on the financial year (April to March); patient
+// registration has no financial logic at all, so gender distribution
+// uses a plain calendar year (Jan to Dec) instead — simpler and more
+// intuitive than borrowing either business convention for it.
+function financialRange(startYear) {
+  if (!startYear) return null;
+  return { from: `${startYear}-04-01`, to: `${Number(startYear) + 1}-03-31` };
+}
+function calendarRange(year) {
+  if (!year) return null;
+  return { from: `${year}-01-01`, to: `${year}-12-31` };
+}
+
+async function runReportQuery(reportId, appId, extraFilters) {
   const today = new Date().toISOString().slice(0, 10);
 
   switch (reportId) {
     case 'daily_opd': {
+      // Was hardcoded to today only, with no way to look at any other
+      // date — same bug shape as School's old daily attendance. Now a
+      // date range (defaults to today when left blank) plus an
+      // optional doctor filter.
+      const cols = ['S.No', 'Patient', 'UID', 'Doctor', 'Visit date', 'Remarks'];
+      const from = extraFilters?.date_from || today;
+      const to = extraFilters?.date_to || from;
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
-      if (ids.length === 0) return { data: [], columns: ['Patient', 'UID', 'Doctor', 'Visit date', 'Remarks'] };
-      const { data, error: qErr } = await supabase
+      if (ids.length === 0) return { data: [], columns: cols };
+      let opdQuery = supabase
         .from('opd_visits')
         .select('id, visit_date, patients(full_name, patient_uid), doctors(designation, users(full_name))')
-        .eq('visit_date', today)
+        .gte('visit_date', from).lte('visit_date', to)
         .in('patient_id', ids);
+      if (extraFilters?.doctor_id) opdQuery = opdQuery.eq('doctor_id', extraFilters.doctor_id);
+      const { data, error: qErr } = await opdQuery.order('visit_date');
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Patient', 'UID', 'Doctor', 'Visit date', 'Remarks'] };
+      return { data: data || [], columns: cols };
     }
     case 'lab_pending': {
+      const cols = ['S.No', 'Patient', 'UID', 'Test', 'Ordered', 'Status', 'Remarks'];
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
-      if (ids.length === 0) return { data: [], columns: ['Patient', 'UID', 'Test', 'Status', 'Remarks'] };
-      const { data, error: qErr } = await supabase
+      if (ids.length === 0) return { data: [], columns: cols };
+      let ltQuery = supabase
         .from('lab_tests')
-        .select('id, test_name, status, patients(full_name, patient_uid)')
+        .select('id, test_name, status, created_at, patients(full_name, patient_uid)')
         .eq('app_id', appId)
         .eq('status', 'pending')
         .in('patient_id', ids);
+      if (extraFilters?.date_from) ltQuery = ltQuery.gte('created_at', extraFilters.date_from).lte('created_at', `${extraFilters.date_to}T23:59:59`);
+      const { data, error: qErr } = await ltQuery.order('created_at');
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Patient', 'UID', 'Test', 'Status', 'Remarks'] };
+      return { data: data || [], columns: cols };
     }
     case 'lab_tests_completed': {
+      const cols = ['S.No', 'Patient', 'UID', 'Test', 'Completed', 'Status', 'Remarks'];
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
-      if (ids.length === 0) return { data: [], columns: ['Patient', 'UID', 'Test', 'Status', 'Remarks'] };
-      const { data, error: qErr } = await supabase
+      if (ids.length === 0) return { data: [], columns: cols };
+      let ltcQuery = supabase
         .from('lab_tests')
-        .select('id, test_name, status, patients(full_name, patient_uid)')
+        .select('id, test_name, status, result_ready_at, patients(full_name, patient_uid)')
         .eq('app_id', appId)
         .eq('status', 'completed')
         .in('patient_id', ids);
+      if (extraFilters?.date_from) ltcQuery = ltcQuery.gte('result_ready_at', extraFilters.date_from).lte('result_ready_at', `${extraFilters.date_to}T23:59:59`);
+      const { data, error: qErr } = await ltcQuery.order('result_ready_at', { ascending: false });
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Patient', 'UID', 'Test', 'Status', 'Remarks'] };
+      return { data: data || [], columns: cols };
     }
     case 'new_registrations': {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 90);
+      // Was a fixed 90-day window with no way to change it — same
+      // bug shape as School's old new-admissions report. Now a real
+      // date range, defaulting to the last 90 days when left blank so
+      // existing behaviour is unchanged unless someone deliberately
+      // widens it.
+      const cols = ['S.No', 'Patient', 'UID', 'Phone', 'Registered', 'Remarks'];
+      let from = extraFilters?.date_from;
+      if (!from) { const c90 = new Date(); c90.setDate(c90.getDate() - 90); from = c90.toISOString().slice(0, 10); }
+      const to = extraFilters?.date_to || new Date().toISOString().slice(0, 10);
       const { data, error: qErr } = await supabase
         .from('patients')
         .select('id, full_name, patient_uid, phone, created_at')
         .eq('app_id', appId)
-        .gte('created_at', cutoff.toISOString())
+        .gte('created_at', from)
+        .lte('created_at', `${to}T23:59:59`)
         .order('created_at', { ascending: false });
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Patient', 'UID', 'Phone', 'Registered', 'Remarks'] };
+      return { data: data || [], columns: cols };
     }
     case 'doctor_wise_opd': {
+      const cols = ['S.No', 'Doctor', 'Designation', 'OPD visits', 'Remarks'];
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
-      if (ids.length === 0) return { data: [], columns: ['Doctor', 'Designation', 'OPD visits', 'Remarks'] };
-      const { data: visits } = await supabase.from('opd_visits').select('doctor_id').in('patient_id', ids);
-      const { data: doctors } = await supabase.from('doctors').select('id, designation, users(full_name)').eq('app_id', appId);
+      if (ids.length === 0) return { data: [], columns: cols };
+      let dwQuery = supabase.from('opd_visits').select('doctor_id, visit_date').in('patient_id', ids);
+      if (extraFilters?.date_from) dwQuery = dwQuery.gte('visit_date', extraFilters.date_from).lte('visit_date', extraFilters.date_to);
+      const { data: visits } = await dwQuery;
+      const { data: hDoctors } = await supabase.from('doctors').select('id, designation, users(full_name)').eq('app_id', appId);
       const counts = {};
       (visits || []).forEach((v) => { if (v.doctor_id) counts[v.doctor_id] = (counts[v.doctor_id] || 0) + 1; });
-      const rows = (doctors || []).map((d) => ({ id: d.id, doctor_name: d.users?.full_name || 'Unknown', designation: d.designation, count: counts[d.id] || 0 }))
+      const rows = (hDoctors || []).map((d) => ({ id: d.id, doctor_name: d.users?.full_name || 'Unknown', designation: d.designation, count: counts[d.id] || 0 }))
         .sort((a, b) => b.count - a.count);
-      return { data: rows, columns: ['Doctor', 'Designation', 'OPD visits', 'Remarks'] };
+      return { data: rows, columns: cols };
     }
     case 'ipd_admission_history': {
+      const cols = ['S.No', 'Patient', 'UID', 'Ward', 'Admitted', 'Discharged', 'Remarks'];
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
-      if (ids.length === 0) return { data: [], columns: ['Patient', 'UID', 'Ward', 'Admitted', 'Discharged', 'Remarks'] };
-      const { data, error: qErr } = await supabase
+      if (ids.length === 0) return { data: [], columns: cols };
+      let ipdQuery = supabase
         .from('ipd_admissions')
         .select('id, admission_date, discharge_date, patients(full_name, patient_uid), wards(ward_type)')
-        .in('patient_id', ids)
-        .order('admission_date', { ascending: false });
+        .in('patient_id', ids);
+      if (extraFilters?.ward_id) ipdQuery = ipdQuery.eq('ward_id', extraFilters.ward_id);
+      if (extraFilters?.date_from) ipdQuery = ipdQuery.gte('admission_date', extraFilters.date_from).lte('admission_date', extraFilters.date_to);
+      const { data, error: qErr } = await ipdQuery.order('admission_date', { ascending: false });
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Patient', 'UID', 'Ward', 'Admitted', 'Discharged', 'Remarks'] };
+      return { data: data || [], columns: cols };
     }
     case 'bed_occupancy': {
       const { data: wardRows } = await supabase
@@ -134,10 +178,14 @@ async function runReportQuery(reportId, appId) {
         occupied: occupiedByWard[w.id] || 0,
         available: w.total_beds - (occupiedByWard[w.id] || 0),
       }));
-      return { data: rows, columns: ['Ward', 'Total beds', 'Occupied', 'Available', 'Remarks'] };
+      return { data: rows, columns: ['S.No', 'Ward', 'Total beds', 'Occupied', 'Available', 'Remarks'] };
     }
     case 'opd_appointment_engagement': {
-      const { data: days } = await supabase.from('opd_appointment_days').select('id, appointment_date, doctors(designation, users(full_name))').eq('app_id', appId).order('appointment_date', { ascending: false });
+      const cols = ['S.No', 'Doctor', 'Date', 'Total slots', 'Booked', 'Checked in', 'Remarks'];
+      let oaeQuery = supabase.from('opd_appointment_days').select('id, appointment_date, doctor_id, doctors(designation, users(full_name))').eq('app_id', appId);
+      if (extraFilters?.doctor_id) oaeQuery = oaeQuery.eq('doctor_id', extraFilters.doctor_id);
+      if (extraFilters?.date_from) oaeQuery = oaeQuery.gte('appointment_date', extraFilters.date_from).lte('appointment_date', extraFilters.date_to);
+      const { data: days } = await oaeQuery.order('appointment_date', { ascending: false });
       const dayIds = (days || []).map((d) => d.id);
       const { data: slots } = dayIds.length
         ? await supabase.from('opd_appointment_slots').select('appointment_day_id, status').in('appointment_day_id', dayIds)
@@ -148,13 +196,15 @@ async function runReportQuery(reportId, appId) {
         const completed = daySlots.filter((s) => s.status === 'completed').length;
         return { id: d.id, doctor: d.doctors?.users?.full_name || 'Unknown', date: d.appointment_date, total: daySlots.length, booked, completed };
       });
-      return { data: rows, columns: ['Doctor', 'Date', 'Total slots', 'Booked', 'Checked in', 'Remarks'] };
+      return { data: rows, columns: cols };
     }
     case 'avg_length_of_stay': {
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
       if (ids.length === 0) return { data: [], columns: ['Metric', 'Value', 'Remarks'] };
-      const { data, error: qErr } = await supabase.from('ipd_admissions').select('admission_date, discharge_date').in('patient_id', ids).not('discharge_date', 'is', null);
+      let alosQuery = supabase.from('ipd_admissions').select('admission_date, discharge_date').in('patient_id', ids).not('discharge_date', 'is', null);
+      if (extraFilters?.date_from) alosQuery = alosQuery.gte('admission_date', extraFilters.date_from).lte('admission_date', extraFilters.date_to);
+      const { data, error: qErr } = await alosQuery;
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const stays = (data || []).map((a) => (new Date(a.discharge_date) - new Date(a.admission_date)) / (1000 * 60 * 60 * 24));
       const avg = stays.length ? (stays.reduce((s, v) => s + v, 0) / stays.length) : 0;
@@ -166,10 +216,13 @@ async function runReportQuery(reportId, appId) {
       return { data: rows, columns: ['Metric', 'Value', 'Remarks'] };
     }
     case 'most_prescribed_medicines': {
+      const cols = ['S.No', 'Medicine', 'Times prescribed', 'Remarks'];
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
-      if (ids.length === 0) return { data: [], columns: ['Medicine', 'Times prescribed', 'Remarks'] };
-      const { data, error: qErr } = await supabase.from('prescriptions').select('medicines').in('patient_id', ids);
+      if (ids.length === 0) return { data: [], columns: cols };
+      let mpmQuery = supabase.from('prescriptions').select('medicines, created_at').in('patient_id', ids);
+      if (extraFilters?.date_from) mpmQuery = mpmQuery.gte('created_at', extraFilters.date_from).lte('created_at', `${extraFilters.date_to}T23:59:59`);
+      const { data, error: qErr } = await mpmQuery;
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const counts = {};
       (data || []).forEach((p) => {
@@ -180,53 +233,78 @@ async function runReportQuery(reportId, appId) {
       });
       const rows = Object.entries(counts).map(([medicine, count]) => ({ id: medicine, medicine, count }))
         .sort((a, b) => b.count - a.count);
-      return { data: rows, columns: ['Medicine', 'Times prescribed', 'Remarks'] };
+      return { data: rows, columns: cols };
     }
     case 'monthly_revenue_trend': {
-      const { data, error: qErr } = await supabase.from('billing_invoices').select('total_amount, created_at').eq('app_id', appId).eq('status', 'paid');
+      // Was completely unscoped — summed every invoice ever, with no
+      // way to look at one year in isolation. Same bug shape as
+      // School's old monthly fee collection report.
+      const cols = ['S.No', 'Month', 'Invoices', 'Total revenue', 'Remarks'];
+      const mrtRange = financialRange(extraFilters?.financialYearStart);
+      let mrtQuery = supabase.from('billing_invoices').select('total_amount, created_at').eq('app_id', appId).eq('status', 'paid');
+      if (mrtRange) mrtQuery = mrtQuery.gte('created_at', mrtRange.from).lte('created_at', `${mrtRange.to}T23:59:59`);
+      const { data, error: qErr } = await mrtQuery;
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const byMonth = {};
       (data || []).forEach((inv) => {
-        const month = new Date(inv.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-        byMonth[month] = (byMonth[month] || 0) + Number(inv.total_amount || 0);
+        const d = new Date(inv.created_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+        if (!byMonth[key]) byMonth[key] = { month: label, total: 0, count: 0 };
+        byMonth[key].total += Number(inv.total_amount || 0);
+        byMonth[key].count += 1;
       });
-      const rows = Object.entries(byMonth).map(([month, total]) => ({ id: month, month, total }))
-        .sort((a, b) => new Date(a.month) - new Date(b.month));
-      return { data: rows, columns: ['Month', 'Total revenue', 'Remarks'] };
+      const rows = Object.entries(byMonth).sort((a, b) => a[0].localeCompare(b[0])).map(([key, v]) => ({ id: key, ...v }));
+      if (rows.length > 1) {
+        rows.push({ id: '__total__', month: 'TOTAL', isTotal: true,
+          count: rows.reduce((s, r) => s + r.count, 0), total: rows.reduce((s, r) => s + r.total, 0) });
+      }
+      return { data: rows, columns: cols };
     }
     case 'gender_distribution': {
-      const { data, error: qErr } = await supabase.from('patients').select('id, gender').eq('app_id', appId);
+      const cols = ['S.No', 'Gender', 'Count', 'Remarks'];
+      const gdRange = calendarRange(extraFilters?.calendarYear);
+      let gdQuery = supabase.from('patients').select('id, gender, created_at').eq('app_id', appId);
+      if (gdRange) gdQuery = gdQuery.gte('created_at', gdRange.from).lte('created_at', `${gdRange.to}T23:59:59`);
+      const { data, error: qErr } = await gdQuery;
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const counts = {};
       (data || []).forEach((p) => { const g = p.gender || 'Unspecified'; counts[g] = (counts[g] || 0) + 1; });
       const rows = Object.entries(counts).map(([gender, count]) => ({ id: gender, gender, count }));
-      return { data: rows, columns: ['Gender', 'Count', 'Remarks'] };
+      return { data: rows, columns: cols };
     }
     case 'abha_consent_status': {
       const { data: appPatients } = await supabase.from('patients').select('id').eq('app_id', appId);
       const ids = (appPatients || []).map((p) => p.id);
-      if (ids.length === 0) return { data: [], columns: ['Patient', 'UID', 'Consent type', 'OTP verified', 'Remarks'] };
+      if (ids.length === 0) return { data: [], columns: ['S.No', 'Patient', 'UID', 'Consent type', 'OTP verified', 'Remarks'] };
       const { data, error: qErr } = await supabase
         .from('abha_consent_log')
         .select('id, consent_type, otp_verified, patients(full_name, patient_uid)')
         .in('patient_id', ids);
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Patient', 'UID', 'Consent type', 'OTP verified', 'Remarks'] };
+      return { data: data || [], columns: ['S.No', 'Patient', 'UID', 'Consent type', 'OTP verified', 'Remarks'] };
     }
     case 'revenue_by_mode': {
-      const { data, error: qErr } = await supabase
+      const cols = ['S.No', 'Payment mode', 'Total collected', 'Remarks'];
+      const rbmRange = financialRange(extraFilters?.financialYearStart);
+      let rbmQuery = supabase
         .from('billing_invoices')
-        .select('payment_mode, total_amount')
+        .select('payment_mode, total_amount, created_at')
         .eq('app_id', appId)
         .eq('status', 'paid');
+      if (rbmRange) rbmQuery = rbmQuery.gte('created_at', rbmRange.from).lte('created_at', `${rbmRange.to}T23:59:59`);
+      const { data, error: qErr } = await rbmQuery;
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
       const byMode = {};
       (data || []).forEach((inv) => {
         const mode = inv.payment_mode || 'Unknown';
         byMode[mode] = (byMode[mode] || 0) + Number(inv.total_amount || 0);
       });
-      const rows = Object.entries(byMode).map(([mode, total]) => ({ mode, total }));
-      return { data: rows, columns: ['Payment mode', 'Total collected', 'Remarks'] };
+      const rows = Object.entries(byMode).map(([mode, total]) => ({ id: mode, mode, total }));
+      if (rows.length > 1) {
+        rows.push({ id: '__total__', mode: 'TOTAL', isTotal: true, total: rows.reduce((s, r) => s + r.total, 0) });
+      }
+      return { data: rows, columns: cols };
     }
     case 'abha_linked': {
       const { data, error: qErr } = await supabase
@@ -235,7 +313,7 @@ async function runReportQuery(reportId, appId) {
         .eq('app_id', appId)
         .order('full_name');
       if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
-      return { data: data || [], columns: ['Patient', 'UID', 'ABHA status', 'Remarks'] };
+      return { data: data || [], columns: ['S.No', 'Patient', 'UID', 'ABHA status', 'Remarks'] };
     }
     default:
       return { data: [], columns: [] };
@@ -248,14 +326,103 @@ export function HospitalReports({ userTier = 'basic' }) {
   const [result, setResult]   = useState(null);
   const [error, setError]     = useState('');
 
-  async function runReport(report) {
+  // Reusable parameter system — same design as School's report engine.
+  // A report declares what it needs via `params`; one generic panel
+  // renders the matching controls.
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [filterPanelFor, setFilterPanelFor] = useState(null);
+  const [doctors, setDoctors] = useState([]);
+  const [wards, setWards] = useState([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  const [selectedWardId, setSelectedWardId] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [financialYearStart, setFinancialYearStart] = useState('');
+  const [calendarYear, setCalendarYear] = useState('');
+
+  async function loadDoctors() {
+    const { data, error } = await supabase
+      .from('doctors').select('id, designation, users(full_name)')
+      .eq('app_id', tenant.appId);
+    if (error) { console.error('Loading doctors failed:', error); return; }
+    setDoctors(data || []);
+  }
+
+  async function loadWards() {
+    const { data, error } = await supabase
+      .from('wards').select('id, ward_type, total_beds')
+      .eq('app_id', tenant.appId).order('ward_type');
+    if (error) { console.error('Loading wards failed:', error); return; }
+    setWards(data || []);
+  }
+
+  function collectParams(report) {
+    const p = report.params || [];
+    const out = {};
+    if (p.includes('doctor')) out.doctor_id = selectedDoctorId;
+    if (p.includes('ward')) out.ward_id = selectedWardId;
+    if (p.includes('dateRange')) { out.date_from = dateFrom; out.date_to = dateTo; }
+    if (p.includes('financialYear')) out.financialYearStart = financialYearStart;
+    if (p.includes('calendarYear')) out.calendarYear = calendarYear;
+    return out;
+  }
+
+  function paramsReady(report) {
+    // Every current Hospital param is optional (a doctor/ward/date left
+    // blank just means "all") — nothing here is a hard requirement the
+    // way class+exam were for School's rank list, so this always
+    // returns true. Kept as its own function so a future required
+    // param doesn't mean restructuring the Run button's logic.
+    return true;
+  }
+
+  function buildFilterLabel(report, params) {
+    const p = report.params || [];
+    const parts = [];
+    if (p.includes('doctor')) {
+      const d = doctors.find((x) => x.id === params.doctor_id);
+      parts.push(d ? `Dr. ${d.users?.full_name}` : 'All doctors');
+    }
+    if (p.includes('ward')) {
+      const w = wards.find((x) => x.id === params.ward_id);
+      parts.push(w ? w.ward_type : 'All wards');
+    }
+    if (p.includes('dateRange') && params.date_from) parts.push(`${params.date_from} to ${params.date_to}`);
+    if (p.includes('financialYear') && params.financialYearStart) {
+      const y = Number(params.financialYearStart);
+      parts.push(`FY ${y}-${String(y + 1).slice(-2)}`);
+    }
+    if (p.includes('calendarYear') && params.calendarYear) {
+      parts.push(`Year ${params.calendarYear}`);
+    }
+    return parts.join('  •  ');
+  }
+
+  async function runReport(report, extraFilters) {
     if (!canAccess(userTier, report.tier)) return;
+    // Any report declaring `params` opens the panel first, exactly
+    // like School's engine.
+    if (report.params?.length && !extraFilters) {
+      setFilterPanelFor(report.id);
+      setShowFilterPanel(true);
+      setResult(null);
+      setError('');
+      if (report.params.includes('doctor')) loadDoctors();
+      if (report.params.includes('ward')) loadWards();
+      return;
+    }
     setRunning(report.id);
     setResult(null);
     setError('');
     try {
-      const res = await runReportQuery(report.id, tenant.appId);
-      setResult({ report, ...res, generatedAt: new Date().toLocaleString('en-IN') });
+      const res = await runReportQuery(report.id, tenant.appId, extraFilters);
+      setResult({
+        report,
+        ...res,
+        filterLabel: extraFilters ? buildFilterLabel(report, extraFilters) : '',
+        generatedAt: new Date().toLocaleString('en-IN'),
+      });
+      setShowFilterPanel(false);
     } catch (err) {
       console.error('Report generation failed:', err);
       setError(err.message || 'Failed to generate report. Please try again.');
@@ -269,6 +436,17 @@ export function HospitalReports({ userTier = 'basic' }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         .report-table-wrap { max-height: 600px; overflow-y: auto; }
+        /* Landscape for any report wide enough to need it — same
+           pattern as School's engine. None of Hospital's 15 reports
+           currently exceed 7 columns (well under the threshold), so
+           this doesn't change anything today; it's here so a future
+           wide report doesn't need this infrastructure built from
+           scratch, and so School's real-world lesson (a fixed
+           threshold only works when column count is genuinely fixed
+           per report, which is true here — none of these 15 reports
+           have selectable field groups) applies safely. */
+        @page wide-report { size: A4 landscape; margin: 10mm; }
+        .print-wide-report { page: wide-report; }
         @media print {
           .no-print { display: none !important; }
           .print-safe, .print-safe * { background: #fff !important; color: #000 !important; border-color: #ccc !important; }
@@ -314,14 +492,106 @@ export function HospitalReports({ userTier = 'basic' }) {
           })}
         </div>
 
+        {/* Generic parameter panel — renders whatever controls the
+            selected report declares via `params`. */}
+        {showFilterPanel && (() => {
+          const report = REPORT_CATALOG.find((r) => r.id === filterPanelFor);
+          if (!report) return null;
+          const p = report.params || [];
+          return (
+            <div className="no-print" style={{ ...S.card, border: '1px solid rgba(90,154,223,0.3)' }}>
+              <p style={{ fontSize: 12, color: '#5A9ADF', fontWeight: 600, marginBottom: 14 }}>{report.name}</p>
+
+              {p.includes('doctor') && (
+                <div style={{ marginBottom: 14 }}>
+                  <label htmlFor="reports-param-doctor" style={S.label}>Doctor (optional)</label>
+                  <select id="reports-param-doctor" name="reports-param-doctor" value={selectedDoctorId}
+                    onChange={(e) => setSelectedDoctorId(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
+                    <option value="">All doctors</option>
+                    {doctors.map((d) => <option key={d.id} value={d.id}>Dr. {d.users?.full_name}{d.designation ? ` — ${d.designation}` : ''}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {p.includes('ward') && (
+                <div style={{ marginBottom: 14 }}>
+                  <label htmlFor="reports-param-ward" style={S.label}>Ward (optional)</label>
+                  <select id="reports-param-ward" name="reports-param-ward" value={selectedWardId}
+                    onChange={(e) => setSelectedWardId(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
+                    <option value="">All wards</option>
+                    {wards.map((w) => <option key={w.id} value={w.id}>{w.ward_type} ({w.total_beds} beds)</option>)}
+                  </select>
+                </div>
+              )}
+
+              {p.includes('dateRange') && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <label htmlFor="reports-date-from" style={S.label}>From (optional)</label>
+                    <input id="reports-date-from" name="reports-date-from" type="date" value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)} style={S.input} />
+                  </div>
+                  <div>
+                    <label htmlFor="reports-date-to" style={S.label}>To (optional)</label>
+                    <input id="reports-date-to" name="reports-date-to" type="date" value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)} style={S.input} />
+                  </div>
+                </div>
+              )}
+
+              {p.includes('financialYear') && (
+                <div style={{ marginBottom: 14 }}>
+                  <label htmlFor="reports-financial-year" style={S.label}>Financial year (optional)</label>
+                  <select id="reports-financial-year" name="reports-financial-year" value={financialYearStart}
+                    onChange={(e) => setFinancialYearStart(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
+                    <option value="">All years</option>
+                    {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                      <option key={y} value={y}>FY {y}-{String(y + 1).slice(-2)} (Apr {y} – Mar {y + 1})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {p.includes('calendarYear') && (
+                <div style={{ marginBottom: 14 }}>
+                  <label htmlFor="reports-calendar-year" style={S.label}>Year (optional)</label>
+                  <select id="reports-calendar-year" name="reports-calendar-year" value={calendarYear}
+                    onChange={(e) => setCalendarYear(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
+                    <option value="">All years</option>
+                    {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                      <option key={y} value={y}>{y} (Jan – Dec {y})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setShowFilterPanel(false)}
+                  style={{ flex: 1, padding: 10, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                  Cancel
+                </button>
+                <button onClick={() => runReport(report, collectParams(report))}
+                  style={{ flex: 2, padding: 10, border: 'none', borderRadius: 8, background: '#5A9ADF', color: '#111113', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
+                  Run report →
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Report result */}
         {result && (
           <>
           <PrintHeader documentTitle={result.report.name} />
-          <div className="print-safe" style={S.card}>
+          <div className={`print-safe${(result.columns?.length || 0) > 10 ? ' print-wide-report' : ''}`} style={S.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{result.report.name}</p>
+                {result.filterLabel && (
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: '#5A9ADF', fontWeight: 600 }}>
+                    {result.filterLabel}
+                  </p>
+                )}
                 <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
                   {result.data.length} records · Generated {result.generatedAt}
                 </p>
@@ -353,7 +623,8 @@ export function HospitalReports({ userTier = 'basic' }) {
                       <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                         {result.report.id === 'daily_opd' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.patients?.full_name}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.patients?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.patients?.patient_uid}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.doctors?.users?.full_name}{row.doctors?.designation ? ` (${row.doctors.designation})` : ''}</td>
                             <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.4)' }}>{row.visit_date}</td>
@@ -362,16 +633,19 @@ export function HospitalReports({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'lab_pending' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.patients?.full_name}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.patients?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.patients?.patient_uid}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.test_name}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.created_at ? new Date(row.created_at).toLocaleDateString('en-IN') : '—'}</td>
                             <td style={{ padding: '8px 0', color: '#E8A020', fontWeight: 600 }}>{row.status}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="lab_pending" rowKey={row.id} /></td>
                           </>
                         )}
                         {result.report.id === 'bed_occupancy' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.ward_type}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.ward_type}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.total_beds}</td>
                             <td style={{ padding: '8px 8px', color: row.occupied > row.total_beds * 0.85 ? '#E05A5A' : 'rgba(255,255,255,0.4)' }}>{row.occupied}</td>
                             <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: 600 }}>{row.available}</td>
@@ -380,7 +654,8 @@ export function HospitalReports({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'opd_appointment_engagement' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.doctor}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.doctor}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{new Date(row.date).toLocaleDateString('en-IN')}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.total}</td>
                             <td style={{ padding: '8px 8px', color: '#E8A020' }}>{row.booked}</td>
@@ -390,6 +665,9 @@ export function HospitalReports({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'avg_length_of_stay' && (
                           <>
+                            {/* No S.No — a 3-row summary of metrics, not a
+                                list, same convention as School's own
+                                avg-length-of-stay-shaped reports. */}
                             <td style={{ padding: '8px 0', color: '#fff' }}>{row.metric}</td>
                             <td style={{ padding: '8px 0', color: '#5A9ADF', fontWeight: 600 }}>{row.value}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="avg_length_of_stay" rowKey={row.id} /></td>
@@ -397,28 +675,33 @@ export function HospitalReports({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'most_prescribed_medicines' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.medicine}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.medicine}</td>
                             <td style={{ padding: '8px 0', color: '#5A9ADF', fontWeight: 600 }}>{row.count}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="most_prescribed_medicines" rowKey={row.id} /></td>
                           </>
                         )}
                         {result.report.id === 'monthly_revenue_trend' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.month}</td>
-                            <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: 600 }}>₹{row.total.toLocaleString('en-IN')}</td>
-                            <td style={{ padding: '8px 8px' }}><ReportRemark reportId="monthly_revenue_trend" rowKey={row.id} /></td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{row.isTotal ? '' : i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff', fontWeight: row.isTotal ? 700 : 400 }}>{row.month}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)', fontWeight: row.isTotal ? 700 : 400 }}>{row.count}</td>
+                            <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: row.isTotal ? 700 : 600 }}>₹{row.total.toLocaleString('en-IN')}</td>
+                            <td style={{ padding: '8px 8px' }}>{row.isTotal ? null : <ReportRemark reportId="monthly_revenue_trend" rowKey={row.id} />}</td>
                           </>
                         )}
                         {result.report.id === 'gender_distribution' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.gender}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.gender}</td>
                             <td style={{ padding: '8px 0', color: '#5A9ADF', fontWeight: 600 }}>{row.count}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="gender_distribution" rowKey={row.id} /></td>
                           </>
                         )}
                         {result.report.id === 'abha_consent_status' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.patients?.full_name}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.patients?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.patients?.patient_uid}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.consent_type}</td>
                             <td style={{ padding: '8px 0', color: row.otp_verified ? '#6AAA90' : '#E8A020', fontWeight: 600 }}>{row.otp_verified ? '✓ Verified' : 'Pending'}</td>
@@ -427,14 +710,16 @@ export function HospitalReports({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'revenue_by_mode' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.mode}</td>
-                            <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: 600 }}>₹{row.total.toLocaleString('en-IN')}</td>
-                            <td style={{ padding: '8px 8px' }}><ReportRemark reportId="revenue_by_mode" rowKey={row.mode} /></td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{row.isTotal ? '' : i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff', fontWeight: row.isTotal ? 700 : 400 }}>{row.mode}</td>
+                            <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: row.isTotal ? 700 : 600 }}>₹{row.total.toLocaleString('en-IN')}</td>
+                            <td style={{ padding: '8px 8px' }}>{row.isTotal ? null : <ReportRemark reportId="revenue_by_mode" rowKey={row.mode} />}</td>
                           </>
                         )}
                         {result.report.id === 'abha_linked' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.full_name}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.patient_uid}</td>
                             <td style={{ padding: '8px 0', color: row.abha_linked ? '#6AAA90' : 'rgba(255,255,255,0.3)', fontWeight: 600 }}>{row.abha_linked ? '✓ Linked' : 'Not linked'}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="abha_linked" rowKey={row.id} /></td>
@@ -442,7 +727,8 @@ export function HospitalReports({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'new_registrations' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.full_name}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.patient_uid}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.phone}</td>
                             <td style={{ padding: '8px 0', color: '#6AAA90' }}>{new Date(row.created_at).toLocaleDateString('en-IN')}</td>
@@ -451,7 +737,8 @@ export function HospitalReports({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'doctor_wise_opd' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.doctor_name}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.doctor_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.designation}</td>
                             <td style={{ padding: '8px 0', color: '#5A9ADF', fontWeight: 600 }}>{row.count}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="doctor_wise_opd" rowKey={row.id} /></td>
@@ -459,7 +746,8 @@ export function HospitalReports({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'ipd_admission_history' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.patients?.full_name}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.patients?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.patients?.patient_uid}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.wards?.ward_type}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.admission_date}</td>
@@ -469,9 +757,11 @@ export function HospitalReports({ userTier = 'basic' }) {
                         )}
                         {result.report.id === 'lab_tests_completed' && (
                           <>
-                            <td style={{ padding: '8px 0', color: '#fff' }}>{row.patients?.full_name}</td>
+                            <td style={{ padding: '8px 0', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 8px', color: '#fff' }}>{row.patients?.full_name}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.patients?.patient_uid}</td>
                             <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.test_name}</td>
+                            <td style={{ padding: '8px 8px', color: 'rgba(255,255,255,0.4)' }}>{row.result_ready_at ? new Date(row.result_ready_at).toLocaleDateString('en-IN') : '—'}</td>
                             <td style={{ padding: '8px 0', color: '#6AAA90', fontWeight: 600 }}>{row.status}</td>
                             <td style={{ padding: '8px 8px' }}><ReportRemark reportId="lab_tests_completed" rowKey={row.id} /></td>
                           </>

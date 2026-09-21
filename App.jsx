@@ -9,6 +9,7 @@ import TopNav from './shared/TopNav';
 // Website
 import Home from './website/pages/Home';
 import PortalLogin from './website/pages/PortalLogin';
+import ResetPassword from './website/pages/ResetPassword';
 import Registration from './website/pages/Registration';
 import Products from './website/pages/Products';
 import Pricing from './website/pages/Pricing';
@@ -158,6 +159,11 @@ function AppRoutes() {
   const showNav = session
     && !path.startsWith('/grievance')
     && !path.startsWith('/portal/login')
+    // The recovery link establishes a temporary Supabase session, which
+    // could make `session` truthy here before the person has actually
+    // set their new password — excluded explicitly so the full app nav
+    // (sign-out, etc.) never shows on this standalone page.
+    && !path.startsWith('/portal/reset-password')
     && !path.startsWith('/registration')
     && path !== '/'
     && !path.startsWith('/products')
@@ -200,6 +206,7 @@ function AppRoutes() {
       <Route path="/contact"         element={<Contact />} />
       <Route path="/registration"    element={<Registration />} />
       <Route path="/portal/login"    element={<PortalLogin />} />
+      <Route path="/portal/reset-password" element={<ResetPassword />} />
       <Route path="/privacy"         element={<PrivacyPolicy />} />
       <Route path="/terms"           element={<TermsOfService />} />
       <Route path="/refund-policy"   element={<RefundPolicy />} />
