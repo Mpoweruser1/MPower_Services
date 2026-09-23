@@ -22,11 +22,21 @@ const STATUS_CONFIG = {
   churned:  { color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.06)', label: 'Churned' },
 };
 
+// Extended to cover every real tier name across all three modules —
+// the old list ('basic'/'standard'/'advanced'/'specialised') was
+// missing 'enterprise' (School/Hospital's real top tier) and every
+// CTS tier name, so those clients' badges would have silently fallen
+// back to the plain "Basic" default below, regardless of their real tier.
 const TIER_CONFIG = {
   basic:       { color: '#6AAA90', label: 'Basic' },
   standard:    { color: '#5A9ADF', label: 'Standard' },
   advanced:    { color: '#9A8AE0', label: 'Advanced' },
-  specialised: { color: '#E8A020', label: 'Specialised' },
+  enterprise:  { color: '#E8A020', label: 'Enterprise' },
+  free:        { color: '#6AAA90', label: 'Free' },
+  starter:     { color: '#5A9ADF', label: 'Starter' },
+  active:      { color: '#5A9ADF', label: 'Active' },
+  pro:         { color: '#9A8AE0', label: 'Pro' },
+  unlimited:   { color: '#E8A020', label: 'Unlimited' },
 };
 
 const APP_TYPES = {
@@ -38,6 +48,7 @@ const APP_TYPES = {
 export default function CrmClientView() {
   const { tenant, loading: tenantLoading } = useTenant();
   const [clients, setClients]       = useState([]);
+  const [pricingMap, setPricingMap] = useState({}); // `${module}_${tier}` -> price — same source pricing_plans everywhere now reads from
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -52,12 +63,29 @@ export default function CrmClientView() {
 
   async function loadClients() {
     setLoading(true);
-    const { data } = await supabase
-      .from('crm_clients')
-      .select('*, apps(app_type, subscription_tier, active_modules)')
-      .order('created_at', { ascending: false });
-    setClients(data || []);
+    // admin_user_id is now joined to the real users row (full_name,
+    // phone) rather than relying on crm_clients.contact_person, a
+    // plain text field that had no guaranteed link to the account
+    // that actually logs in — could be stale, or a different person
+    // (e.g. a school office contact rather than the Principal).
+    const [clientsRes, pricingRes] = await Promise.allSettled([
+      supabase.from('crm_clients')
+        .select('*, apps(app_type, subscription_tier, active_modules), admin_user:admin_user_id(full_name, phone)')
+        .order('created_at', { ascending: false }),
+      supabase.from('pricing_plans').select('module, tier, price'),
+    ]);
+    setClients(clientsRes.status === 'fulfilled' ? (clientsRes.value.data || []) : []);
+    const priceRows = pricingRes.status === 'fulfilled' ? (pricingRes.value.data || []) : [];
+    const map = {};
+    priceRows.forEach((r) => { map[`${r.module}_${r.tier}`] = Number(r.price); });
+    setPricingMap(map);
     setLoading(false);
+  }
+
+  function getPrice(client) {
+    const module = client.app_type || client.apps?.app_type;
+    const tier = client.tier || client.apps?.subscription_tier || 'basic';
+    return pricingMap[`${module}_${tier}`] ?? 0;
   }
 
   async function loadClientDetails(client) {
@@ -67,18 +95,35 @@ export default function CrmClientView() {
     // FIXED: was billing_invoices_platform, a table that doesn't exist
     // — same wrong-table bug already found and fixed in
     // BillingTracker.jsx. client_invoices is the real table.
-    const [ticketsRes, onboardRes, billingRes] = await Promise.allSettled([
+    //
+    // allInvoicesRes fetches every invoice this client has ever had
+    // (amount + status only, so it stays light even for a client with
+    // years of history) to compute real lifetime totals — separate
+    // from billingRes below, which stays limited to 5 for the
+    // "recent activity" list, a different purpose.
+    const [ticketsRes, onboardRes, billingRes, allInvoicesRes] = await Promise.allSettled([
       supabase.from('support_tickets').select('id, subject, status, created_at')
         .eq('client_id', client.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('client_onboarding').select('*').eq('client_id', client.id).single(),
       supabase.from('client_invoices').select('id, amount, status, due_date')
         .eq('client_id', client.id).order('due_date', { ascending: false }).limit(5),
+      supabase.from('client_invoices').select('amount, status').eq('client_id', client.id),
     ]);
+
+    const allInvoices = allInvoicesRes.status === 'fulfilled' ? (allInvoicesRes.value.data || []) : [];
+    const totalBilled  = allInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+    const totalReceived = allInvoices.filter((inv) => inv.status === 'paid').reduce((sum, inv) => sum + Number(inv.amount), 0);
 
     setClientDetails({
       tickets:    ticketsRes.status === 'fulfilled' ? (ticketsRes.value.data || []) : [],
       onboarding: onboardRes.status === 'fulfilled' ? onboardRes.value.data : null,
       billing:    billingRes.status === 'fulfilled' ? (billingRes.value.data || []) : [],
+      lifetime: {
+        totalBilled,
+        totalReceived,
+        balance: totalBilled - totalReceived,
+        invoiceCount: allInvoices.length,
+      },
     });
     setLoadingDetails(false);
   }
@@ -138,12 +183,8 @@ export default function CrmClientView() {
     trial:     clients.filter((c) => c.status === 'trial').length,
     active:    clients.filter((c) => c.status === 'active').length,
     suspended: clients.filter((c) => c.status === 'suspended').length,
-    mrr:       clients.filter((c) => c.status === 'active').reduce((sum, c) => {
-      const tier = c.tier || c.apps?.subscription_tier || 'basic';
-      const prices = { basic: 299, standard: 599, advanced: 999, specialised: 1999 };
-      return sum + (prices[tier] || 0);
-    }, 0),
-  }), [clients]);
+    mrr:       clients.filter((c) => c.status === 'active').reduce((sum, c) => sum + getPrice(c), 0),
+  }), [clients, pricingMap]);
 
   // Trial expiry check
   const expiringTrials = clients.filter((c) => {
@@ -265,6 +306,19 @@ export default function CrmClientView() {
             const daysLeft  = client.trial_ended_at && client.status === 'trial'
               ? Math.ceil((new Date(client.trial_ended_at) - Date.now()) / 86400000)
               : null;
+            // next_renewal already existed as a real column — it was
+            // just never shown anywhere. Only meaningful once a client
+            // is past trial, so shown here alongside (never instead
+            // of) the trial countdown above, whichever applies.
+            const renewalDate = client.next_renewal && client.status !== 'trial'
+              ? new Date(client.next_renewal).toLocaleDateString('en-IN')
+              : null;
+            // Prefer the real linked admin (per admin_user_id) over the
+            // plain-text contact_person, which has no guaranteed link
+            // to who actually logs in — fall back only if no admin is
+            // linked yet.
+            const adminName  = client.admin_user?.full_name || client.contact_person || '—';
+            const adminPhone = client.admin_user?.phone || client.phone;
             const isExpanded = selected?.id === client.id;
 
             return (
@@ -280,13 +334,18 @@ export default function CrmClientView() {
                         <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: `${tierCfg.color}15`, color: tierCfg.color }}>{tierCfg.label}</span>
                       </div>
                       <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-                        {client.contact_person || '—'}
-                        {client.phone ? ` · ${client.phone}` : ''}
+                        {adminName}
+                        {adminPhone ? ` · ${adminPhone}` : ''}
                         {client.district ? ` · ${client.district}` : ''}
                       </p>
                       {daysLeft !== null && (
                         <p style={{ margin: '4px 0 0', fontSize: 12, color: daysLeft <= 3 ? '#E05A5A' : '#E8A020' }}>
                           ⏰ Trial ends in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+                        </p>
+                      )}
+                      {renewalDate && (
+                        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                          📅 Renews {renewalDate}
                         </p>
                       )}
                     </div>
@@ -361,6 +420,32 @@ export default function CrmClientView() {
                               )}
                               {clientDetails.onboarding.golive_at ? ` · ${new Date(clientDetails.onboarding.golive_at).toLocaleDateString('en-IN')}` : ''}
                             </p>
+                          </div>
+                        )}
+
+                        {/* Lifetime billing — was previously invisible
+                            entirely; only the last 5 invoices were ever
+                            fetched, with nothing summing the real total
+                            billed/received/outstanding for this client. */}
+                        {clientDetails?.lifetime && clientDetails.lifetime.invoiceCount > 0 && (
+                          <div style={{ marginTop: 14, background: '#111113', borderRadius: 8, padding: '10px 12px' }}>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>
+                              LIFETIME ({clientDetails.lifetime.invoiceCount} invoice{clientDetails.lifetime.invoiceCount !== 1 ? 's' : ''})
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                              <div>
+                                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#fff' }}>₹{clientDetails.lifetime.totalBilled.toLocaleString('en-IN')}</p>
+                                <p style={{ margin: 0, fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Billed</p>
+                              </div>
+                              <div>
+                                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#6AAA90' }}>₹{clientDetails.lifetime.totalReceived.toLocaleString('en-IN')}</p>
+                                <p style={{ margin: 0, fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Received</p>
+                              </div>
+                              <div>
+                                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: clientDetails.lifetime.balance > 0 ? '#E8A020' : '#6AAA90' }}>₹{clientDetails.lifetime.balance.toLocaleString('en-IN')}</p>
+                                <p style={{ margin: 0, fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Balance</p>
+                              </div>
+                            </div>
                           </div>
                         )}
 

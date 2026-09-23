@@ -38,6 +38,18 @@ export default function Transport() {
   });
   const [routeErrors, setRouteErrors] = useState({});
 
+  // Stops — Transport had no way to actually create a stop anywhere
+  // in this file: routes could be added, status marked, sheets
+  // printed, but transport_stops itself was read-only. That's exactly
+  // why routes like Route-2 showed "No stops defined for this route
+  // yet" with no way to fix it from here.
+  const [addingStopFor, setAddingStopFor] = useState(null); // route id, or null
+  const [newStop, setNewStop] = useState({ stop_name: '', pickup_time: '' });
+  const [stopError, setStopError] = useState('');
+  const [savingStop, setSavingStop] = useState(false);
+  const [removingStopId, setRemovingStopId] = useState(null);
+  const [reorderingStopId, setReorderingStopId] = useState(null);
+
   useEffect(() => {
     if (tenant?.appId) loadAll();
   }, [tenant?.appId]);
@@ -214,6 +226,110 @@ export default function Transport() {
     loadAll();
   }
 
+  function validateNewStop() {
+    if (!newStop.stop_name.trim()) { setStopError('Stop name is required.'); return false; }
+    setStopError('');
+    return true;
+  }
+
+  async function addStop(routeId) {
+    if (!validateNewStop()) return;
+    setSavingStop(true);
+
+    const route = routes.find((r) => r.id === routeId);
+    const existingStops = route?.transport_stops || [];
+    // Next order slot for this route — stops are per-route, so this
+    // only needs to be unique within the route, not across all of them.
+    const nextOrder = existingStops.length > 0
+      ? Math.max(...existingStops.map((s) => s.stop_order || 0)) + 1
+      : 1;
+
+    const { error } = await supabase.from('transport_stops').insert({
+      route_id:    routeId,
+      stop_name:   newStop.stop_name.trim(),
+      pickup_time: newStop.pickup_time.trim() || null,
+      stop_order:  nextOrder,
+    });
+
+    setSavingStop(false);
+    if (error) {
+      console.error('Adding stop failed:', error);
+      setStopError(error.message || 'Failed to add stop. Please try again.');
+      return;
+    }
+
+    setNewStop({ stop_name: '', pickup_time: '' });
+    setAddingStopFor(null);
+    setMessage(`✅ Stop added.`);
+    loadAll();
+  }
+
+  async function moveStop(route, stop, direction) {
+    const stops = [...(route.transport_stops || [])].sort((a, b) => (a.stop_order || 0) - (b.stop_order || 0));
+    const idx = stops.findIndex((s) => s.id === stop.id);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= stops.length) return; // already at the end
+
+    const other = stops[swapIdx];
+    setReorderingStopId(stop.id);
+
+    // Swap stop_order between the two — two separate updates rather
+    // than one query, since Supabase's update() doesn't support
+    // swapping two rows' values against each other atomically. A
+    // failure partway is visible (the two stops would briefly share
+    // an order value) rather than silently wrong, and loadAll()
+    // afterward re-reads the real state either way.
+    const [res1, res2] = await Promise.all([
+      supabase.from('transport_stops').update({ stop_order: other.stop_order }).eq('id', stop.id),
+      supabase.from('transport_stops').update({ stop_order: stop.stop_order }).eq('id', other.id),
+    ]);
+
+    setReorderingStopId(null);
+    if (res1.error || res2.error) {
+      console.error('Reordering stops failed:', res1.error || res2.error);
+      setSubmitError('Failed to reorder stops. Please try again.');
+      return;
+    }
+    loadAll();
+  }
+
+  async function removeStop(stop) {
+    const studentCount = stop.student_count || 0;
+    const confirmMsg = studentCount > 0
+      ? `Remove "${stop.stop_name}"? ${studentCount} student${studentCount !== 1 ? 's are' : ' is'} currently assigned to this stop — they will show as "Not assigned" on their profile until reassigned.`
+      : `Remove "${stop.stop_name}"?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setRemovingStopId(stop.id);
+
+    // Un-assign affected students first — same "Not assigned" state
+    // StudentDetail.jsx's Transport card already handles, not a new
+    // state to build. Done before the stop itself is deleted so
+    // nothing is ever left pointing at a stop_id that no longer exists.
+    if (studentCount > 0) {
+      const { error: unassignErr } = await supabase
+        .from('transport_students')
+        .update({ stop_id: null })
+        .eq('stop_id', stop.id);
+      if (unassignErr) {
+        console.error('Un-assigning students from stop failed:', unassignErr);
+        setSubmitError(unassignErr.message || 'Failed to remove stop — could not un-assign its students.');
+        setRemovingStopId(null);
+        return;
+      }
+    }
+
+    const { error } = await supabase.from('transport_stops').delete().eq('id', stop.id);
+    setRemovingStopId(null);
+    if (error) {
+      console.error('Removing stop failed:', error);
+      setSubmitError(error.message || 'Failed to remove stop. Please try again.');
+      return;
+    }
+    setMessage(`✅ Stop removed.${studentCount > 0 ? ` ${studentCount} student${studentCount !== 1 ? 's' : ''} unassigned.` : ''}`);
+    loadAll();
+  }
+
   const totalStudents = routes.reduce((sum, r) => {
     return sum + (r.transport_stops || []).reduce((s, stop) => s + (stop.student_count || 0), 0);
   }, 0);
@@ -329,17 +445,69 @@ export default function Transport() {
                       {isExpanded && (
                         <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                           {(route.transport_stops || []).length > 0 && (
-                            <div style={{ marginBottom: 14 }}>
-                              {route.transport_stops.map((stop) => (
+                            <div style={{ marginBottom: 10 }}>
+                              {[...route.transport_stops].sort((a, b) => (a.stop_order || 0) - (b.stop_order || 0)).map((stop, si, sorted) => (
                                 <div key={stop.id}
-                                  style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                  <span style={{ color: '#fff' }}>{stop.stop_name}</span>
-                                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                    {stop.pickup_time || 'Time not set'} · {stop.student_count || 0} students
-                                  </span>
+                                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                  <div style={{ minWidth: 0 }}>
+                                    <span style={{ color: '#fff' }}>{stop.stop_name}</span>
+                                    <span style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                      {' '}· {stop.pickup_time || 'Time not set'} · {stop.student_count || 0} students
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                    <button onClick={() => moveStop(route, stop, 'up')} disabled={si === 0 || reorderingStopId === stop.id}
+                                      title="Move up"
+                                      style={{ width: 26, height: 26, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, background: 'transparent', color: si === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)', cursor: si === 0 ? 'not-allowed' : 'pointer', fontSize: 11 }}>
+                                      ▲
+                                    </button>
+                                    <button onClick={() => moveStop(route, stop, 'down')} disabled={si === sorted.length - 1 || reorderingStopId === stop.id}
+                                      title="Move down"
+                                      style={{ width: 26, height: 26, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, background: 'transparent', color: si === sorted.length - 1 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)', cursor: si === sorted.length - 1 ? 'not-allowed' : 'pointer', fontSize: 11 }}>
+                                      ▼
+                                    </button>
+                                    <button onClick={() => removeStop(stop)} disabled={removingStopId === stop.id}
+                                      title="Remove stop"
+                                      style={{ width: 26, height: 26, border: '1px solid rgba(224,90,90,0.25)', borderRadius: 6, background: 'transparent', color: '#E05A5A', cursor: 'pointer', fontSize: 12 }}>
+                                      ✕
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
+                          )}
+
+                          {addingStopFor === route.id ? (
+                            <div style={{ background: '#111113', borderRadius: 8, padding: 10, marginBottom: 14 }}>
+                              {stopError && (
+                                <p style={{ margin: '0 0 8px', fontSize: 12, color: '#E05A5A' }}>⚠ {stopError}</p>
+                              )}
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 8, marginBottom: 8 }}>
+                                <input id={`stop-name-${route.id}`} name={`stop-name-${route.id}`}
+                                  value={newStop.stop_name}
+                                  onChange={(e) => { setNewStop((s) => ({ ...s, stop_name: e.target.value })); setStopError(''); }}
+                                  placeholder="Stop name" style={S.input(!!stopError)} />
+                                <input id={`stop-time-${route.id}`} name={`stop-time-${route.id}`} type="time"
+                                  value={newStop.pickup_time}
+                                  onChange={(e) => setNewStop((s) => ({ ...s, pickup_time: e.target.value }))}
+                                  style={S.input(false)} />
+                              </div>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={() => { setAddingStopFor(null); setNewStop({ stop_name: '', pickup_time: '' }); setStopError(''); }}
+                                  style={{ flex: 1, padding: 8, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, background: 'transparent', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                                  Cancel
+                                </button>
+                                <button onClick={() => addStop(route.id)} disabled={savingStop}
+                                  style={{ flex: 2, padding: 8, border: 'none', borderRadius: 7, background: savingStop ? 'rgba(255,255,255,0.08)' : '#6AAA90', color: '#111113', cursor: savingStop ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
+                                  {savingStop ? 'Saving...' : 'Save stop'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button onClick={() => setAddingStopFor(route.id)}
+                              style={{ width: '100%', padding: 8, marginBottom: 14, border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 7, background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                              + Add stop
+                            </button>
                           )}
 
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

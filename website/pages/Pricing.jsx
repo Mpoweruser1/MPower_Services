@@ -1,228 +1,43 @@
 // website/pages/Pricing.jsx
-import React, { useState } from 'react';
+//
+// SCHOOL_PLANS, HOSPITAL_PLANS, and CTS_PLANS used to be hardcoded
+// here — a THIRD, independent copy of pricing that disagreed with
+// both BillingTracker.jsx's own hardcoded TIER_PRICES (which actually
+// generates invoices) and the sales documents. A client could see
+// ₹999 here and be invoiced ₹299 by BillingTracker, with nothing
+// connecting the two. Both now read from the same `pricing_plans`
+// table — this is the only place prices are defined at all.
+//
+// CTS_STATE_PLANS and COMBO_PLANS stay hardcoded below, deliberately —
+// a different shape (district/state packs, multi-module bundles) that
+// was never part of the original 3-way conflict this fixes.
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../../lib/supabaseClient';
 
 // ── Product definitions ──────────────────────────────────────────────────────
 
-const SCHOOL_PLANS = [
-  {
-    key: 'basic',
-    name: 'Basic',
-    price: 999,
-    students: 'Up to 500',
-    sms: '2,000 SMS/month',
-    color: '#1D9E75',
-    highlight: false,
-    features: [
-      'Attendance & marks entry',
-      'Fee collection & receipts',
-      'Transfer certificates',
-      'Certificates & ID cards',
-      'WhatsApp OTP login',
-      'Basic reports',
-    ],
-  },
-  {
-    key: 'standard',
-    name: 'Standard',
-    price: 1999,
-    students: 'Up to 1,500',
-    sms: '5,000 SMS/month',
-    color: '#185FA5',
-    highlight: true,
-    features: [
-      'Everything in Basic',
-      'Reports & search',
-      'Hostel management',
-      'Transport management',
-      'Email support (48 hrs)',
-      'Bulk Excel upload',
-    ],
-  },
-  {
-    key: 'advanced',
-    name: 'Advanced',
-    price: 3499,
-    students: 'Up to 3,000',
-    sms: '10,000 SMS/month',
-    color: '#534AB7',
-    highlight: false,
-    features: [
-      'Everything in Standard',
-      'Activities & coaching',
-      'Multi-filter reports',
-      'Analytics dashboard',
-      'Phone support (24 hrs)',
-    ],
-  },
-  {
-    key: 'enterprise',
-    name: 'Enterprise',
-    price: 5999,
-    students: 'Unlimited',
-    sms: '25,000 SMS/month',
-    color: '#854F0B',
-    highlight: false,
-    features: [
-      'Everything in Advanced',
-      'Multi-branch management',
-      'Custom reports',
-      'AI insights',
-      '24×7 dedicated support',
-    ],
-  },
-];
+// Maps each module's own usage-limit field name back onto the
+// generic `usage_limit_label` column, so PlanCard and every subtitle
+// template below (`${plan.students}`, `${plan.opd}`, `${plan.complaints}`)
+// keep working completely unchanged.
+const USAGE_FIELD_BY_MODULE = { school: 'students', hospital: 'opd', cts: 'complaints' };
 
-const HOSPITAL_PLANS = [
-  {
-    key: 'basic',
-    name: 'Basic',
-    price: 1499,
-    opd: 'Up to 300 OPD/month',
-    sms: '2,000 SMS/month',
-    color: '#1D9E75',
-    highlight: false,
-    features: [
-      'Patient registration',
-      'OPD & prescriptions',
-      'Basic billing',
-      'WhatsApp OTP login',
-      'Basic reports',
-    ],
-  },
-  {
-    key: 'standard',
-    name: 'Standard',
-    price: 2999,
-    opd: 'Up to 1,000 OPD/month',
-    sms: '5,000 SMS/month',
-    color: '#185FA5',
-    highlight: true,
-    features: [
-      'Everything in Basic',
-      'IPD management',
-      'Lab reports',
-      'Pharmacy',
-      'Email support (48 hrs)',
-    ],
-  },
-  {
-    key: 'advanced',
-    name: 'Advanced',
-    price: 4999,
-    opd: 'Up to 3,000 OPD/month',
-    sms: '10,000 SMS/month',
-    color: '#534AB7',
-    highlight: false,
-    features: [
-      'Everything in Standard',
-      'ABHA integration',
-      'GST billing',
-      'Analytics dashboard',
-      'Phone support (24 hrs)',
-    ],
-  },
-  {
-    key: 'enterprise',
-    name: 'Enterprise',
-    price: 7999,
-    opd: 'Unlimited',
-    sms: '25,000 SMS/month',
-    color: '#854F0B',
-    highlight: false,
-    features: [
-      'Everything in Advanced',
-      'Multi-branch management',
-      'Custom reports',
-      '24×7 dedicated support',
-    ],
-  },
-];
-
-const CTS_PLANS = [
-  {
-    key: 'free',
-    name: 'Free',
-    price: 0,
-    complaints: 'Up to 100/month',
-    sms: 'OTP only',
-    color: '#1D9E75',
-    highlight: false,
-    forever: true,
-    features: [
-      'Citizen complaint portal',
-      'Staff dashboard',
-      'OTP login security',
-      'Case number tracking',
-      'Print representation letter',
-      'No WhatsApp notifications',
-    ],
-  },
-  {
-    key: 'starter',
-    name: 'Starter',
-    price: 1999,
-    complaints: 'Up to 500/month',
-    sms: '3,000 SMS/month',
-    color: '#185FA5',
-    highlight: false,
-    features: [
-      'Everything in Free',
-      'WhatsApp on final status',
-      'Evidence photo upload',
-      'Basic reports & CSV export',
-      'Email support',
-    ],
-  },
-  {
-    key: 'active',
-    name: 'Active',
-    price: 3999,
-    complaints: 'Up to 2,000/month',
-    sms: '12,000 SMS/month',
-    color: '#534AB7',
-    highlight: true,
-    features: [
-      'Everything in Starter',
-      'All WhatsApp status updates',
-      'Analytics dashboard',
-      'Mandal & village reports',
-      'Phone support (24 hrs)',
-    ],
-  },
-  {
-    key: 'pro',
-    name: 'Pro',
-    price: 6999,
-    complaints: 'Up to 5,000/month',
-    sms: '30,000 SMS/month',
-    color: '#854F0B',
-    highlight: false,
-    features: [
-      'Everything in Active',
-      'Priority queue management',
-      'Custom branding',
-      'API access',
-      '24×7 dedicated support',
-    ],
-  },
-  {
-    key: 'unlimited',
-    name: 'Unlimited',
-    price: 9999,
-    complaints: 'Unlimited',
-    sms: '75,000 SMS/month',
-    color: '#1a1a2e',
-    highlight: false,
-    features: [
-      'Everything in Pro',
-      'SLA guarantee',
-      'Dedicated account manager',
-      'Custom reports',
-      'Onboarding assistance',
-    ],
-  },
-];
+function rowToPlan(row) {
+  const plan = {
+    key: row.tier,
+    name: row.name,
+    price: Number(row.price),
+    sms: row.sms_quota,
+    color: row.color,
+    highlight: row.highlight,
+    features: row.features || [],
+  };
+  if (row.forever) plan.forever = true;
+  const usageField = USAGE_FIELD_BY_MODULE[row.module];
+  if (usageField) plan[usageField] = row.usage_limit_label;
+  return plan;
+}
 
 const CTS_STATE_PLANS = [
   { key: 'district', name: 'District Pack', price: 24999, constituencies: 'Up to 10', features: ['All Pro features', 'Centralized dashboard', 'District-level reports', 'Dedicated support'] },
@@ -319,6 +134,35 @@ function SectionHeader({ title, subtitle }) {
 
 export default function Pricing() {
   const [annual, setAnnual] = useState(false);
+  const [schoolPlans, setSchoolPlans]     = useState([]);
+  const [hospitalPlans, setHospitalPlans] = useState([]);
+  const [ctsPlans, setCtsPlans]           = useState([]);
+  const [plansLoading, setPlansLoading]   = useState(true);
+  const [plansError, setPlansError]       = useState('');
+
+  useEffect(() => { loadPlans(); }, []);
+
+  async function loadPlans() {
+    setPlansLoading(true);
+    setPlansError('');
+    const { data, error } = await supabase
+      .from('pricing_plans')
+      .select('*')
+      .order('display_order');
+
+    if (error) {
+      console.error('Loading pricing_plans failed:', error);
+      setPlansError('Could not load current pricing. Please refresh, or contact us directly.');
+      setPlansLoading(false);
+      return;
+    }
+
+    const rows = data || [];
+    setSchoolPlans(rows.filter(r => r.module === 'school').map(rowToPlan));
+    setHospitalPlans(rows.filter(r => r.module === 'hospital').map(rowToPlan));
+    setCtsPlans(rows.filter(r => r.module === 'cts').map(rowToPlan));
+    setPlansLoading(false);
+  }
   const [activeProduct, setActiveProduct] = useState('cts');
 
   const PRODUCTS = [
@@ -384,8 +228,18 @@ export default function Pricing() {
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 16px 60px' }}>
 
+        {plansLoading && (
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 14, padding: '40px 0' }}>Loading current pricing...</p>
+        )}
+
+        {plansError && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '14px 18px', marginBottom: 24, fontSize: 13, color: '#991b1b', textAlign: 'center' }}>
+            ⚠️ {plansError}
+          </div>
+        )}
+
         {/* ── CTS Plans ── */}
-        {activeProduct === 'cts' && (
+        {!plansLoading && !plansError && activeProduct === 'cts' && (
           <>
             <SectionHeader
               title="Complaint Tracking System — Per Constituency"
@@ -398,7 +252,7 @@ export default function Pricing() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 40 }}>
-              {CTS_PLANS.map(plan => (
+              {ctsPlans.map(plan => (
                 <PlanCard
                   key={plan.key}
                   plan={plan}
@@ -452,14 +306,14 @@ export default function Pricing() {
         )}
 
         {/* ── School Plans ── */}
-        {activeProduct === 'school' && (
+        {!plansLoading && !plansError && activeProduct === 'school' && (
           <>
             <SectionHeader
               title="School Management"
               subtitle="6 months free on Basic. Upgrade anytime."
             />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-              {SCHOOL_PLANS.map(plan => (
+              {schoolPlans.map(plan => (
                 <PlanCard
                   key={plan.key}
                   plan={plan}
@@ -475,14 +329,14 @@ export default function Pricing() {
         )}
 
         {/* ── Hospital Plans ── */}
-        {activeProduct === 'hospital' && (
+        {!plansLoading && !plansError && activeProduct === 'hospital' && (
           <>
             <SectionHeader
               title="Hospital Management"
               subtitle="6 months free on Basic. Upgrade anytime."
             />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-              {HOSPITAL_PLANS.map(plan => (
+              {hospitalPlans.map(plan => (
                 <PlanCard
                   key={plan.key}
                   plan={plan}

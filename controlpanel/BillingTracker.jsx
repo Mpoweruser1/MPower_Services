@@ -19,12 +19,22 @@ const PAYMENT_STATUS = {
   overdue: { color: '#E05A5A', bg: 'rgba(224,90,90,0.12)',   label: 'Overdue' },
 };
 
-const TIER_PRICES = { basic: 299, standard: 599, advanced: 999, specialised: 1999 };
+// TIER_PRICES used to be hardcoded here — a price list completely
+// disconnected from Pricing.jsx (the one customers actually see), and
+// wrong at every tier (e.g. basic ₹299 here vs ₹999/₹1,499 shown to
+// customers depending on module). It also had no concept of module at
+// all, so a School and a Hospital client on the same tier name were
+// silently charged the same amount. pricing_plans is now the only
+// place any price is defined, keyed by module AND tier together.
 
 export default function BillingTracker() {
   const { tenant } = useTenant();
   const [clients, setClients] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [pricingMap, setPricingMap] = useState({}); // `${module}_${tier}` -> price, for fast lookups
+  const [pricingPlans, setPricingPlans] = useState([]); // full rows, for the Manage Pricing editor
+  const [editedPrices, setEditedPrices] = useState({}); // plan id -> in-progress edited value (string, while typing)
+  const [savingPlan, setSavingPlan] = useState({}); // plan id -> true while a save is in flight
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('overview');
   const [generating, setGenerating] = useState(false);
@@ -36,21 +46,58 @@ export default function BillingTracker() {
 
   useEffect(() => { loadData(); }, []);
 
+  function getPrice(client) {
+    const module = client.app_type || client.apps?.app_type;
+    const tier = client.tier || client.apps?.subscription_tier || 'basic';
+    return pricingMap[`${module}_${tier}`] ?? 0;
+  }
+
   async function loadData() {
     setLoading(true);
     // FIXED: was pointed at billing_invoices_platform, a table that
     // does not exist — every read/write here has silently failed
     // since this screen was written. client_invoices is the real,
     // correct table (confirmed via a direct schema check).
-    const [clientsRes, invoicesRes] = await Promise.allSettled([
+    const [clientsRes, invoicesRes, pricingRes] = await Promise.allSettled([
       supabase.from('crm_clients').select('*, apps(subscription_tier, app_type)')
         .in('status', ['active', 'trial']).order('org_name'),
       supabase.from('client_invoices').select('*, crm_clients(org_name, phone)')
         .order('due_date', { ascending: false }).limit(100),
+      supabase.from('pricing_plans').select('id, module, tier, name, price, display_order').order('module').order('display_order'),
     ]);
     setClients(clientsRes.status === 'fulfilled' ? (clientsRes.value.data || []) : []);
     setInvoices(invoicesRes.status === 'fulfilled' ? (invoicesRes.value.data || []) : []);
+    const priceRows = pricingRes.status === 'fulfilled' ? (pricingRes.value.data || []) : [];
+    const map = {};
+    priceRows.forEach((r) => { map[`${r.module}_${r.tier}`] = Number(r.price); });
+    setPricingMap(map);
+    setPricingPlans(priceRows);
     setLoading(false);
+  }
+
+  async function savePlanPrice(plan) {
+    const raw = editedPrices[plan.id];
+    const newPrice = Number(raw);
+    if (raw === undefined || raw === '' || Number.isNaN(newPrice) || newPrice < 0) {
+      alert('Enter a valid, non-negative price before saving.');
+      return;
+    }
+    setSavingPlan((s) => ({ ...s, [plan.id]: true }));
+    const { error } = await supabase.from('pricing_plans')
+      .update({ price: newPrice, updated_at: new Date().toISOString() })
+      .eq('id', plan.id);
+    setSavingPlan((s) => ({ ...s, [plan.id]: false }));
+    if (error) {
+      console.error('Updating plan price failed:', error);
+      alert(`Failed to update price: ${error.message || 'please try again.'}`);
+      return;
+    }
+    // Update both local copies so every part of this screen — MRR,
+    // client rates, this editor itself — reflects the new price
+    // immediately, without needing a full reload.
+    setPricingPlans((prev) => prev.map((p) => p.id === plan.id ? { ...p, price: newPrice } : p));
+    setPricingMap((prev) => ({ ...prev, [`${plan.module}_${plan.tier}`]: newPrice }));
+    setEditedPrices((prev) => { const next = { ...prev }; delete next[plan.id]; return next; });
   }
 
   async function generateMonthlyInvoices() {
@@ -75,7 +122,7 @@ export default function BillingTracker() {
     for (const client of activeClients) {
       if (alreadyInvoiced.has(client.id)) { skipped++; continue; }
       const tier   = client.tier || client.apps?.subscription_tier || 'basic';
-      const amount = TIER_PRICES[tier] || 299;
+      const amount = getPrice(client);
       const { error } = await supabase.from('client_invoices').insert({
         client_id:    client.id,
         month:        month,
@@ -142,9 +189,11 @@ export default function BillingTracker() {
     const actuallySent = !error && data?.sent > 0;
     if (actuallySent) {
       const newCount = (invoice.reminder_count || 0) + 1;
-      const { error: countErr } = await supabase.from('client_invoices').update({ reminder_count: newCount }).eq('id', invoice.id);
+      const sentAt = new Date().toISOString();
+      const { error: countErr } = await supabase.from('client_invoices')
+        .update({ reminder_count: newCount, last_reminder_sent_at: sentAt }).eq('id', invoice.id);
       if (countErr) console.error('Reminder count update failed (message was still sent):', countErr);
-      setInvoices((prev) => prev.map((inv) => inv.id === invoice.id ? { ...inv, reminder_count: newCount } : inv));
+      setInvoices((prev) => prev.map((inv) => inv.id === invoice.id ? { ...inv, reminder_count: newCount, last_reminder_sent_at: sentAt } : inv));
     } else {
       const reason = data?.skipped
         ? 'No approved WhatsApp template exists for billing reminders yet.'
@@ -158,8 +207,7 @@ export default function BillingTracker() {
   const stats = useMemo(() => {
     const currentMonth = new Date().toISOString().slice(0, 7);
     const mrr         = clients.filter((c) => c.status === 'active').reduce((sum, c) => {
-      const tier = c.tier || c.apps?.subscription_tier || 'basic';
-      return sum + (TIER_PRICES[tier] || 0);
+      return sum + getPrice(c);
     }, 0);
     // "This month" means paid_date actually falls in the current
     // month — previously this summed every paid invoice ever, however
@@ -170,7 +218,7 @@ export default function BillingTracker() {
     const pending     = invoices.filter((i) => i.status === 'pending').reduce((s, i) => s + Number(i.amount), 0);
     const overdue     = invoices.filter((i) => i.status === 'overdue' || (i.status === 'pending' && new Date(i.due_date) < new Date())).length;
     return { mrr, collected, pending, overdue };
-  }, [clients, invoices]);
+  }, [clients, invoices, pricingMap]);
 
   const pendingInvoices = invoices.filter((i) => ['pending', 'overdue'].includes(i.status) || (i.status === 'pending' && new Date(i.due_date) < new Date()));
 
@@ -212,6 +260,7 @@ export default function BillingTracker() {
             { k: 'overview', l: 'Client rates' },
             { k: 'invoices', l: `Pending (${pendingInvoices.length})` },
             { k: 'all',      l: `All invoices (${invoices.length})` },
+            { k: 'pricing',  l: 'Manage Pricing' },
           ].map((t) => (
             <button key={t.k} onClick={() => setTab(t.k)}
               style={{ padding: '8px 16px', fontSize: 13, borderRadius: 20, cursor: 'pointer', border: tab === t.k ? 'none' : '1px solid rgba(255,255,255,0.1)', background: tab === t.k ? '#E8A020' : 'transparent', color: tab === t.k ? '#111113' : 'rgba(255,255,255,0.5)', fontFamily: 'inherit', fontWeight: tab === t.k ? 600 : 400 }}>
@@ -234,8 +283,17 @@ export default function BillingTracker() {
                 </div>
                 {clients.map((client) => {
                   const tier   = client.tier || client.apps?.subscription_tier || 'basic';
-                  const amount = TIER_PRICES[tier] || 299;
-                  const TIER_COLORS = { basic: '#6AAA90', standard: '#5A9ADF', advanced: '#9A8AE0', specialised: '#E8A020' };
+                  const amount = getPrice(client);
+                  // Extended to cover every real tier name across all three
+                  // modules — the old list ('basic'/'standard'/'advanced'/
+                  // 'specialised') didn't include 'enterprise' (School/
+                  // Hospital's real top tier) or any of CTS's tier names at
+                  // all, so their color would have silently fallen through
+                  // to the '#fff' default below.
+                  const TIER_COLORS = {
+                    basic: '#6AAA90', standard: '#5A9ADF', advanced: '#9A8AE0', enterprise: '#E8A020',
+                    free: '#6AAA90', starter: '#5A9ADF', active: '#5A9ADF', pro: '#9A8AE0', unlimited: '#E8A020',
+                  };
                   return (
                     <div key={client.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px', gap: 8, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
                       <div>
@@ -334,6 +392,55 @@ export default function BillingTracker() {
                   </div>
                 );
               })
+            )}
+
+            {/* Manage Pricing — the actual fix for the 3-way price
+                conflict. Editing here changes the one table both
+                Pricing.jsx (what customers see) and this screen's own
+                MRR/invoice calculations read from — there is no other
+                copy of these numbers left anywhere. */}
+            {tab === 'pricing' && (
+              <div>
+                {['school', 'hospital', 'cts'].map((moduleKey) => {
+                  const modulePlans = pricingPlans.filter((p) => p.module === moduleKey);
+                  if (modulePlans.length === 0) return null;
+                  return (
+                    <div key={moduleKey} style={{ marginBottom: 20 }}>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 8px' }}>
+                        {moduleKey === 'cts' ? 'CTS' : moduleKey}
+                      </p>
+                      <div style={S.card}>
+                        {modulePlans.map((plan, i) => {
+                          const hasEdit = editedPrices[plan.id] !== undefined;
+                          const displayValue = hasEdit ? editedPrices[plan.id] : String(plan.price);
+                          return (
+                            <div key={plan.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: i < modulePlans.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                              <p style={{ flex: 1, margin: 0, fontSize: 13, color: '#fff' }}>{plan.name}</p>
+                              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>₹</span>
+                              <input
+                                id={`pricing-${plan.id}`} name={`pricing-${plan.id}`}
+                                type="number" min="0" value={displayValue}
+                                onChange={(e) => setEditedPrices((prev) => ({ ...prev, [plan.id]: e.target.value }))}
+                                style={{ width: 90, padding: '7px 10px', background: '#111113', border: `1px solid ${hasEdit ? 'rgba(232,160,32,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 7, color: '#fff', fontSize: 13, fontFamily: 'inherit' }}
+                              />
+                              <button
+                                onClick={() => savePlanPrice(plan)}
+                                disabled={!hasEdit || savingPlan[plan.id]}
+                                style={{ padding: '7px 14px', border: 'none', borderRadius: 7, background: hasEdit ? '#6AAA90' : 'rgba(255,255,255,0.06)', color: hasEdit ? '#111113' : 'rgba(255,255,255,0.3)', cursor: hasEdit ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}
+                              >
+                                {savingPlan[plan.id] ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+                {pricingPlans.length === 0 && (
+                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '20px 0' }}>No pricing plans found.</p>
+                )}
+              </div>
             )}
           </>
         )}

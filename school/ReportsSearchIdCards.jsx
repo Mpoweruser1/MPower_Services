@@ -909,6 +909,12 @@ export function ReportEngine({ userTier = 'basic' }) {
           .no-print { display: none !important; }
           .print-safe, .print-safe * { background: #fff !important; color: #000 !important; border-color: #ccc !important; }
           .report-table-wrap { max-height: none !important; overflow: visible !important; }
+          /* Resets student_full_details' on-screen minWidth (set
+             inline, above) back to filling the full landscape page —
+             the minWidth exists only to make the on-screen horizontal
+             scrollbar actually work; print has real width to spare
+             and doesn't need it. */
+          .print-wide-report table { width: 100% !important; min-width: 0 !important; }
         }
       `}</style>
       <div style={S.inner}>
@@ -1244,20 +1250,40 @@ export function ReportEngine({ userTier = 'basic' }) {
                   );
                 })()}
                 <table style={{
-                  width: '100%', borderCollapse: 'collapse', fontSize: 12,
-                  // Even column widths, scoped to just this report so the
-                  // other 17 reports' content-fitted columns are untouched.
-                  // width:100% alone stretches the TABLE but still lets
-                  // individual columns size by content — table-layout:fixed
-                  // is what actually forces them even, which is what makes
-                  // a portrait printout with only 1-2 field groups selected
-                  // look deliberately filled rather than lopsided.
-                  ...(result.report.id === 'student_full_details' ? { tableLayout: 'fixed' } : {}),
+                  // Only "width: 100%" for every OTHER report — for
+                  // student_full_details specifically, that forced the
+                  // table to always compress to exactly fit the screen
+                  // no matter how many columns were selected, so it
+                  // never actually became wider than its container and
+                  // the horizontal scrollbar below had nothing to
+                  // scroll to. minWidth instead lets it genuinely
+                  // overflow when there are many columns, which is
+                  // what actually makes that scrollbar work. Print is
+                  // unaffected — a separate @media print rule below
+                  // resets this back to width:100% there, since a full
+                  // landscape page has enough room for the compressed
+                  // version to look fine, unlike a phone or laptop screen.
+                  ...(result.report.id === 'student_full_details'
+                    ? { minWidth: Math.max(result.columns.length * 110, 600), borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }
+                    : { width: '100%', borderCollapse: 'collapse', fontSize: 12 }),
                 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                       {result.columns.map((col) => (
-                        <th key={col} style={{ padding: '8px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{col}</th>
+                        <th key={col} style={{
+                          padding: '8px', textAlign: 'left', color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5,
+                          // Scoped to student_full_details only, where
+                          // table-layout:fixed plus up to 23+ narrow
+                          // columns meant an unbreakable token (a phone
+                          // number, an SID, a name with no spaces) had
+                          // nowhere to go but visually overflow into the
+                          // next cell — exactly what looked like garbled,
+                          // overlapping text on the printed page. Letting
+                          // the cell grow taller instead is always safe;
+                          // silently cropping real student data (the
+                          // overflow:hidden alternative) is not.
+                          ...(result.report.id === 'student_full_details' ? { wordBreak: 'break-word', overflowWrap: 'break-word' } : {}),
+                        }}>{col}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1272,13 +1298,13 @@ export function ReportEngine({ userTier = 'basic' }) {
                               // nested classes(class_name) relation rather than
                               // a flat field. annual_income gets ₹ formatting;
                               // everything else prints as-is.
-                              if (f.key === '__sno') return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.35)' }}>{i + 1}</td>;
-                              if (f.key === '__remarks') return <td key={fi} style={{ padding: '6px 6px' }}><ReportRemark reportId="student_full_details" rowKey={row.id} /></td>;
-                              if (f.key === 'full_name') return <td key={fi} style={{ padding: '6px 6px', color: '#fff' }}>{row.full_name}</td>;
-                              if (f.key === 'sid') return <td key={fi} style={{ padding: '6px 6px', color: '#E8A020', fontWeight: 600 }}>{row.sid}</td>;
-                              if (f.key === 'class_name') return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.classes?.class_name || '—'}</td>;
-                              if (f.key === 'annual_income') return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row.annual_income ? `₹${Number(row.annual_income).toLocaleString('en-IN')}` : '—'}</td>;
-                              return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)' }}>{row[f.key] || '—'}</td>;
+                              if (f.key === '__sno') return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.35)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{i + 1}</td>;
+                              if (f.key === '__remarks') return <td key={fi} style={{ padding: '6px 6px', wordBreak: 'break-word', overflowWrap: 'break-word' }}><ReportRemark reportId="student_full_details" rowKey={row.id} /></td>;
+                              if (f.key === 'full_name') return <td key={fi} style={{ padding: '6px 6px', color: '#fff', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{row.full_name}</td>;
+                              if (f.key === 'sid') return <td key={fi} style={{ padding: '6px 6px', color: '#E8A020', fontWeight: 600, wordBreak: 'break-word', overflowWrap: 'break-word' }}>{row.sid}</td>;
+                              if (f.key === 'class_name') return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{row.classes?.class_name || '—'}</td>;
+                              if (f.key === 'annual_income') return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{row.annual_income ? `₹${Number(row.annual_income).toLocaleString('en-IN')}` : '—'}</td>;
+                              return <td key={fi} style={{ padding: '6px 6px', color: 'rgba(255,255,255,0.6)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{row[f.key] || '—'}</td>;
                             })}
                           </>
                         )}
