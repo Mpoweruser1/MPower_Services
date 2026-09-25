@@ -99,27 +99,42 @@ const REPORT_CATALOG = [
   // school is required to maintain. Required class param: a real
   // register is kept per class, and 22 columns across every class at
   // once would be unreadable either way.
-  { id: 'student_full_details', name: 'Student full details register', tier: 'basic', icon: '📋', params: ['class', 'academicYear', 'fieldGroups'] },
-  { id: 'daily_attendance',    name: 'Daily attendance — class-wise',            tier: 'basic',      icon: '✅', params: ['class', 'dateRange'] },
-  { id: 'low_attendance',      name: 'Low attendance list',                tier: 'basic',      icon: '⚠️', params: ['class', 'dateRange', 'threshold', 'minDays'] },
-  { id: 'fee_defaulters',      name: 'Fee defaulters list',                      tier: 'basic',      icon: '💰', params: ['class', 'overdueOnly'] },
-  { id: 'class_rank',          name: 'Class rank list',                           tier: 'basic',      icon: '🏆', params: ['class', 'exam'] },
-  { id: 'class_strength',      name: 'Class-wise strength',                      tier: 'basic',      icon: '🏫' },
-  { id: 'gender_distribution', name: 'Gender distribution',                      tier: 'basic',      icon: '👥', params: ['class', 'academicYear'] },
-  { id: 'new_admissions',      name: 'New admissions (date range)',              tier: 'basic',      icon: '🆕', params: ['class', 'academicYear'] },
-  { id: 'tc_issued',           name: 'Transfer certificates issued',             tier: 'basic',      icon: '📜', params: ['class', 'academicYear'] },
-  { id: 'certificates_issued', name: 'Certificates issued',                      tier: 'basic',      icon: '📄', params: ['class', 'academicYear'] },
-  { id: 'transport_enrollment',name: 'Transport enrollment by route',            tier: 'standard',   icon: '🚌' },
-  { id: 'activities_participation', name: 'Activities & coaching participation', tier: 'standard',   icon: '🎭' },
-  { id: 'hostel_outings_current', name: 'Hostel — students currently out',       tier: 'standard',   icon: '🏠', params: ['class', 'dateRange'] },
-  { id: 'welfare_eligible',    name: 'Welfare scheme eligible students',          tier: 'standard',   icon: '🌿', params: ['class', 'academicYear'] },
-  { id: 'admissions_village_category_class', name: 'Admissions by village, category & class', tier: 'standard', icon: '📍', params: ['academicYear'] },
-  { id: 'monthly_fee_collection', name: 'Monthly fee collection trend',        tier: 'standard', icon: '📈', params: ['class', 'academicYear'] },
-  { id: 'pending_corrections',    name: 'Pending correction requests',          tier: 'standard', icon: '📝' },
-  { id: 'homework_compliance',    name: 'Homework posting compliance',          tier: 'standard', icon: '📔' },
-  { id: 'ptm_engagement',         name: 'PTM booking engagement',               tier: 'standard', icon: '🗓️' },
-  { id: 'caste_gender_filter', name: 'Multi-filter — caste + village + gender',  tier: 'advanced',   icon: '🔍', params: ['class', 'caste', 'gender', 'village'] },
-  { id: 'udise_format',        name: 'UDISE+ format export',                     tier: 'specialised', icon: '📋' },
+  { id: 'student_full_details', name: 'Student full details register', tier: 'basic', icon: '📋', params: ['class', 'academicYear', 'fieldGroups'], category: 'student_records' },
+  { id: 'daily_attendance',    name: 'Daily attendance — class-wise',            tier: 'basic',      icon: '✅', params: ['class', 'dateRange'], category: 'attendance' },
+  { id: 'low_attendance',      name: 'Low attendance list',                tier: 'basic',      icon: '⚠️', params: ['class', 'dateRange', 'threshold', 'minDays'], category: 'attendance' },
+  { id: 'fee_defaulters',      name: 'Fee defaulters list',                      tier: 'basic',      icon: '💰', params: ['class', 'overdueOnly'], category: 'fees' },
+  { id: 'class_rank',          name: 'Class rank list',                           tier: 'basic',      icon: '🏆', params: ['class', 'exam'], category: 'academics' },
+  { id: 'class_strength',      name: 'Class-wise strength',                      tier: 'basic',      icon: '🏫', category: 'academics' },
+  { id: 'gender_distribution', name: 'Gender distribution',                      tier: 'basic',      icon: '👥', params: ['class', 'academicYear'], category: 'student_records' },
+  { id: 'new_admissions',      name: 'New admissions (date range)',              tier: 'basic',      icon: '🆕', params: ['class', 'academicYear'], category: 'student_records' },
+  { id: 'tc_issued',           name: 'Transfer certificates issued',             tier: 'basic',      icon: '📜', params: ['class', 'academicYear'], category: 'certificates' },
+  { id: 'certificates_issued', name: 'Certificates issued',                      tier: 'basic',      icon: '📄', params: ['class', 'academicYear'], category: 'certificates' },
+  { id: 'transport_enrollment',name: 'Transport enrollment by route',            tier: 'standard',   icon: '🚌', category: 'operations' },
+  { id: 'activities_participation', name: 'Activities & coaching participation', tier: 'standard',   icon: '🎭', category: 'operations' },
+  { id: 'hostel_outings_current', name: 'Hostel — students currently out',       tier: 'standard',   icon: '🏠', params: ['class', 'dateRange'], category: 'operations' },
+  { id: 'welfare_eligible',    name: 'Welfare scheme eligible students',          tier: 'standard',   icon: '🌿', params: ['class', 'academicYear'], category: 'student_records' },
+  { id: 'admissions_village_category_class', name: 'Admissions by village, category & class', tier: 'standard', icon: '📍', params: ['academicYear'], category: 'compliance' },
+  { id: 'monthly_fee_collection', name: 'Monthly fee collection trend',        tier: 'standard', icon: '📈', params: ['class', 'academicYear'], category: 'fees' },
+  { id: 'pending_corrections',    name: 'Pending correction requests',          tier: 'standard', icon: '📝', category: 'engagement' },
+  { id: 'homework_compliance',    name: 'Homework posting compliance',          tier: 'standard', icon: '📔', category: 'academics' },
+  { id: 'ptm_engagement',         name: 'PTM booking engagement',               tier: 'standard', icon: '🗓️', category: 'engagement' },
+  { id: 'caste_gender_filter', name: 'Multi-filter — caste + village + gender',  tier: 'advanced',   icon: '🔍', params: ['class', 'caste', 'gender', 'village'], category: 'compliance' },
+  { id: 'udise_format',        name: 'UDISE+ format export',                     tier: 'specialised', icon: '📋', category: 'compliance' },
+];
+
+// Display order and labels for the grouped report list — was one flat
+// list of 21 reports, hard to scan. Order chosen to put daily-use
+// categories (Attendance, Academics, Fees) first, compliance/admin
+// items last, matching how often a school actually opens each.
+const REPORT_CATEGORIES = [
+  { key: 'attendance',      label: 'Attendance' },
+  { key: 'academics',       label: 'Academics' },
+  { key: 'fees',            label: 'Fees & Finance' },
+  { key: 'student_records', label: 'Student Records' },
+  { key: 'compliance',      label: 'Compliance & Demographics' },
+  { key: 'certificates',    label: 'Certificates' },
+  { key: 'operations',      label: 'Operations' },
+  { key: 'engagement',      label: 'Engagement & Admin' },
 ];
 
 // Indian academic year runs June to May, so "2026-27" means
@@ -929,39 +944,55 @@ export function ReportEngine({ userTier = 'basic' }) {
           </div>
         )}
 
-        {/* Report catalog */}
+        {/* Report catalog — grouped into categories (was one flat list
+            of 21 reports). Each report's own lock/run/click behavior
+            is completely unchanged; only the grouping and headers are
+            new. Categories are always shown, never collapsed — a
+            category with every report locked for the current tier
+            still shows, so upgrading is visible, not hidden. */}
         <div className="no-print" style={{ marginBottom: 20 }}>
-          {REPORT_CATALOG.map((report) => {
-            const locked    = !canAccess(userTier, report.tier);
-            const isRunning = running === report.id;
+          {REPORT_CATEGORIES.map((cat) => {
+            const catReports = REPORT_CATALOG.filter((r) => r.category === cat.key);
+            if (catReports.length === 0) return null;
             return (
-              <div key={report.id}
-                onClick={() => {
-                  if (locked || running) return;
-                  if (report.id === 'udise_format') {
-                    setError('UDISE+ format export isn\'t built yet — it needs the exact government field mapping confirmed first, rather than guessing at a compliance format.');
-                    return;
-                  }
-                  runReport(report);
-                }}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#161618', border: `1px solid ${result?.report.id === report.id ? 'rgba(232,160,32,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 10, marginBottom: 8, cursor: locked || running ? 'not-allowed' : 'pointer', opacity: locked ? 0.4 : 1 }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <span style={{ fontSize: 20 }}>{report.icon}</span>
-                  <span style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>{report.name}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-                  {locked && (
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(232,160,32,0.12)', color: '#E8A020' }}>
-                      🔒 {report.tier}
-                    </span>
-                  )}
-                  {isRunning && (
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Running...</span>
-                  )}
-                  {!locked && !isRunning && (
-                    <span style={{ fontSize: 12, color: '#E8A020' }}>Run →</span>
-                  )}
-                </div>
+              <div key={cat.key} style={{ marginBottom: 22 }}>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 8, paddingLeft: 2 }}>
+                  {cat.label}
+                </p>
+                {catReports.map((report) => {
+                  const locked    = !canAccess(userTier, report.tier);
+                  const isRunning = running === report.id;
+                  return (
+                    <div key={report.id}
+                      onClick={() => {
+                        if (locked || running) return;
+                        if (report.id === 'udise_format') {
+                          setError('UDISE+ format export isn\'t built yet — it needs the exact government field mapping confirmed first, rather than guessing at a compliance format.');
+                          return;
+                        }
+                        runReport(report);
+                      }}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#161618', border: `1px solid ${result?.report.id === report.id ? 'rgba(232,160,32,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 10, marginBottom: 8, cursor: locked || running ? 'not-allowed' : 'pointer', opacity: locked ? 0.4 : 1 }}>
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <span style={{ fontSize: 20 }}>{report.icon}</span>
+                        <span style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>{report.name}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                        {locked && (
+                          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(232,160,32,0.12)', color: '#E8A020' }}>
+                            🔒 {report.tier}
+                          </span>
+                        )}
+                        {isRunning && (
+                          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Running...</span>
+                        )}
+                        {!locked && !isRunning && (
+                          <span style={{ fontSize: 12, color: '#E8A020' }}>Run →</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -1221,7 +1252,21 @@ export function ReportEngine({ userTier = 'basic' }) {
                   {result.data.length} records · Generated {result.generatedAt}
                 </p>
               </div>
-              <div className="no-print" style={{ display: 'flex', gap: 8 }}>
+              <div className="no-print" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                {/* CSS can't reliably force landscape printing — the
+                    browser's print dialog and OS driver always have
+                    final say over page orientation, regardless of the
+                    @page rule already set for this report. Confirmed
+                    a genuine, long-standing limitation (not something
+                    fixable in code alone), especially unreliable on
+                    Android Chrome specifically. This reminder is the
+                    honest fix: make sure it's never missed, since the
+                    setting itself can't be forced. */}
+                {result.report.id === 'student_full_details' && (
+                  <p style={{ margin: 0, fontSize: 11, color: '#E8A020', textAlign: 'right', maxWidth: 220 }}>
+                    ⚠️ In the print screen that opens, select <strong>Landscape</strong> — this report needs it to fit properly.
+                  </p>
+                )}
                 <button onClick={() => window.print()}
                   style={{ padding: '6px 12px', border: 'none', borderRadius: 6, background: '#E8A020', color: '#111113', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                   🖨️ Print

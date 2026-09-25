@@ -21,7 +21,13 @@ export default function TermsOfService() {
       </div>
       <div style={S.inner}>
         <h1 style={{ fontSize: 36, fontWeight: 700, color: '#fff', margin: '0 0 8px', letterSpacing: -1 }}>Terms of Service</h1>
-        <p style={{ ...S.p, color: 'rgba(255,255,255,0.6)' }}>Last updated: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p style={{ ...S.p, color: 'rgba(255,255,255,0.4)' }}>Last updated: 24 September 2026</p>
+        {/* Entity name added here, immediately under the title — STPL's
+            DLT review checked the live website for the registered
+            entity name (Suribabu Kommana) and couldn't find it
+            anywhere public, which was the actual rejection reason.
+            This line + the expanded §9 below are the fix. */}
+        <p style={{ ...S.p, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>MPower is operated by Suribabu Kommana, Sole Proprietor.</p>
 
         <h2 style={S.h2}>§1 — Acceptance</h2>
         <p style={S.p}>By registering for and using MPower, you agree to these Terms of Service. If you do not agree, do not use the platform.</p>
@@ -48,7 +54,12 @@ export default function TermsOfService() {
         <p style={S.p}>These terms are governed by the laws of India. Disputes shall be subject to the jurisdiction of courts in Andhra Pradesh.</p>
 
         <h2 style={S.h2}>§9 — Contact</h2>
-        <p style={S.p}>legal@mpowerapp.in · MPower, Andhra Pradesh, India</p>
+        {/* Expanded from a bare email + city line to clearly state the
+            legal entity operating the service — the conventional
+            place a reviewer (or anyone) checks for "who actually runs
+            this." */}
+        <p style={S.p}>MPower is operated by Suribabu Kommana, Sole Proprietor, Andhra Pradesh, India.</p>
+        <p style={S.p}>adminzoho@mpowerind.in</p>
 
         <div style={{ marginTop: 32 }}>
           <Link to="/" style={{ color: '#E8A020', textDecoration: 'none', fontSize: 14 }}>← Back to home</Link>
