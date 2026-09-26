@@ -1,5 +1,6 @@
 // school/ReportsSearchIdCards.jsx — FINAL (Supabase wired)
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
@@ -120,6 +121,17 @@ const REPORT_CATALOG = [
   { id: 'ptm_engagement',         name: 'PTM booking engagement',               tier: 'standard', icon: '🗓️', category: 'engagement' },
   { id: 'caste_gender_filter', name: 'Multi-filter — caste + village + gender',  tier: 'advanced',   icon: '🔍', params: ['class', 'caste', 'gender', 'village'], category: 'compliance' },
   { id: 'udise_format',        name: 'UDISE+ format export',                     tier: 'specialised', icon: '📋', category: 'compliance' },
+  // Separate screens that used to sit in the bottom-bar "More" menu,
+  // visible to every plan — even though the sales documents sell them
+  // as Advanced-plan features. Listed here so they live with every
+  // other report, in their category, and show the same 🔒 lock for
+  // lower plans. `link` means "open this screen" instead of running a
+  // query; these never reach runReport().
+  { id: 'link_attendance_analytics', name: 'Attendance analytics', tier: 'advanced', icon: '📈', category: 'attendance', link: '/school/attendance-analytics' },
+  { id: 'link_academic_analytics',   name: 'Academic analytics',   tier: 'advanced', icon: '🎓', category: 'academics',  link: '/school/academic-analytics' },
+  { id: 'link_fee_analytics',        name: 'Fee analytics',        tier: 'advanced', icon: '📊', category: 'fees',       link: '/school/fee-analytics' },
+  { id: 'link_fee_structure_report', name: 'Fee structure report', tier: 'advanced', icon: '🧾', category: 'fees',       link: '/school/fee-structure-report' },
+  { id: 'link_hostel_welfare',       name: 'Hostel welfare eligibility', tier: 'advanced', icon: '🏠', category: 'student_records', link: '/school/hostel-welfare-report' },
 ];
 
 // Display order and labels for the grouped report list — was one flat
@@ -701,6 +713,7 @@ async function runReportQuery(reportId, appId, extraFilters) {
 }
 
 export function ReportEngine({ userTier = 'basic' }) {
+  const navigate = useNavigate();
   const { tenant } = useTenant();
   const [running, setRunning]   = useState(null);
   const [result, setResult]     = useState(null);
@@ -728,7 +741,8 @@ export function ReportEngine({ userTier = 'basic' }) {
   const [overdueOnly, setOverdueOnly] = useState(true);
   // All checked by default — matches the report's original behaviour
   // (every field shown) unless someone deliberately narrows it.
-  const [fieldGroups, setFieldGroups] = useState({ personal: true, academic: true, family: true, location: true, identity: true });
+  const MAX_FIELD_GROUPS = 3; // A4 landscape genuinely can't show more than ~17 columns legibly — 3 groups (~13-17 columns) is the real, tested sweet spot; more than that produced the character-by-character wrapping bug found in testing.
+  const [fieldGroups, setFieldGroups] = useState({ personal: true, academic: true, family: true, location: false, identity: false });
   const [casteFilter, setCasteFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [academicYearStart, setAcademicYearStart] = useState(String(new Date().getFullYear() - (new Date().getMonth() < 5 ? 1 : 0)));
@@ -850,8 +864,7 @@ export function ReportEngine({ userTier = 'basic' }) {
     if (p.includes('overdueOnly')) parts.push(params.overdue_only ? 'Overdue only' : 'All unpaid dues');
     if (p.includes('fieldGroups') && params.field_groups) {
       const included = Object.entries(params.field_groups).filter(([, v]) => v !== false).map(([k]) => FIELD_GROUPS[k]?.label).filter(Boolean);
-      const allSelected = included.length === Object.keys(FIELD_GROUPS).length;
-      parts.push(allSelected ? 'All fields' : (included.length ? included.join(', ') : 'S.No + Name only'));
+      parts.push(included.length ? included.join(', ') : 'S.No + Name only');
     }
     return parts.join('  •  ');
   }
@@ -966,6 +979,7 @@ export function ReportEngine({ userTier = 'basic' }) {
                     <div key={report.id}
                       onClick={() => {
                         if (locked || running) return;
+                        if (report.link) { navigate(report.link); return; }
                         if (report.id === 'udise_format') {
                           setError('UDISE+ format export isn\'t built yet — it needs the exact government field mapping confirmed first, rather than guessing at a compliance format.');
                           return;
@@ -987,7 +1001,7 @@ export function ReportEngine({ userTier = 'basic' }) {
                           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Running...</span>
                         )}
                         {!locked && !isRunning && (
-                          <span style={{ fontSize: 12, color: '#E8A020' }}>Run →</span>
+                          <span style={{ fontSize: 12, color: '#E8A020' }}>{report.link ? 'Open →' : 'Run →'}</span>
                         )}
                       </div>
                     </div>
@@ -1121,25 +1135,36 @@ export function ReportEngine({ userTier = 'basic' }) {
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <label style={S.label}>Which fields to include</label>
-                    <button type="button"
-                      onClick={() => {
-                        const allOn = Object.values(fieldGroups).every((v) => v !== false);
-                        const next = {}; Object.keys(FIELD_GROUPS).forEach((g) => { next[g] = !allOn; });
-                        setFieldGroups(next);
-                      }}
-                      style={{ background: 'none', border: 'none', color: '#E8A020', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      {Object.values(fieldGroups).every((v) => v !== false) ? 'Deselect all' : 'Select all'}
-                    </button>
+                    {/* "Select all" removed — selecting all 5 groups is
+                        exactly what produced the illegible, character-
+                        by-character wrapped printout found in testing
+                        (22 columns on one A4 landscape page). Capped
+                        instead, with a live count so the limit is
+                        visible before anyone hits it. */}
+                    <span style={{ fontSize: 11, color: Object.values(fieldGroups).filter((v) => v !== false).length >= MAX_FIELD_GROUPS ? '#E8A020' : 'rgba(255,255,255,0.35)' }}>
+                      {Object.values(fieldGroups).filter((v) => v !== false).length} of {MAX_FIELD_GROUPS} selected
+                    </span>
                   </div>
-                  {Object.entries(FIELD_GROUPS).map(([key, group]) => (
-                    <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 13, color: '#fff', cursor: 'pointer' }}>
-                      <input type="checkbox" id={`reports-field-group-${key}`} name={`reports-field-group-${key}`}
-                        checked={fieldGroups[key] !== false}
-                        onChange={(e) => setFieldGroups((prev) => ({ ...prev, [key]: e.target.checked }))} />
-                      {group.label}
-                    </label>
-                  ))}
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>S.No and Full name are always included.</p>
+                  {Object.entries(FIELD_GROUPS).map(([key, group]) => {
+                    const checkedCount = Object.values(fieldGroups).filter((v) => v !== false).length;
+                    const isChecked = fieldGroups[key] !== false;
+                    const atLimit = !isChecked && checkedCount >= MAX_FIELD_GROUPS;
+                    return (
+                      <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 13, color: atLimit ? 'rgba(255,255,255,0.3)' : '#fff', cursor: atLimit ? 'not-allowed' : 'pointer' }}>
+                        <input type="checkbox" id={`reports-field-group-${key}`} name={`reports-field-group-${key}`}
+                          checked={isChecked}
+                          disabled={atLimit}
+                          onChange={(e) => {
+                            if (e.target.checked && checkedCount >= MAX_FIELD_GROUPS) return; // belt-and-suspenders alongside disabled
+                            setFieldGroups((prev) => ({ ...prev, [key]: e.target.checked }));
+                          }} />
+                        {group.label}
+                      </label>
+                    );
+                  })}
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>
+                    S.No and Full name are always included. Up to {MAX_FIELD_GROUPS} field groups at once, so the printed page stays readable — uncheck one to pick a different group.
+                  </p>
                 </div>
               )}
 
