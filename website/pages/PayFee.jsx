@@ -29,11 +29,12 @@ export default function PayFee() {
 
   async function loadPayLink() {
     setLoading(true);
-    const { data, error: err } = await supabase
-      .from('fee_payment_links')
-      .select('*, students(full_name, sid, section)')
-      .eq('link_token', token)
-      .single();
+    // Was a direct read of fee_payment_links + students, which needed
+    // policies letting ANYONE logged out read EVERY payment link and
+    // EVERY student. get_fee_payment_link() returns only this one link
+    // (by its secret token) with just the student's name, SID and
+    // section — same shape as before, so nothing below changes.
+    const { data, error: err } = await supabase.rpc('get_fee_payment_link', { p_token: token });
 
     if (err || !data) { setError('Payment link not found or has expired.'); setLoading(false); return; }
     if (data.status === 'paid') { setPaid(true); setLoading(false); return; }
@@ -191,7 +192,7 @@ export default function PayFee() {
         </button>
 
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 12, lineHeight: 1.6 }}>
-          Powered by MPower · mpowerapp.in<br />
+          Powered by MPower · mpowerind.in<br />
           మీ payment సురక్షితంగా Razorpay ద్వారా process అవుతుంది
         </p>
       </div>

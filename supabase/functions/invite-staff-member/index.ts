@@ -72,29 +72,93 @@ serve(async (req) => {
       data: { full_name: fullName, invited_role: role },
     });
 
+    // Retrying an invite used to fail with a raw "duplicate key value
+    // violates unique constraint users_auth_id_key" error — confusing,
+    // and it happened because the FIRST attempt had actually worked
+    // (the screen showed "Failed" only because the response was dropped
+    // on the way back). The cases below turn every repeat attempt into a
+    // clear message, and repair a half-finished invite instead of failing.
+    let authUserId: string | null = inviteData?.user?.id ?? null;
+    let linkedExisting = false;
+
     if (inviteErr) {
-      return json({ error: inviteErr.message || 'Failed to send invite' }, 502);
+      const alreadyRegistered = /already.*(registered|exists)/i.test(inviteErr.message || '');
+      if (!alreadyRegistered) {
+        return json({ error: inviteErr.message || 'Failed to send invite' }, 502);
+      }
+      // Login already exists for this email. Only an account that THIS
+      // invite flow created (it carries invited_role in its metadata) is
+      // treated as a half-finished invite and linked. Any other existing
+      // login — e.g. the developer's own account — is never auto-linked.
+      const existing = await findAuthUserByEmail(adminClient, email);
+      if (!existing || !existing.user_metadata?.invited_role) {
+        return json({ error: 'This email already has an MPower login that is not a staff invite. Please use a different email, or contact support.' }, 409);
+      }
+      authUserId = existing.id;
+      linkedExisting = true;
+    }
+
+    if (!authUserId) {
+      return json({ error: 'Invite could not be completed. Please try again.' }, 502);
+    }
+
+    const { data: existingRow, error: existingErr } = await adminClient
+      .from('users')
+      .select('id, app_id')
+      .eq('auth_id', authUserId)
+      .maybeSingle();
+
+    if (existingErr) {
+      console.error('Checking for an existing staff record failed:', existingErr);
+      return json({ error: 'Could not check existing staff records. Please try again.' }, 500);
+    }
+
+    if (existingRow) {
+      if (existingRow.app_id === callerRow.app_id) {
+        return json({ error: 'This person has already been invited. Ask them to check their email, including spam, for the link to set their password. If it has expired, they can use "Forgot password" on the login page.' }, 409);
+      }
+      return json({ error: 'This email already belongs to a staff account at another organisation. Please use a different email.' }, 409);
     }
 
     const { error: userRowErr } = await adminClient.from('users').insert({
       app_id: callerRow.app_id,
-      auth_id: inviteData.user.id,
+      auth_id: authUserId,
       role,
       full_name: fullName,
       phone: phone || null,
     });
 
     if (userRowErr) {
+      // Two near-simultaneous attempts can both pass the check above.
+      if (userRowErr.code === '23505') {
+        return json({ error: 'This person has already been invited. Ask them to check their email, including spam.' }, 409);
+      }
       console.error('users row insert failed after successful invite:', userRowErr);
       return json({ error: 'Invite sent, but failed to link the account - contact support.' }, 500);
     }
 
-    return json({ invited: true, email });
+    return json({ invited: true, email, linkedExisting });
   } catch (err) {
     console.error(err);
     return json({ error: err.message || 'Unexpected error' }, 500);
   }
 });
+
+// Supabase's admin API has no direct "get user by email", so this
+// pages through users. Fine at this platform's scale (staff accounts,
+// not citizens — citizen logins are anonymous and carry no email).
+async function findAuthUserByEmail(admin: ReturnType<typeof createClient>, email: string) {
+  const target = email.trim().toLowerCase();
+  const perPage = 200;
+  for (let page = 1; page <= 25; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+    const found = data.users.find((u) => (u.email || '').toLowerCase() === target);
+    if (found) return found;
+    if (data.users.length < perPage) return null;
+  }
+  return null;
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

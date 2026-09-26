@@ -94,10 +94,17 @@ export default function ManageStaff() {
         }
       }
       setError(realMessage || 'Failed to send invite. Please try again.');
+      // Refresh the list even on failure — an invite can succeed on the
+      // server while the reply is lost on the way back (this is exactly
+      // what happened with Mamatha). If it did go through, the person
+      // now shows up below instead of looking like a failure.
+      loadStaff();
       return;
     }
 
-    setMessage(`✅ Invite sent to ${form.email.trim()} — they'll get an email to set their own password.`);
+    setMessage(data?.linkedExisting
+      ? `✅ ${form.email.trim()} had an unfinished invite — it's now linked. They can set their password using "Forgot password" on the login page.`
+      : `✅ Invite sent to ${form.email.trim()} — they'll get an email to set their own password.`);
     setForm({ email: '', fullName: '', phone: '', role: 'teacher' });
     setFormErrors({});
     loadStaff();

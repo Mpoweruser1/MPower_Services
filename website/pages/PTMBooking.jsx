@@ -49,11 +49,16 @@ export default function PTMBooking() {
   async function searchStudent(q) {
     setQuery(q);
     setSelectedStudent(null);
-    if (q.trim().length < 2 || !session) { setStudents([]); return; }
-    let sq = supabase.from('students').select('id, full_name, sid').eq('app_id', session.app_id).eq('status', 'active')
-      .or(`full_name.ilike.%${q}%,sid.ilike.%${q}%`).limit(6);
-    if (session.class_id) sq = sq.eq('class_id', session.class_id);
-    const { data } = await sq;
+    if (q.trim().length < 3 || !session) { setStudents([]); return; }
+    // Was a direct read of the students table, which needed a policy
+    // letting ANYONE logged out read EVERY student in EVERY school.
+    // ptm_search_students() only searches this session's school (and
+    // class), needs 3+ letters, returns at most 6 names — nothing else.
+    const { data, error: searchErr } = await supabase.rpc('ptm_search_students', {
+      p_session_id: sessionId,
+      p_query: q.trim(),
+    });
+    if (searchErr) console.error('Student search failed:', searchErr);
     setStudents(data || []);
   }
 
@@ -70,12 +75,13 @@ export default function PTMBooking() {
     // real update apart from one that matched zero rows — this row
     // is already covered by the same UPDATE policy that permits the
     // write itself, so no separate SELECT permission is needed.
+    // Booking goes through book_ptm_slot(), which only books an OPEN
+    // slot for a student who really belongs to this session's school
+    // and class. The old direct update needed a policy letting anyone
+    // logged out edit any open slot. Returns nothing if the slot was
+    // already taken — same "someone else got there first" check below.
     const { data: bookedSlot, error: bookErr } = await supabase
-      .from('ptm_slots')
-      .update({ student_id: selectedStudent.id, status: 'booked', booked_at: new Date().toISOString() })
-      .eq('id', slotId)
-      .eq('status', 'open') // only succeeds if still open — avoids double-booking
-      .select('id, slot_time')
+      .rpc('book_ptm_slot', { p_slot_id: slotId, p_student_id: selectedStudent.id })
       .maybeSingle();
 
     if (bookErr) {
@@ -121,7 +127,7 @@ export default function PTMBooking() {
         ) : !selectedStudent ? (
           <div style={S.card}>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>Find your child to see available times</p>
-            <input id="ptm-book-query" name="ptm-book-query" value={query} onChange={(e) => searchStudent(e.target.value)} placeholder="Name or admission number..." style={S.input} autoFocus />
+            <input id="ptm-book-query" name="ptm-book-query" value={query} onChange={(e) => searchStudent(e.target.value)} placeholder="Type at least 3 letters of name or admission no." style={S.input} autoFocus />
             {students.map((s) => (
               <div key={s.id} onClick={() => { setSelectedStudent(s); setQuery(''); setStudents([]); }}
                 style={{ padding: '10px 4px', cursor: 'pointer', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
