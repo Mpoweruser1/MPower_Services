@@ -171,7 +171,7 @@ export default function Home() {
             ))}
           </div>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>
-            © {new Date().getFullYear()} MPower · Made in Andhra Pradesh 🇮🇳
+            © {new Date().getFullYear()} MPower Services · Operated by Suribabu Kommana, Sole Proprietor · Made in Andhra Pradesh 🇮🇳
           </p>
         </div>
       </footer>
