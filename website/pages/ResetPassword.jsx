@@ -24,6 +24,12 @@
 //    it processed that token. A pre-existing login is never used. The
 //    account email is also shown on the form, so it's visible whose
 //    password is being changed.
+// UPDATED 27-09-2026 — button step. Supabase's audit log proved an
+// email scanner used up a reset link 4 seconds after it was sent,
+// before the person could click it. The email now links here with a
+// token_hash, and the link is only used when the person presses
+// "Continue to reset password". Scanners open links but never press
+// buttons. Old-style links (already in inboxes) still work as before.
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
@@ -33,12 +39,15 @@ import { supabase } from '../../lib/supabaseClient';
 // renders this page, supabase-js may already have removed the token
 // from the address bar.
 const INITIAL = (() => {
-  if (typeof window === 'undefined') return { hadToken: false, errorCode: null, errorDescription: null };
+  if (typeof window === 'undefined') return { tokenHash: null, hadToken: false, errorCode: null, errorDescription: null };
   const onThisPage = window.location.pathname.startsWith('/portal/reset-password');
-  if (!onThisPage) return { hadToken: false, errorCode: null, errorDescription: null };
+  if (!onThisPage) return { tokenHash: null, hadToken: false, errorCode: null, errorDescription: null };
   const hash  = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const query = new URLSearchParams(window.location.search);
   return {
+    // New button-step link: ?token_hash=...&type=recovery. Nothing is
+    // used until the person presses the button.
+    tokenHash: query.get('type') === 'recovery' ? query.get('token_hash') : null,
     // access_token + type=recovery in the hash = implicit flow;
     // ?code= = PKCE flow. Either means this load came from an email link.
     hadToken: hash.has('access_token') || hash.get('type') === 'recovery' || query.has('code'),
@@ -89,7 +98,8 @@ const S = {
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [status, setStatus] = useState('checking'); // checking | ready | invalid | done
+  const [status, setStatus] = useState(INITIAL.tokenHash ? 'confirm' : 'checking'); // confirm | checking | ready | invalid | done
+  const [confirming, setConfirming] = useState(false);
   const [invalidReason, setInvalidReason] = useState('');
   const [accountEmail, setAccountEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -98,6 +108,8 @@ export default function ResetPassword() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    // Button-step link: wait for the person to press the button.
+    if (INITIAL.tokenHash) return undefined;
     // Supabase already said the link is dead — no point waiting.
     if (INITIAL.errorCode) {
       setInvalidReason(INITIAL.errorCode === 'otp_expired' ? 'expired' : 'verify_failed');
@@ -138,6 +150,25 @@ export default function ResetPassword() {
     return () => { cancelled = true; clearInterval(timer); };
   }, []);
 
+  async function handleConfirm() {
+    setConfirming(true);
+    const { data, error: verifyErr } = await supabase.auth.verifyOtp({
+      token_hash: INITIAL.tokenHash,
+      type: 'recovery',
+    });
+    setConfirming(false);
+    if (verifyErr || !data?.session) {
+      console.error('Recovery link verification failed:', verifyErr);
+      setInvalidReason('expired');
+      setStatus('invalid');
+      return;
+    }
+    // The session now belongs to the person who owns this link —
+    // shown on the form, so it's clear whose password is changing.
+    setAccountEmail(data.session.user?.email || data.user?.email || '');
+    setStatus('ready');
+  }
+
   async function handleSetPassword() {
     if (status !== 'ready') return;
     setError('');
@@ -162,6 +193,25 @@ export default function ResetPassword() {
     // login with their new password.
     await supabase.auth.signOut();
     setTimeout(() => navigate('/portal/login'), 2500);
+  }
+
+  if (status === 'confirm') {
+    return (
+      <div style={S.page}>
+        <div style={S.card}>
+          <p style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 600 }}>Reset your password</p>
+          <p style={{ margin: '0 0 20px', fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
+            Tap the button below to continue. This extra step stops email security scanners from using up your link before you can.
+          </p>
+          <button
+            onClick={handleConfirm} disabled={confirming}
+            style={{ width: '100%', padding: 12, background: confirming ? 'rgba(255,255,255,0.08)' : '#E8A020', color: confirming ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: confirming ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+          >
+            {confirming ? 'Checking...' : 'Continue to reset password →'}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (status === 'checking') {

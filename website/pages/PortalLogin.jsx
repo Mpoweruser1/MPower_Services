@@ -365,6 +365,23 @@ export default function PortalLogin() {
       <div style={{ textAlign: 'center', marginTop: 20 }}>
         <Link to="/" style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textDecoration: 'none' }}>🏠 Home</Link>
       </div>
+
+      {/* Operator identity. STPL (DLT SMS registration) checks the page
+          linked in an SMS template for the registered entity name, and
+          rejected every template linking here because only "MPower"
+          appeared. Kept identical to the Terms/Privacy/Refund pages. */}
+      <div style={{ textAlign: 'center', marginTop: 18, maxWidth: 400, marginLeft: 'auto', marginRight: 'auto' }}>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '0 0 6px', lineHeight: 1.6 }}>
+          MPower Services — operated by Suribabu Kommana, Sole Proprietor · Andhra Pradesh, India
+        </p>
+        <p style={{ fontSize: 11, margin: 0 }}>
+          <Link to="/terms" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}>Terms</Link>
+          <span style={{ color: 'rgba(255,255,255,0.2)' }}>{'  ·  '}</span>
+          <Link to="/privacy" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}>Privacy</Link>
+          <span style={{ color: 'rgba(255,255,255,0.2)' }}>{'  ·  '}</span>
+          <Link to="/refund-policy" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}>Refund policy</Link>
+        </p>
+      </div>
     </div>
   );
 }
