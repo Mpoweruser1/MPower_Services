@@ -8,6 +8,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// A code is locked after this many tries (right or wrong). Needs
+// 009_otp_security.sql (adds the attempts column and the counter function).
+const MAX_ATTEMPTS = 5;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -59,6 +63,23 @@ Deno.serve(async (req) => {
       if (new Date(record.expires_at) < new Date()) return new Response(
         JSON.stringify({ verified: false, error: 'OTP expired' }),
         { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+
+      // Count this try FIRST, as one database step, then decide. Counting
+      // after the comparison (or in two steps) would let someone fire many
+      // guesses at the same moment and have them all count as the first.
+      // Expired codes are rejected above and do not use up tries.
+      const { data: attemptNo, error: attemptErr } = await supabase.rpc('otp_register_attempt', { p_id: record.id });
+      if (attemptErr || typeof attemptNo !== 'number') {
+        console.error('verify-otp: could not count the attempt', attemptErr);
+        return new Response(
+          JSON.stringify({ verified: false, error: 'Could not verify the code right now. Please try again.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (attemptNo > MAX_ATTEMPTS) return new Response(
+        JSON.stringify({ verified: false, error: 'Too many incorrect attempts. Please request a new code.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
       if (record.otp_code !== otp) return new Response(

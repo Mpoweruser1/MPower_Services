@@ -210,12 +210,20 @@ export default function HospitalBilling() {
   }
 
   return (
-    <div style={S.page}>
+    <div className="billing-page" style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         @media print {
           .no-print { display: none !important; }
           .print-only { display: block !important; }
+          /* The screen wrapper is min-height 100vh + 100px bottom padding
+             (room for the fixed menu bar). Carried into print, that made
+             the invoice slightly taller than one A4 page and pushed an
+             almost-empty second page out. Reset for print only. */
+          @page { size: A4; margin: 12mm; }
+          html, body { height: auto !important; background: #fff !important; }
+          .billing-page { min-height: 0 !important; padding-bottom: 0 !important; background: #fff !important; }
+          .billing-page .print-only { padding: 0 !important; max-width: none !important; break-inside: avoid; page-break-inside: avoid; }
         }
         .print-only { display: none; }
       `}</style>
@@ -481,8 +489,12 @@ export default function HospitalBilling() {
         </div>
       )}
 
-      <HospitalNav />
-      <BugReporter screenName="hospital_billing" />
+      {/* Wrapped so the fixed menu bar and bug-report button can never
+          take up space in a printout, whatever their own styles do. */}
+      <div className="no-print">
+        <HospitalNav />
+        <BugReporter screenName="hospital_billing" />
+      </div>
     </div>
   );
 }
