@@ -204,14 +204,22 @@ function PhoneLogin({ auth }) {
     if (resendCooldown > 0 || busy) return;
     setBusy(true);
     const ok = await auth.requestOtp(phone);
-    if (ok) setResendCooldown(30);
+    if (ok) {
+      setResendCooldown(30);
+      setCode(''); // a new code was sent; the old digits are no longer useful
+    }
     setBusy(false);
   }
 
   async function handleVerify(e) {
     e.preventDefault();
     setBusy(true);
-    await auth.verifyOtp(phone, code);
+    const ok = await auth.verifyOtp(phone, code);
+    // verifyOtp reports whether the code was accepted. After a failed try
+    // (wrong code, too many tries, dropped connection) the old digits used
+    // to stay in the box, so the next code had to be deleted by hand first.
+    // On success the screen changes, so there is nothing to clear.
+    if (!ok) setCode('');
     setBusy(false);
   }
 
@@ -244,8 +252,13 @@ function PhoneLogin({ auth }) {
           <input
             id="citizen-otp-code" name="citizen-otp-code" aria-label="6-digit verification code"
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             placeholder="6-digit code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            pattern="[0-9]{6}"
+            title="Enter the 6-digit code from the SMS"
             required
             style={inputStyle}
           />

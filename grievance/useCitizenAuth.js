@@ -122,6 +122,27 @@ export function useCitizenAuth(appId) {
     setError(null);
     verifyingRef.current = true;
 
+    // Set true the moment the server confirms the code. Until then, any
+    // failure must cancel the temporary session created below.
+    let verified = false;
+
+    // The temporary (anonymous) session is created BEFORE the code is
+    // checked — see the long note further down for why. But a session
+    // that exists is treated by the page as "logged in", so if the code
+    // turns out wrong, that session must be cancelled or the person walks
+    // straight past the login screen to the registration form (found in
+    // testing on 2-10-2026: a wrong code still let the person in, and the
+    // "Invalid OTP" message vanished with the login screen).
+    const cancelTempSession = async () => {
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {
+        // nothing more can be done; state below is cleared regardless
+      }
+      setCitizen(null);
+      setSession(null);
+    };
+
     try {
       if (OTP_BYPASS_ACTIVE) {
         const { data: authData, error: anonErr } = await supabase.auth.signInAnonymously();
@@ -155,9 +176,18 @@ export function useCitizenAuth(appId) {
         );
         const data = await res.json();
         if (!data?.verified) {
+          await cancelTempSession();
           setError(data?.error || 'Login failed. Please try again.');
           return false;
         }
+        // The server has stamped this session as verified (app_metadata).
+        // Ask for a fresh token so the stamp is carried in it — the
+        // database rules read it from the token. Only after that does the
+        // session count as verified; a failure here lands in the catch
+        // below, which cancels the temporary session cleanly.
+        const { error: refreshErr } = await supabase.auth.refreshSession();
+        if (refreshErr) throw refreshErr;
+        verified = true;
 
         const relinkedCitizen = await fetchCitizenProfile(authData.user.id);
         if (relinkedCitizen) setCitizen(relinkedCitizen);
@@ -194,10 +224,27 @@ export function useCitizenAuth(appId) {
       );
       const data = await res.json();
       if (!data?.verified) {
-        setError('Invalid or expired OTP. Please try again.');
+        await cancelTempSession();
+        // 429 = too many wrong tries; the server's own wording tells the
+        // person to ask for a new code, which "Invalid OTP" would not.
+        setError(
+          res.status === 429
+            ? (data?.error || 'Too many incorrect attempts. Please request a new code.')
+            : 'Invalid or expired OTP. Please try again.'
+        );
         return false;
       }
+      // The server has stamped this session as verified (app_metadata).
+      // Ask for a fresh token so the stamp is carried in it — the
+      // database rules read it from the token. Only after that does the
+      // session count as verified; a failure here lands in the catch
+      // below, which cancels the temporary session cleanly.
+      const { error: refreshErr } = await supabase.auth.refreshSession();
+      if (refreshErr) throw refreshErr;
+      verified = true;
 
+      // user_metadata is kept for the profile form (phone fallback after a
+      // reload). It is NOT proof of anything: the person can edit it.
       await supabase.auth.updateUser({
         data: { phone, verified_phone: phone },
       });
@@ -216,6 +263,11 @@ export function useCitizenAuth(appId) {
 
       return true;
     } catch (err) {
+      // A failure BEFORE the server confirmed the code (network drop,
+      // bad reply) must not leave a session behind. A failure AFTER
+      // confirmation (e.g. loading the profile) must not log out someone
+      // who did verify.
+      if (!verified) await cancelTempSession();
       setError('Verification failed. Please try again.');
       return false;
     } finally {
@@ -259,6 +311,18 @@ export function useCitizenAuth(appId) {
     setPendingPhone(null);
   }, []);
 
+  // A session only counts as "logged in" once the code was confirmed.
+  // verifyOtp() creates a TEMPORARY session before it checks the code, so
+  // "a session exists" is not enough: treating it as logged in made the
+  // page swap away from the login screen mid-verification, wiping the
+  // phone number typed there and hiding the "wrong code" message (and a
+  // wrong code still reached the registration form). The proof is
+  // app_metadata.verified_phone, written by verify-otp (server side) after
+  // a correct code — NOT user_metadata, which the person can edit from the
+  // browser. The database rules in 011_citizen_verified_lock.sql check the
+  // same stamp, so what the screen shows and what the database allows agree.
+  const isVerifiedSession = !!session?.user?.app_metadata?.verified_phone;
+
   return {
     session,
     citizen,
@@ -266,8 +330,8 @@ export function useCitizenAuth(appId) {
     loading,
     otpSent,
     error,
-    isAuthenticated: !!session && !isStaffAccount,
-    needsProfile: !!session && !citizen && !loading && !isStaffAccount,
+    isAuthenticated: !!session && !isStaffAccount && isVerifiedSession,
+    needsProfile: !!session && !citizen && !loading && !isStaffAccount && isVerifiedSession,
     otpBypassActive: OTP_BYPASS_ACTIVE,
     requestOtp,
     verifyOtp,

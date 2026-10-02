@@ -127,6 +127,25 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Stamp this session as PHONE-VERIFIED, before anything else changes.
+      // app_metadata can only be written by the server, so — unlike
+      // user_metadata — the person cannot fake it from the browser. The
+      // database rules in 011_citizen_verified_lock.sql require this stamp
+      // (and that it matches the citizen's phone) before a session may
+      // register as a citizen or file a complaint. The app asks for a fresh
+      // token afterwards so the stamp is carried in it. Doing this first
+      // means a failure here leaves nothing half-done.
+      const { error: stampErr } = await supabase.auth.admin.updateUserById(newAuthId, {
+        app_metadata: { verified_phone: phone, verified_at: new Date().toISOString() },
+      });
+      if (stampErr) {
+        console.error('verify-otp: could not stamp the session as verified', stampErr.message);
+        return new Response(
+          JSON.stringify({ verified: false, error: 'Could not complete verification. Please try again.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const { data: existingRows, error: relinkFetchErr } = await supabase
         .from('citizens')
         .select('id')
