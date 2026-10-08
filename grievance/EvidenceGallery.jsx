@@ -1,7 +1,17 @@
 // grievance/EvidenceGallery.jsx
-// Photo evidence upload and display for complaints
+// Photo evidence upload and display for complaints.
+//
+// Uses the same functions as the "new complaint" form (uploadEvidence,
+// fetchEvidence, getEvidenceUrl in grievanceApi.js), so a photo attached
+// while filing and one added later land in the same place
+// (complaint_attachments, private bucket, short-lived signed links) and
+// both show here. Photos are shrunk before upload inside uploadEvidence.
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { uploadEvidence, fetchEvidence, getEvidenceUrl } from './grievanceApi';
+
+// Guard against pathological files only; normal phone photos are shrunk
+// to a few hundred KB by uploadEvidence before they leave the device.
+const MAX_RAW_PHOTO_BYTES = 30 * 1024 * 1024;
 
 export default function EvidenceGallery({ complaintId, uploaderCitizenId, uploaderUserId, canUpload = false }) {
   const [photos, setPhotos] = useState([]);
@@ -14,26 +24,36 @@ export default function EvidenceGallery({ complaintId, uploaderCitizenId, upload
   }, [complaintId]);
 
   async function loadPhotos() {
-    const { data } = await supabase
-      .from('complaint_evidence')
-      .select('id, file_url, uploaded_at, uploaded_by_citizen_id, uploaded_by_user_id')
-      .eq('complaint_id', complaintId)
-      .order('uploaded_at', { ascending: false });
-
-    if (data) setPhotos(data);
+    try {
+      const rows = await fetchEvidence(complaintId);
+      // The bucket is private, so every file needs its own short-lived link.
+      const withUrls = await Promise.all(
+        rows.map(async (r) => {
+          try {
+            return { ...r, url: await getEvidenceUrl(r.storage_path) };
+          } catch {
+            return { ...r, url: null };
+          }
+        })
+      );
+      setPhotos(withUrls);
+    } catch (err) {
+      console.error('Loading evidence failed:', err);
+    }
   }
 
   async function handleUpload(e) {
     const file = e.target.files?.[0];
+    // Lets the same file be picked again after an error.
+    e.target.value = '';
     if (!file) return;
 
-    // Validate file type and size
     if (!file.type.startsWith('image/')) {
       setError('Only image files allowed.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image must be under 5MB.');
+    if (file.size > MAX_RAW_PHOTO_BYTES) {
+      setError('Image is too large. Please choose a smaller one.');
       return;
     }
 
@@ -41,32 +61,13 @@ export default function EvidenceGallery({ complaintId, uploaderCitizenId, upload
     setError(null);
 
     try {
-      const ext = file.name.split('.').pop();
-      const path = `evidence/${complaintId}/${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('complaint-evidence')
-        .upload(path, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('complaint-evidence')
-        .getPublicUrl(path);
-
-      const { error: dbError } = await supabase
-        .from('complaint_evidence')
-        .insert({
-          complaint_id: complaintId,
-          file_url: urlData.publicUrl,
-          file_path: path,
-          uploaded_by_citizen_id: uploaderCitizenId || null,
-          uploaded_by_user_id: uploaderUserId || null,
-        });
-
-      if (dbError) throw dbError;
-
-      loadPhotos();
+      await uploadEvidence({
+        complaintId,
+        file,
+        uploadedByCitizenId: uploaderCitizenId || null,
+        uploadedByUserId: uploaderUserId || null,
+      });
+      await loadPhotos();
     } catch (err) {
       console.error('Evidence upload failed:', err);
       setError(err.message || 'Upload failed. Please try again.');
@@ -89,15 +90,24 @@ export default function EvidenceGallery({ complaintId, uploaderCitizenId, upload
           {photos.map(p => (
             <div
               key={p.id}
-              onClick={() => setPreview(p.file_url)}
-              style={{ cursor: 'pointer', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', background: '#f1f5f9' }}
+              onClick={() => { if (p.url && p.file_type !== 'video') setPreview(p.url); }}
+              style={{ cursor: p.url && p.file_type !== 'video' ? 'pointer' : 'default', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', background: '#f1f5f9' }}
             >
-              <img
-                src={p.file_url}
-                alt="Evidence"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                onError={e => { e.target.style.display = 'none'; }}
-              />
+              {p.url && p.file_type === 'video' ? (
+                <video
+                  src={p.url}
+                  controls
+                  preload="metadata"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : p.url ? (
+                <img
+                  src={p.url}
+                  alt="Evidence"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={e => { e.target.style.display = 'none'; }}
+                />
+              ) : null}
             </div>
           ))}
         </div>
