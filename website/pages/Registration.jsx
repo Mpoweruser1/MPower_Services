@@ -206,15 +206,21 @@ export default function Registration() {
     }
 
     // 3 — Create app
-    const { data: appRow, error: appErr } = await supabase
+    // The id is chosen here and the row is NOT read back (.select()).
+    // Reading it back needs a SELECT rule, and the only one on apps is
+    // "your own app" — but this person has no users row yet, so the
+    // read-back was refused and surfaced as "new row violates row-level
+    // security policy for table apps". The insert itself is allowed.
+    const newAppId = crypto.randomUUID();
+    const { error: appErr } = await supabase
       .from('apps')
       .insert({
+        id:                newAppId,
         app_type:          form.appType,
         org_name:          form.orgName.trim(),
         subscription_tier: 'basic',
-      })
-      .select()
-      .single();
+      });
+    const appRow = { id: newAppId };
 
     if (appErr) {
       console.error('App creation failed:', appErr);
