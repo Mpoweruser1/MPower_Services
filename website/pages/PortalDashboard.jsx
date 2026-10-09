@@ -64,7 +64,7 @@ const S = {
 };
 
 export default function PortalDashboard() {
-  const { tenant, loading: tenantLoading } = useTenant();
+  const { session, tenant, loading: tenantLoading } = useTenant();
   const [appInfo, setAppInfo] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -91,11 +91,27 @@ export default function PortalDashboard() {
   }
 
   if (!tenant) {
+    // A real (non-anonymous) login that has no school record behind it —
+    // typically a registration that did not finish. Say so honestly
+    // instead of "not logged in" (the top bar still shows Sign out).
+    const signedInNoSchool = !!session && !session.user?.is_anonymous;
     return (
       <div style={{ ...S.page, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>You are not logged in.</p>
-          <Link to="/portal/login" style={{ color: '#E8A020' }}>Go to login →</Link>
+        <div style={{ textAlign: 'center', maxWidth: 360, padding: '0 20px' }}>
+          {signedInNoSchool ? (
+            <>
+              <p style={{ fontSize: 15, fontWeight: 600, color: '#fff', margin: '0 0 8px' }}>Your account is not linked to a school or hospital yet.</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, margin: '0 0 14px' }}>
+                Your sign-up may not have finished. Use Sign out at the top right, then register again, or contact support.
+              </p>
+              <Link to="/registration" style={{ color: '#E8A020' }}>Register again →</Link>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>You are not logged in.</p>
+              <Link to="/portal/login" style={{ color: '#E8A020' }}>Go to login →</Link>
+            </>
+          )}
         </div>
       </div>
     );
