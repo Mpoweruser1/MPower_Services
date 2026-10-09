@@ -29,7 +29,7 @@ const STATUS_CONFIG = {
 };
 
 export default function SupportTickets() {
-  const { tenant } = useTenant();
+  const { tenant, loading: tenantLoading } = useTenant();
   const [tickets, setTickets]       = useState([]);
   const [loading, setLoading]       = useState(true);
   const [filterStatus, setFilterStatus] = useState('open');
@@ -46,10 +46,14 @@ export default function SupportTickets() {
 
   async function loadTickets() {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('support_tickets')
       .select('*, crm_clients(org_name, phone, district)')
       .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Loading tickets failed:', error);
+      setActionError(`Could not load tickets: ${error.message || 'please try again.'}`);
+    }
     setTickets(data || []);
     setLoading(false);
   }
@@ -90,6 +94,20 @@ export default function SupportTickets() {
     setMessages((prev) => [...prev, msg]);
     setReplyText('');
     setSending(false);
+    // First reply on a fresh ticket means someone is working on it.
+    if (replyingTo.status === 'open') await setStatus(replyingTo.id, 'in_progress');
+  }
+
+  async function setStatus(ticketId, status) {
+    setActionError('');
+    const { error } = await supabase.from('support_tickets').update({ status }).eq('id', ticketId);
+    if (error) {
+      console.error('Changing ticket status failed:', error);
+      setActionError(error.message || 'Failed to change ticket status. Please try again.');
+      return;
+    }
+    setTickets((prev) => prev.map((t) => t.id === ticketId ? { ...t, status } : t));
+    setReplyingTo((t) => (t && t.id === ticketId ? { ...t, status } : t));
   }
 
   async function resolveTicket(ticketId) {
@@ -125,6 +143,11 @@ export default function SupportTickets() {
       return hoursOpen > cfg.sla;
     }).length,
   }), [tickets]);
+
+  if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading…</p></div><ControlPanelNav /></div>;
+  if (!tenant || !['developer', 'support'].includes(tenant.role)) {
+    return <div style={S.page}><div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Control Panel access only.</p></div><ControlPanelNav /></div>;
+  }
 
   return (
     <div style={S.page}>
@@ -184,6 +207,8 @@ export default function SupportTickets() {
 
         {loading ? (
           <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading tickets...</p>
+        ) : filtered.length === 0 ? (
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>No tickets match this filter.</p>
         ) : (
           filtered.map((ticket) => {
             const typeCfg   = TYPE_CONFIG[ticket.type] || TYPE_CONFIG.other;
@@ -247,6 +272,12 @@ export default function SupportTickets() {
                           style={{ padding: '8px 16px', background: sending || !replyText.trim() ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 7, cursor: sending || !replyText.trim() ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                           {sending ? '...' : 'Send →'}
                         </button>
+                        {ticket.status === 'open' && (
+                          <button onClick={() => setStatus(ticket.id, 'in_progress')}
+                            style={{ padding: '8px 16px', background: 'rgba(90,154,223,0.12)', color: '#5A9ADF', border: '1px solid rgba(90,154,223,0.2)', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                            ▶ Start
+                          </button>
+                        )}
                         {!['resolved', 'closed'].includes(ticket.status) && (
                           <button onClick={() => resolveTicket(ticket.id)}
                             style={{ padding: '8px 16px', background: 'rgba(106,170,144,0.12)', color: '#6AAA90', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>

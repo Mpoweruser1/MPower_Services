@@ -36,6 +36,10 @@ export default function HelpSystemAdmin() {
   const [tab, setTab] = useState('videos');
   const [moduleFilter, setModuleFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  // Which video row is being edited, and the ID typed so far (replaces
+  // the old browser pop-up box).
+  const [editingId, setEditingId] = useState(null);
+  const [editValue, setEditValue] = useState('');
 
   useEffect(() => { loadAll(); }, []);
 
@@ -64,8 +68,15 @@ export default function HelpSystemAdmin() {
     setVideos((prev) => prev.map((v) => v.id === id ? { ...v, is_active: !current } : v));
   }
 
-  async function updateVideoId(id, videoId) {
+  async function updateVideoId(id, rawVideoId) {
     setActionError('');
+    // An empty ID used to be saved and marked Active — clients would
+    // then get a video box with nothing in it.
+    const videoId = (rawVideoId || '').trim();
+    if (!videoId) {
+      setActionError('Enter a video ID before saving.');
+      return;
+    }
     const { error } = await supabase.from('help_content').update({ video_id: videoId, is_active: true, updated_at: new Date().toISOString() }).eq('id', id);
     // Previously this alert fired unconditionally — an admin could be
     // told "all clients will see the new video immediately" even when
@@ -76,6 +87,8 @@ export default function HelpSystemAdmin() {
       return;
     }
     setVideos((prev) => prev.map((v) => v.id === id ? { ...v, video_id: videoId, is_active: true } : v));
+    setEditingId(null);
+    setEditValue('');
     alert('Video updated. All clients will see the new video immediately.');
   }
 
@@ -164,8 +177,23 @@ export default function HelpSystemAdmin() {
                           {v.is_active ? 'Active' : v.video_id ? 'Draft' : 'No video'}
                         </span>
                       </div>
+                      {editingId === v.id ? (
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <input id={`help-video-id-${v.id}`} name={`help-video-id-${v.id}`} aria-label="YouTube or Cloudflare video ID"
+                            value={editValue} onChange={(e) => setEditValue(e.target.value)} placeholder="Paste YouTube/Cloudflare video ID"
+                            style={{ flex: 1, minWidth: 180, padding: '8px 10px', background: '#111113', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 7, color: '#fff', fontSize: 13, fontFamily: 'inherit' }} />
+                          <button onClick={() => updateVideoId(v.id, editValue)}
+                            style={{ fontSize: 12, padding: '6px 14px', border: 'none', color: '#111113', background: '#E8A020', borderRadius: 7, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>
+                            Save
+                          </button>
+                          <button onClick={() => { setEditingId(null); setEditValue(''); }}
+                            style={{ fontSize: 12, padding: '6px 12px', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', background: 'transparent', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => { const vid = prompt('Paste YouTube/Cloudflare video ID:', v.video_id || ''); if (vid !== null) updateVideoId(v.id, vid); }}
+                        <button onClick={() => { setEditingId(v.id); setEditValue(v.video_id || ''); setActionError(''); }}
                           style={{ fontSize: 12, padding: '6px 12px', border: '1px solid rgba(232,160,32,0.4)', color: '#E8A020', background: 'rgba(232,160,32,0.06)', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit' }}>
                           {v.video_id ? 'Replace video' : 'Upload video'}
                         </button>
@@ -176,6 +204,7 @@ export default function HelpSystemAdmin() {
                           </button>
                         )}
                       </div>
+                      )}
                     </div>
                   ))
                 )}

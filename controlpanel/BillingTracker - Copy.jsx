@@ -46,17 +46,10 @@ export default function BillingTracker() {
 
   useEffect(() => { loadData(); }, []);
 
-  // apps.app_type calls CTS "grievance", but pricing_plans calls it
-  // "cts" — without this translation every CTS client was priced at 0.
-  function getModule(client) {
-    const t = client.app_type || client.apps?.app_type;
-    return t === 'grievance' ? 'cts' : t;
-  }
-  function getTier(client) {
-    return client.tier || client.apps?.subscription_tier || (getModule(client) === 'cts' ? 'free' : 'basic');
-  }
   function getPrice(client) {
-    return pricingMap[`${getModule(client)}_${getTier(client)}`] ?? 0;
+    const module = client.app_type || client.apps?.app_type;
+    const tier = client.tier || client.apps?.subscription_tier || 'basic';
+    return pricingMap[`${module}_${tier}`] ?? 0;
   }
 
   async function loadData() {
@@ -128,7 +121,7 @@ export default function BillingTracker() {
 
     for (const client of activeClients) {
       if (alreadyInvoiced.has(client.id)) { skipped++; continue; }
-      const tier   = getTier(client);
+      const tier   = client.tier || client.apps?.subscription_tier || 'basic';
       const amount = getPrice(client);
       const { error } = await supabase.from('client_invoices').insert({
         client_id:    client.id,
@@ -137,9 +130,7 @@ export default function BillingTracker() {
         tier:         tier,
         due_date:     dueDate,
         status:       'pending',
-        // Built from the client's own id, so it is unique per client
-        // per month (a random 4-digit number could repeat).
-        invoice_no:   `MPOW/${month.replace('-', '/')}/${String(client.id).replace(/-/g, '').slice(0, 6).toUpperCase()}`,
+        invoice_no:   `MPOW/${month.replace('-', '/')}/${String(Math.floor(1000 + Math.random() * 9000))}`,
       });
       // A unique-violation here (Postgres code 23505) means the
       // database constraint itself caught a duplicate the check above
@@ -291,7 +282,7 @@ export default function BillingTracker() {
                   ))}
                 </div>
                 {clients.map((client) => {
-                  const tier   = getTier(client);
+                  const tier   = client.tier || client.apps?.subscription_tier || 'basic';
                   const amount = getPrice(client);
                   // Extended to cover every real tier name across all three
                   // modules — the old list ('basic'/'standard'/'advanced'/

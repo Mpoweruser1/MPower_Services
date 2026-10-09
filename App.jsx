@@ -422,6 +422,8 @@ function AppRoutes() {
         element={<RequireAuth><RequireRole roles={['developer','support']}><BillingTracker /></RequireRole></RequireAuth>} />
       <Route path="/control/onboarding"
         element={<RequireAuth><RequireRole roles={['developer','support']}><OnboardingWizard /></RequireRole></RequireAuth>} />
+      <Route path="/control/onboarding/:clientId"
+        element={<RequireAuth><RequireRole roles={['developer','support']}><OnboardingWizard /></RequireRole></RequireAuth>} />
       <Route path="/control/modifications"
         element={<RequireAuth><RequireRole roles={['developer','support','principal','doctor']}><ModificationRequestPortal /></RequireRole></RequireAuth>} />
       <Route path="/control/help-admin"

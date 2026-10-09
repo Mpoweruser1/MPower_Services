@@ -22,8 +22,15 @@ const ROLES_BY_APP_TYPE = {
   grievance: ['grievance_staff', 'representative', 'authority'],
 };
 
+const S = {
+  page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
+  inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
+  muted: { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
+  select: { width: '100%', padding: '10px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff', fontSize: 14, fontFamily: 'inherit' },
+};
+
 export default function ManageAccess() {
-  const { tenant } = useTenant();
+  const { tenant, loading: tenantLoading } = useTenant();
   const isDevOrSupport = ['developer', 'support'].includes(tenant?.role);
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -134,103 +141,113 @@ export default function ManageAccess() {
     }
   }
 
-  if (isDevOrSupport && loadingClients) return <><div style={{ padding: 16, fontSize: 13, color: '#888' }}>Loading clients...</div><ControlPanelNav /></>;
+  // Wait for the tenant before deciding anything — before this, the
+  // screen could briefly act as if the person were neither staff nor
+  // owner and load the wrong thing.
+  if (tenantLoading) return <div style={S.page}><div style={S.inner}><p style={S.muted}>Loading…</p></div><ControlPanelNav /></div>;
+  if (!tenant) return <div style={S.page}><div style={S.inner}><p style={S.muted}>Please sign in again.</p></div><ControlPanelNav /></div>;
+
+  if (isDevOrSupport && loadingClients) return <div style={S.page}><div style={S.inner}><p style={S.muted}>Loading clients...</p></div><ControlPanelNav /></div>;
 
   if (isDevOrSupport && !selectedClient) {
     return (
-      <div style={{ maxWidth: 680, margin: '0 auto', fontFamily: 'sans-serif', padding: 16 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 4px' }}>Manage Access</h2>
-        <p style={{ fontSize: 12, color: '#888', marginBottom: 16 }}>Select which client's access you're configuring.</p>
-        {clients.length === 0 ? (
-          <p style={{ fontSize: 13, color: '#aaa' }}>No clients found.</p>
-        ) : (
-          <div style={{ display: 'grid', gap: 8 }}>
-            {clients.filter((c) => c.apps?.id).map((c) => (
-              <button key={c.id} onClick={() => setSelectedClient(c)}
-                style={{ textAlign: 'left', padding: '12px 14px', border: '1px solid #eee', borderRadius: 8, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{c.org_name}</p>
-                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>{c.apps?.app_type} {c.district ? `· ${c.district}` : ''}</p>
-              </button>
-            ))}
-          </div>
-        )}
+      <div style={S.page}>
+        <div style={S.inner}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 4px' }}>Manage Access</h2>
+          <p style={{ ...S.muted, marginBottom: 16 }}>Select which client's access you're configuring.</p>
+          {clients.filter((c) => c.apps?.id).length === 0 ? (
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>No clients found.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {clients.filter((c) => c.apps?.id).map((c) => (
+                <button key={c.id} onClick={() => setSelectedClient(c)}
+                  style={{ textAlign: 'left', padding: '12px 14px', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, background: '#161618', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{c.org_name}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{c.apps?.app_type === 'grievance' ? 'CTS' : c.apps?.app_type} {c.district ? `· ${c.district}` : ''}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <ControlPanelNav />
         <BugReporter screenName="manage_access" />
       </div>
     );
   }
 
-  if (loading) return <><div style={{ padding: 16, fontSize: 13, color: '#888' }}>Loading...</div><ControlPanelNav /></>;
+  if (loading) return <div style={S.page}><div style={S.inner}><p style={S.muted}>Loading...</p></div><ControlPanelNav /></div>;
 
   const availableRoles = ROLES_BY_APP_TYPE[appType] || [];
 
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto', fontFamily: 'sans-serif', padding: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Manage Access</h2>
-        <ScreenVideoButton screenCode="manage_access" />
-      </div>
-      {isDevOrSupport && selectedClient && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F4F1E8', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>Configuring: {selectedClient.org_name}</span>
-          <button onClick={() => setSelectedClient(null)} style={{ fontSize: 12, color: '#185FA5', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-            Switch client
+    <div style={S.page}>
+      <div style={S.inner}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Manage Access</h2>
+          <ScreenVideoButton screenCode="manage_access" />
+        </div>
+        {isDevOrSupport && selectedClient && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '10px 14px', margin: '8px 0 12px' }}>
+            <span style={{ fontSize: 13, fontWeight: 500 }}>Configuring: {selectedClient.org_name}</span>
+            <button onClick={() => { setSelectedClient(null); setPermissions({}); setSaved(false); }} style={{ fontSize: 12, color: '#E8A020', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Switch client
+            </button>
+          </div>
+        )}
+        <p style={{ ...S.muted, marginBottom: 16 }}>
+          Control what each role can see and do. Owner role (principal/doctor) always has full access.
+        </p>
+
+        <div style={{ marginBottom: 16 }}>
+          <label htmlFor="access-selected-role" style={{ ...S.muted, display: 'block', marginBottom: 4 }}>Select role to configure</label>
+          <select id="access-selected-role" name="access-selected-role" value={selectedRole} onChange={(e) => { setSelectedRole(e.target.value); setSaved(false); }} style={S.select}>
+            {availableRoles.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+
+        {modules.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>No modules configured for this app type.</p>
+        ) : (
+          <div style={{ border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden', marginBottom: 16, background: '#161618' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '10px 12px', background: '#111113', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>
+              <span>Module</span><span>View</span><span>Create</span><span>Edit</span><span>Delete</span>
+            </div>
+            {modules.map((m) => {
+              const p = permissions[m.module_code] || {};
+              return (
+                <div key={m.module_code} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.05)', alignItems: 'center', fontSize: 13 }}>
+                  <span>{m.module_label}</span>
+                  {['can_view', 'can_create', 'can_edit', 'can_delete'].map((action) => (
+                    <input id={`access-${m.module_code}-${action}`} name={`access-${m.module_code}-${action}`} aria-label={`${m.module_label} ${action.replace('can_', '')}`} key={action} type="checkbox" checked={!!p[action]} onChange={() => togglePermission(m.module_code, action)} style={{ cursor: 'pointer', width: 18, height: 18 }} />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!saved ? (
+          <button onClick={saveAll} disabled={saving || modules.length === 0} style={{ width: '100%', padding: 12, background: saving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+            {saving ? 'Saving...' : `Save permissions for ${selectedRole}`}
           </button>
-        </div>
-      )}
-      <p style={{ fontSize: 12, color: '#888', marginBottom: 16 }}>
-        Control what each role can see and do. Owner role (principal/doctor) always has full access.
-      </p>
-
-      <div style={{ marginBottom: 16 }}>
-        <label htmlFor="access-selected-role" style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 4 }}>Select role to configure</label>
-        <select id="access-selected-role" name="access-selected-role" value={selectedRole} onChange={(e) => { setSelectedRole(e.target.value); setSaved(false); }} style={{ width: '100%', padding: '8px 10px', border: '1px solid #ccc', borderRadius: 6 }}>
-          {availableRoles.map((r) => <option key={r} value={r}>{r}</option>)}
-        </select>
+        ) : (
+          <>
+            <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 10, padding: 12, textAlign: 'center', marginBottom: 4 }}>
+              <p style={{ margin: 0, fontWeight: 600, color: '#6AAA90' }}>✓ Permissions saved for {selectedRole}</p>
+            </div>
+            <NextActions
+              title="Access configured — what next?"
+              actions={[
+                { icon: '🔒', label: 'Configure another role', description: 'Set permissions for a different role', onClick: () => setSaved(false), color: '#E8A020' },
+              ]}
+              secondaryActions={[
+                { icon: '🏢', label: 'Clients', href: '/control/clients' },
+                { icon: '🏠', label: 'Dashboard', href: '/portal/dashboard' },
+              ]}
+            />
+          </>
+        )}
       </div>
-
-      {modules.length === 0 ? (
-        <p style={{ fontSize: 13, color: '#aaa' }}>No modules configured for this app type.</p>
-      ) : (
-        <div style={{ border: '1px solid #eee', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '10px 12px', background: '#f7f7f7', fontSize: 12, fontWeight: 600, color: '#666' }}>
-            <span>Module</span><span>View</span><span>Create</span><span>Edit</span><span>Delete</span>
-          </div>
-          {modules.map((m) => {
-            const p = permissions[m.module_code] || {};
-            return (
-              <div key={m.module_code} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '10px 12px', borderTop: '1px solid #eee', alignItems: 'center', fontSize: 13 }}>
-                <span>{m.module_label}</span>
-                {['can_view', 'can_create', 'can_edit', 'can_delete'].map((action) => (
-                  <input id="access-p-action" name="access-p-action" key={action} type="checkbox" checked={!!p[action]} onChange={() => togglePermission(m.module_code, action)} style={{ cursor: 'pointer' }} />
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {!saved ? (
-        <button onClick={saveAll} disabled={saving || modules.length === 0} style={{ width: '100%', padding: 12, background: saving ? '#ccc' : '#185FA5', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
-          {saving ? 'Saving...' : `Save permissions for ${selectedRole}`}
-        </button>
-      ) : (
-        <>
-          <div style={{ background: '#E1F5EE', borderRadius: 8, padding: 12, textAlign: 'center', marginBottom: 4 }}>
-            <p style={{ margin: 0, fontWeight: 600, color: '#085041' }}>✓ Permissions saved for {selectedRole}</p>
-          </div>
-          <NextActions
-            title="Access configured — what next?"
-            actions={[
-              { icon: '🔒', label: 'Configure another role', description: 'Set permissions for a different role', onClick: () => setSaved(false), color: '#185FA5' },
-            ]}
-            secondaryActions={[
-              { icon: '🏢', label: 'Clients', href: '/control/clients' },
-              { icon: '🏠', label: 'Dashboard', href: '/portal/dashboard' },
-            ]}
-          />
-        </>
-      )}
 
       <ControlPanelNav />
       <BugReporter screenName="manage_access" />

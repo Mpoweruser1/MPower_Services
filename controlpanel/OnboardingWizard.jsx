@@ -1,5 +1,6 @@
 // controlpanel/OnboardingWizard.jsx — restyled to match the current dark-theme standard
 import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import ControlPanelNav from '../shared/ControlPanelNav';
 import NextActions from '../shared/NextActions';
@@ -8,13 +9,39 @@ import BugReporter from '../shared/BugReporter';
 
 const STEPS = ['Account', 'Org info', 'Classes/Depts', 'Fee/Billing setup', 'Users', 'Hardware'];
 
+// Steps 1, 3, 4, 5 are checklists: "Save & continue" stays off until every
+// box on the step is ticked, and the ticks are saved with the step.
+const CHECKLISTS = {
+  1: [
+    { key: 'login_created', label: 'Client login created' },
+    { key: 'login_tested',  label: 'Client login tested (signed in and saw the right dashboard)' },
+  ],
+  3: [
+    { key: 'structure_added', label: 'Classes (School) or departments (Hospital/CTS) added' },
+    { key: 'structure_checked', label: 'Checked the list with the client' },
+  ],
+  4: [
+    { key: 'fee_set',   label: 'Fee structure (School) or billing/plan (Hospital/CTS) set' },
+    { key: 'plan_set',  label: 'Subscription plan confirmed for this client' },
+  ],
+  5: [
+    { key: 'staff_added',  label: 'Staff logins created' },
+    { key: 'roles_checked', label: 'Roles and access checked' },
+  ],
+};
+
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
   inner: { maxWidth: 680, margin: '0 auto', padding: '24px 20px' },
   input: { padding: '10px 14px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 14, color: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' },
 };
 
-export default function OnboardingWizard({ clientId }) {
+export default function OnboardingWizard({ clientId: clientIdProp }) {
+  // The client comes from the link /control/onboarding/<client id>
+  // (CrmClientView builds that link). A prop still works if given.
+  const { clientId: clientIdParam } = useParams();
+  const clientId = clientIdProp || clientIdParam;
+  const [pickList, setPickList] = useState([]);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,16 +51,35 @@ export default function OnboardingWizard({ clientId }) {
   const [otp, setOtp] = useState('');
   const [ackComplete, setAckComplete] = useState(false);
   const [ackNumber, setAckNumber] = useState(null);
+  const [checks, setChecks] = useState({}); // { stepNumber: { itemKey: true } }
 
-  useEffect(() => { if (clientId) loadProgress(); else setLoading(false); }, [clientId]);
+  useEffect(() => { if (clientId) loadProgress(); else loadPickList(); }, [clientId]);
+
+  // /control/onboarding opened from the menu with no client: show the
+  // clients still being set up, so one can be picked.
+  async function loadPickList() {
+    setLoading(true);
+    const { data } = await supabase.from('crm_clients').select('id, org_name, district, status').neq('status', 'active').order('org_name');
+    setPickList(data || []);
+    setLoading(false);
+  }
 
   async function loadProgress() {
     setLoading(true);
     const { data: client } = await supabase.from('crm_clients').select('*').eq('id', clientId).single();
     if (client) setOrgInfo({ name: client.org_name || '', district: client.district || '', contactPerson: client.contact_person || '', phone: client.phone || '' });
 
-    const { data: progress } = await supabase.from('setup_wizard_progress').select('*').eq('client_id', clientId).order('step_number', { ascending: false }).limit(1).single();
-    if (progress) setStep(Math.min(progress.step_number + 1, STEPS.length));
+    // Read every saved step (not just the last) so earlier ticks show again.
+    const { data: progressRows } = await supabase.from('setup_wizard_progress').select('step_number, data_snapshot').eq('client_id', clientId);
+    if (progressRows && progressRows.length > 0) {
+      const maxStep = Math.max(...progressRows.map((r) => r.step_number));
+      setStep(Math.min(maxStep + 1, STEPS.length));
+      const saved = {};
+      progressRows.forEach((r) => {
+        if (r.data_snapshot && r.data_snapshot.checked) saved[r.step_number] = r.data_snapshot.checked;
+      });
+      setChecks(saved);
+    }
 
     const { data: onboarding } = await supabase.from('client_onboarding').select('ack_signed').eq('client_id', clientId).maybeSingle();
     if (onboarding?.ack_signed) setAckComplete(true);
@@ -49,14 +95,17 @@ export default function OnboardingWizard({ clientId }) {
     return error;
   }
 
+  const stepReady = !CHECKLISTS[step] || CHECKLISTS[step].every((item) => checks[step]?.[item.key]);
+
   async function next() {
+    if (!stepReady) return;
     setSaving(true);
     if (step === 2) {
       const { error } = await supabase.from('crm_clients').update({ org_name: orgInfo.name, district: orgInfo.district, contact_person: orgInfo.contactPerson, phone: orgInfo.phone }).eq('id', clientId);
       if (error) { console.error('Saving org info failed:', error); alert(`Failed to save: ${error.message || 'please try again.'}`); setSaving(false); return; }
       await saveStepProgress(2, 'Org info', orgInfo);
     } else {
-      await saveStepProgress(step, STEPS[step - 1], {});
+      await saveStepProgress(step, STEPS[step - 1], CHECKLISTS[step] ? { checked: checks[step] || {} } : {});
     }
     setSaving(false);
     if (step < STEPS.length) setStep(step + 1);
@@ -146,7 +195,22 @@ export default function OnboardingWizard({ clientId }) {
   if (!clientId) return (
     <div style={S.page}>
       <div style={{ ...S.inner, textAlign: 'center', marginTop: 60 }}>
-        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>No client selected. Open this wizard from a client's record.</p>
+        {loading ? (
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Loading…</p>
+        ) : pickList.length === 0 ? (
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>No clients are waiting for setup. To onboard one, open it from <Link to="/control/clients" style={{ color: '#E8A020' }}>Clients</Link>.</p>
+        ) : (
+          <div style={{ textAlign: 'left' }}>
+            <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Choose a client to set up</p>
+            {pickList.map((c) => (
+              <Link key={c.id} to={`/control/onboarding/${c.id}`}
+                style={{ display: 'block', textDecoration: 'none', background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '12px 14px', marginBottom: 8 }}>
+                <span style={{ fontSize: 14, color: '#fff' }}>{c.org_name}</span>
+                <span style={{ display: 'block', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{c.district || '—'} · {c.status}</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
       <ControlPanelNav />
     </div>
@@ -194,9 +258,20 @@ export default function OnboardingWizard({ clientId }) {
               </div>
             )}
 
-            {step !== 2 && step < STEPS.length && (
-              <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 24, textAlign: 'center', marginBottom: 20, fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-                Step {step} — {STEPS[step - 1]} configuration
+            {CHECKLISTS[step] && step < STEPS.length && (
+              <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 18, marginBottom: 20 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, margin: '0 0 12px', color: '#fff' }}>Step {step} — {STEPS[step - 1]}</p>
+                {CHECKLISTS[step].map((item) => (
+                  <label key={item.key} htmlFor={`onboarding-check-${step}-${item.key}`}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', fontSize: 13, color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>
+                    <input id={`onboarding-check-${step}-${item.key}`} name={`onboarding-check-${step}-${item.key}`} type="checkbox"
+                      checked={!!checks[step]?.[item.key]}
+                      onChange={() => setChecks((c) => ({ ...c, [step]: { ...(c[step] || {}), [item.key]: !c[step]?.[item.key] } }))}
+                      style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0 }} />
+                    <span>{item.label}</span>
+                  </label>
+                ))}
+                {!stepReady && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '8px 0 0' }}>Tick every box to continue.</p>}
               </div>
             )}
 
@@ -206,8 +281,8 @@ export default function OnboardingWizard({ clientId }) {
                   style={{ padding: '10px 18px', fontSize: 13, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', color: 'rgba(255,255,255,0.6)', cursor: step === 1 ? 'not-allowed' : 'pointer', opacity: step === 1 ? 0.4 : 1, fontFamily: 'inherit' }}>
                   ← Back
                 </button>
-                <button onClick={next} disabled={saving}
-                  style={{ flex: 1, padding: '10px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: saving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving ? 'rgba(255,255,255,0.3)' : '#111113', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                <button onClick={next} disabled={saving || !stepReady}
+                  style={{ flex: 1, padding: '10px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: saving || !stepReady ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving || !stepReady ? 'rgba(255,255,255,0.3)' : '#111113', cursor: saving || !stepReady ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
                   {saving ? 'Saving...' : 'Save & continue →'}
                 </button>
               </div>
