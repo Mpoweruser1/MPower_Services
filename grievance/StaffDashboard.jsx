@@ -192,7 +192,7 @@ export default function StaffDashboard() {
             <input id="staff-dash-search" name="staff-dash-search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by title…"
+              placeholder="Search by title or case no…"
               style={{ flex: '1 1 160px', padding: '9px 12px', border: '1px solid #D9D5C8', borderRadius: 8, fontSize: 13, fontFamily: 'inherit' }}
             />
             <select id="staff-dash-category-filter" name="staff-dash-category-filter" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}

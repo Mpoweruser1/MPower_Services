@@ -7,7 +7,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
-import { fetchCategories, getStaffPhotoUrl, fetchConstituencies, fetchMandals, fetchVillages, fetchMyConstituencyId } from './grievanceApi';
+import { fetchCategories, getStaffPhotoUrl, fetchConstituencies, fetchMandals, fetchVillages, fetchMyConstituencyId, applyComplaintSearch } from './grievanceApi';
 import GrievanceNav from './GrievanceNav';
 
 // ─── Shared print styles ───────────────────────────────────
@@ -1027,7 +1027,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
   const { data, error: err } = await supabase
     .from('complaints')
     .select('*')
-    .eq('case_no', targetCaseNo)
+    .eq('case_no', String(targetCaseNo).trim().toUpperCase())
     .single();
   
   if (err) { setError('Complaint not found.'); setLoading(false); return; }
@@ -1085,7 +1085,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     setLoading(true);
     let query = supabase.from('complaints').select('*').eq('app_id', appId).order('created_at', { ascending: false });
     if (filterCategory) query = query.eq('category', filterCategory);
-    if (filterSearch.trim()) query = query.ilike('title', `%${filterSearch.trim()}%`);
+    query = applyComplaintSearch(query, filterSearch);
     if (filterStage === 'PENDING_ONLY') {
       query = query.not('stage', 'in', '(Resolved,Sanctioned,Declined)');
     } else if (filterStage === 'HANDLED_ONLY') {
@@ -1160,7 +1160,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     let query = supabase.from('complaints').select('*').eq('app_id', appId).order('created_at', { ascending: false });
     if (branchConstituencyIds) query = query.in('constituency_id', branchConstituencyIds);
     if (filterCategory) query = query.eq('category', filterCategory);
-    if (filterSearch.trim()) query = query.ilike('title', `%${filterSearch.trim()}%`);
+    query = applyComplaintSearch(query, filterSearch);
     if (filterStage === 'PENDING_ONLY') {
       query = query.not('stage', 'in', '(Resolved,Sanctioned,Declined)');
     } else if (filterStage === 'HANDLED_ONLY') {
@@ -1275,14 +1275,14 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
             <input
               value={manualCaseNo}
               onChange={e => setManualCaseNo(e.target.value)}
-              placeholder="GR/2026/000001"
+              placeholder="EGMAN202600000001"
               style={S.input}
             />
             <button
               onClick={() => {
                 if (!manualCaseNo.trim()) return;
-                navigate(`/grievance/print?case=${encodeURIComponent(manualCaseNo)}`, { replace: true });
-                loadSingleComplaint(manualCaseNo.trim());
+                navigate(`/grievance/print?case=${encodeURIComponent(manualCaseNo.trim().toUpperCase())}`, { replace: true });
+                loadSingleComplaint(manualCaseNo.trim().toUpperCase());
               }}
               style={{ padding: '9px 18px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
             >
@@ -1364,7 +1364,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                   </button>
                 ))}
               </div>
-              <input value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} placeholder="Search by title…" style={{ ...S.input, marginBottom: 10 }} />
+              <input value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} placeholder="Search by title or case no…" style={{ ...S.input, marginBottom: 10 }} />
               {printType === 'staff_statewide' && (
                 <div style={{ marginBottom: 10 }}>
                   <label style={S.label}>District (optional)</label>

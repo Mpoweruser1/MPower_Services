@@ -99,6 +99,7 @@ import SecurityMonitor from './controlpanel/SecurityMonitor';
 // Shared
 import BugReporter from './shared/BugReporter';
 import RequireRole from './shared/RequireRole';
+import RequireModule, { RedirectIfSignedIn } from './shared/RequireModule';
 import CorrectionApprovalQueue from './shared/CorrectionApprovalQueue';
 import BusinessDetails from './shared/BusinessDetails';
 import HospitalNav from './shared/HospitalNav';
@@ -199,9 +200,9 @@ function AppRoutes() {
       <Routes>
 
       {/* ── Website — public ── */}
-      <Route path="/"                element={<Home />} />
-      <Route path="/products"        element={<Products />} />
-      <Route path="/products/:appType" element={<Products />} />
+      <Route path="/"                element={<RedirectIfSignedIn><Home /></RedirectIfSignedIn>} />
+      <Route path="/products"        element={<RedirectIfSignedIn><Products /></RedirectIfSignedIn>} />
+      <Route path="/products/:appType" element={<RedirectIfSignedIn><Products /></RedirectIfSignedIn>} />
       <Route path="/pricing"         element={<Pricing />} />
       <Route path="/contact"         element={<Contact />} />
       <Route path="/registration"    element={<Registration />} />
@@ -249,6 +250,10 @@ function AppRoutes() {
 <Route path="/grievance/:stateSlug" element={<CtsLanding />} />
 <Route path="/grievance/:stateSlug/citizen"
   element={<CitizenPortalWrapper />} />
+{/* Staff-only CTS screens (staff, admin, reports, feedback) — only CTS / government
+    logins (RequireModule, 9-10-2026). Citizen, landing, request-access and print
+    routes stay public exactly as before. */}
+<Route element={<RequireModule modules={['grievance','government']} />}>
 <Route path="/grievance/:stateSlug/staff"
   element={<StaffDashboard />} />
 <Route path="/grievance/:stateSlug/admin"
@@ -265,6 +270,7 @@ function AppRoutes() {
     instead of a code audit. */}
 <Route path="/grievance/:stateSlug/feedback"
   element={<FeedbackDashboard />} />
+</Route>
 <Route path="/grievance/:stateSlug/request-access"
   element={<RequestStaffAccess />} />
 <Route path="/grievance/print"
@@ -281,9 +287,10 @@ function AppRoutes() {
 
       {/* ── Corrections — principal/doctor/admin ── */}
       <Route path="/corrections"
-        element={<RequireAuth><CorrectionApprovalQueue /></RequireAuth>} />
+        element={<RequireAuth><RequireModule modules={['school','hospital','grievance','government']}><CorrectionApprovalQueue /></RequireModule></RequireAuth>} />
 
-      {/* ── School ── */}
+      {/* ── School — only School logins (RequireModule, 9-10-2026) ── */}
+      <Route element={<RequireModule modules={['school']} blockRoles={['developer','support']} />}>
       <Route path="/school/dashboard"
         element={<RequireAuth><SchoolDashboard /></RequireAuth>} />
       <Route path="/school/admission"
@@ -353,8 +360,10 @@ function AppRoutes() {
         element={<RequireAuth><FeeAnalytics /></RequireAuth>} />
       <Route path="/school/hostel-welfare-report"
         element={<RequireAuth><HostelWelfareReport /></RequireAuth>} />
+      </Route>
 
-      {/* ── Hospital ── */}
+      {/* ── Hospital — only Hospital logins (RequireModule, 9-10-2026) ── */}
+      <Route element={<RequireModule modules={['hospital']} blockRoles={['developer','support']} />}>
       <Route path="/hospital/dashboard"
         element={<RequireAuth><VisitProvider><HospitalDashboard /></VisitProvider></RequireAuth>} />
       <Route path="/hospital/patients/new"
@@ -392,14 +401,17 @@ function AppRoutes() {
         element={<RequireAuth><VisitProvider><OpdAppointments /></VisitProvider></RequireAuth>} />
       <Route path="/hospital/reports"
         element={<RequireAuth><HospitalReports userTier={tenant?.tier} /></RequireAuth>} />
+      </Route>
 
-      {/* ── Grievance — staff (auth required) ── */}
+      {/* ── Grievance — staff (auth required) — only CTS / government logins (RequireModule, 9-10-2026) ── */}
+      <Route element={<RequireModule modules={['grievance','government']} />}>
       <Route path="/grievance/staff"
         element={<RequireAuth><StaffDashboard /></RequireAuth>} />
       <Route path="/grievance/reports"
         element={<RequireAuth><ReportsDashboard /></RequireAuth>} />
       <Route path="/grievance/verify-queue"
         element={<RequireAuth><AdminVerificationQueue /></RequireAuth>} />
+      </Route>
 
       {/* ── Control Panel — developer/support only ── */}
       <Route path="/control/clients"

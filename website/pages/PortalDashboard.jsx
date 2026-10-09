@@ -111,12 +111,14 @@ export default function PortalDashboard() {
   const links = isControl   ? CONTROL_LINKS
               : isHospital  ? HOSPITAL_LINKS
               : isGrievance ? grievanceLinks(tenant.role, appInfo)
-              : SCHOOL_LINKS;
+              : isSchool    ? SCHOOL_LINKS
+              : [];   // unknown product: show nothing rather than guess School
 
   const sectorBadge = isControl   ? { icon: '🖥️',  label: 'Control Panel',      color: '#9B7FE8' }
                     : isHospital  ? { icon: '🏥',  label: 'Hospital',            color: '#5A9ADF' }
                     : isGrievance ? { icon: '🏛️', label: 'Complaint Tracking',  color: '#E8A020' }
-                    :               { icon: '🏫',  label: 'School',              color: '#6AAA90' };
+                    : isSchool    ? { icon: '🏫',  label: 'School',              color: '#6AAA90' }
+                    :               { icon: '⚠️',  label: 'Account not set up',  color: '#9A9A9A' };
 
   const trialDaysLeft = tenant?.trialEndsAt
     ? Math.max(0, Math.ceil((new Date(tenant.trialEndsAt) - Date.now()) / 86400000))
@@ -181,6 +183,12 @@ export default function PortalDashboard() {
             </Link>
           ))}
         </div>
+
+        {links.length === 0 && (
+          <div style={{ background: 'rgba(224,90,90,0.06)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 12, padding: '14px 16px', marginBottom: 16, fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
+            We could not tell which MPower product this account belongs to, so no menu is shown. Please contact support.
+          </div>
+        )}
 
         {/* Corrections link — principal/doctor/admin only */}
         {isPrincipalOrDoctor && (

@@ -463,6 +463,19 @@ export async function fetchComplaintIssues(complaintId) {
 // in-state for an authority, everything in-state for an admin).
 const TERMINAL_STAGES = ['Resolved', 'Sanctioned', 'Declined'];
 
+// Staff-side complaint search: matches the title OR the case number
+// (old style GR/2026/000070 and new style EGMAN202600000084 alike), case
+// ignored. Added 9-10-2026 -- search used to look at the title only, so a
+// case number typed into any search box found nothing.
+// The typed text goes inside double quotes, so commas and brackets are safe;
+// only %, *, double quotes and backslashes (wildcard / quote characters) are
+// removed first.
+export function applyComplaintSearch(query, search) {
+  const safe = String(search || '').replace(/[%*"\\]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!safe) return query;
+  return query.or(`title.ilike."%${safe}%",case_no.ilike."%${safe}%"`);
+}
+
 // Real server-side pagination — previously fetched every single
 // complaint in one call with no limit at all, which doesn't scale
 // once a queue has hundreds or thousands of entries. handled=false
@@ -472,7 +485,7 @@ const TERMINAL_STAGES = ['Resolved', 'Sanctioned', 'Declined'];
 export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', category = '', priority = '', handled = false, constituencyId = '', mandalId = '', villageId = '', dateFrom = '', dateTo = '' } = {}) {
   let query = supabase.from('complaints').select('*', { count: 'exact' });
   query = handled ? query.in('stage', TERMINAL_STAGES) : query.not('stage', 'in', `(${TERMINAL_STAGES.join(',')})`);
-  if (search.trim()) query = query.ilike('title', `%${search.trim()}%`);
+  query = applyComplaintSearch(query, search);
   if (category) query = query.eq('category', category);
   if (priority) query = query.eq('priority', priority);
   if (constituencyId) query = query.eq('constituency_id', constituencyId);
@@ -569,14 +582,102 @@ export async function updateAssignedDepartment(complaintId, department) {
 
 const EVIDENCE_BUCKET = 'complaint-evidence';
 
+// Evidence size rules. Photos are shrunk in the browser before upload
+// (longest side 1600 px, JPEG quality 0.8 -- normally a few hundred KB
+// instead of the 2-5 MB a phone camera produces). Videos are not shrunk,
+// so they get a hard size cap instead.
+const EVIDENCE_PHOTO_MAX_SIDE = 1600;
+const EVIDENCE_PHOTO_QUALITY = 0.8;
+const EVIDENCE_PHOTO_SKIP_BELOW_BYTES = 300 * 1024;
+const EVIDENCE_PHOTO_UNSHRUNK_MAX_BYTES = 10 * 1024 * 1024;
+export const EVIDENCE_VIDEO_MAX_BYTES = 20 * 1024 * 1024;
+const SHRINKABLE_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+// Decodes the picture so it can be drawn on a canvas. createImageBitmap
+// with imageOrientation 'from-image' applies the phone's rotation tag, so
+// a portrait photo does not come out sideways. Older browsers fall back
+// to a plain <img>.
+async function loadForDrawing(file) {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      return { source: bmp, width: bmp.width, height: bmp.height, cleanup: () => bmp.close() };
+    } catch {
+      // fall through to the <img> route below
+    }
+  }
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = url;
+  });
+  return { source: img, width: img.naturalWidth, height: img.naturalHeight, cleanup: () => URL.revokeObjectURL(url) };
+}
+
+// Returns { blob, ext, contentType } for the shrunk copy, or null when the
+// original should be uploaded as it is (unsupported type, already small,
+// shrinking made it bigger, or the picture could not be decoded).
+async function shrinkPhoto(file) {
+  if (!SHRINKABLE_PHOTO_TYPES.includes(file.type)) return null;
+  let loaded = null;
+  try {
+    loaded = await loadForDrawing(file);
+    const scale = Math.min(1, EVIDENCE_PHOTO_MAX_SIDE / Math.max(loaded.width, loaded.height));
+    if (scale === 1 && file.size <= EVIDENCE_PHOTO_SKIP_BELOW_BYTES) return null;
+    const w = Math.max(1, Math.round(loaded.width * scale));
+    const h = Math.max(1, Math.round(loaded.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    // JPEG has no transparency; without this a see-through PNG goes black.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(loaded.source, 0, 0, w, h);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', EVIDENCE_PHOTO_QUALITY));
+    if (!blob || blob.size >= file.size) return null;
+    return { blob, ext: 'jpg', contentType: 'image/jpeg' };
+  } catch {
+    return null;
+  } finally {
+    if (loaded) loaded.cleanup();
+  }
+}
+
 export async function uploadEvidence({ complaintId, file, uploadedByCitizenId, uploadedByUserId, caption }) {
-  const ext = file.name.split('.').pop();
+  const isVideo = file.type.startsWith('video');
+
+  let body = file;
+  let ext = file.name.split('.').pop();
+  let contentType = file.type || undefined;
+
+  if (isVideo) {
+    if (file.size > EVIDENCE_VIDEO_MAX_BYTES) {
+      throw new Error('Video is too large. Please keep it under 20 MB.');
+    }
+  } else {
+    const shrunk = await shrinkPhoto(file);
+    if (shrunk) {
+      body = shrunk.blob;
+      ext = shrunk.ext;
+      contentType = shrunk.contentType;
+    } else if (file.size > EVIDENCE_PHOTO_UNSHRUNK_MAX_BYTES) {
+      throw new Error('This photo is too large and could not be reduced. Please try a smaller one.');
+    }
+  }
+
+  // First folder must be the complaint's own id -- the storage rules
+  // (evidence_insert_by_citizen / evidence_insert_by_staff) check it.
   const path = `${complaintId}/${crypto.randomUUID()}.${ext}`;
 
-  const { error: uploadError } = await supabase.storage.from(EVIDENCE_BUCKET).upload(path, file);
+  const { error: uploadError } = await supabase.storage
+    .from(EVIDENCE_BUCKET)
+    .upload(path, body, contentType ? { contentType } : undefined);
   if (uploadError) throw uploadError;
 
-  const fileType = file.type.startsWith('video') ? 'video' : 'photo';
+  const fileType = isVideo ? 'video' : 'photo';
 
   const { data, error } = await supabase
     .from('complaint_attachments')
@@ -584,7 +685,7 @@ export async function uploadEvidence({ complaintId, file, uploadedByCitizenId, u
       complaint_id: complaintId,
       file_type: fileType,
       storage_path: path,
-      file_size_bytes: file.size,
+      file_size_bytes: body.size,
       caption: caption || null,
       uploaded_by_citizen_id: uploadedByCitizenId || null,
       uploaded_by_user_id: uploadedByUserId || null,
