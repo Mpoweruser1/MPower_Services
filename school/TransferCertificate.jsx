@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
-import PrintHeader from '../shared/PrintHeader';
 import BugReporter from '../shared/BugReporter';
 
 const LEAVING_REASONS = [
@@ -134,6 +133,10 @@ export default function TransferCertificate() {
     setAttendancePct(total > 0 ? Math.round(((present || 0) / total) * 100) : null);
   }
 
+  // School details printed on the certificate (from Business Details).
+  const schoolAddressLine = [tenant?.address, tenant?.city, tenant?.district, tenant?.pincode].filter(Boolean).join(', ');
+  const schoolPhone = tenant?.businessPhone || '';
+
   const hasPendingDues = feeDues.length > 0;
   const totalPending   = feeDues.reduce((s, d) => s + Number(d.amount_due) - Number(d.paid), 0);
   // Now blocks the same way as pending dues, not just a passive
@@ -245,13 +248,20 @@ export default function TransferCertificate() {
   }
 
   return (
-    <div style={S.page}>
+    <div className="tc-page" style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @media print { .no-print { display: none !important; } }
+        @media print {
+          .no-print { display: none !important; }
+          @page { size: A4 portrait; margin: 15mm 18mm; }
+          html, body { height: auto !important; background: #fff !important; }
+          .tc-page { min-height: 0 !important; padding-bottom: 0 !important; background: #fff !important; }
+          .tc-page .tc-inner { max-width: none !important; padding: 0 !important; }
+          .tc-page .tc-doc { padding: 0 !important; border-radius: 0 !important; }
+        }
       `}</style>
 
-      <div style={S.inner}>
+      <div className="tc-inner" style={S.inner}>
         <div className="no-print" style={{ marginBottom: 24 }}>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Transfer Certificate · స్థానాంతర ధృవపత్రం
@@ -429,6 +439,11 @@ export default function TransferCertificate() {
         ) : (
           /* TC Preview — printable */
           <div>
+            {!schoolAddressLine && !schoolPhone && (
+              <div className="no-print" style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#E8A020' }}>
+                ⚠️ Your school's address and phone are not filled in, so the certificate shows only the school name. Add them in <a href="/school/business-details" style={{ color: '#E8A020', fontWeight: 600 }}>Business Details</a>, then print again.
+              </div>
+            )}
             <div className="no-print" style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
               <button onClick={() => window.print()}
                 style={{ flex: 1, padding: 12, background: '#E8A020', color: '#111113', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit' }}>
@@ -441,16 +456,25 @@ export default function TransferCertificate() {
             </div>
 
             {/* TC Document */}
-            <div style={{ background: '#fff', color: '#000', padding: '28px 32px', borderRadius: 8, fontFamily: 'serif' }}>
-              {/* Shared header — replaces a hand-rolled header that
-                  duplicated PrintHeader's @page rule and page-number
-                  CSS, and lacked the address/phone/GSTIN details
-                  PrintHeader now includes. */}
-              <PrintHeader documentTitle="Transfer Certificate" />
+            <div className="tc-doc" style={{ background: '#fff', color: '#000', padding: '28px 32px', borderRadius: 8, fontFamily: 'serif' }}>
+              {/* School header — shown on screen AND when printed. Built
+                  here (not from the print-only shared header) so the
+                  school's own name, address, phone and registration
+                  number are visible on the certificate itself. Lines
+                  appear only for details that are filled in under
+                  Business Details. */}
+              <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: 12, marginBottom: 16 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: 0.5 }}>{issuedTc.orgName || 'School'}</h2>
+                {schoolAddressLine && <p style={{ fontSize: 12, color: '#333', margin: '4px 0 0' }}>{schoolAddressLine}</p>}
+                {(schoolPhone || tenant?.registrationNo) && (
+                  <p style={{ fontSize: 12, color: '#333', margin: '2px 0 0' }}>
+                    {[schoolPhone ? `Ph: ${schoolPhone}` : null, tenant?.registrationNo ? `Reg. No: ${tenant.registrationNo}` : null].filter(Boolean).join(' · ')}
+                  </p>
+                )}
+              </div>
 
               <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Recognised by Govt. of Andhra Pradesh</p>
-                <h3 style={{ fontSize: 15, fontWeight: 700, margin: '12px 0 0', textTransform: 'uppercase', letterSpacing: 1 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0', textTransform: 'uppercase', letterSpacing: 1 }}>
                   Transfer Certificate
                 </h3>
                 <p style={{ fontSize: 12, margin: '4px 0 0', color: '#555' }}>స్థానాంతర ధృవపత్రం</p>
@@ -500,15 +524,17 @@ export default function TransferCertificate() {
 
               {/* Audit stamp */}
               <div style={{ marginTop: 20, padding: '8px 12px', background: '#f5f5f5', borderRadius: 4, fontSize: 12, color: '#888', fontFamily: 'monospace' }}>
-                TC No: {issuedTc.tc_no} · Issued: {new Date(issuedTc.created_at).toLocaleString('en-IN')} · By: {issuedTc.principalName} · MPower
+                TC No: {issuedTc.tc_no} · Issued: {new Date(issuedTc.created_at).toLocaleString('en-IN')} · By: {issuedTc.principalName} · Powered by MPower
               </div>
             </div>
           </div>
         )}
       </div>
 
-      <SchoolNav />
-      <BugReporter screenName="transfer_certificate" />
+      <div className="no-print">
+        <SchoolNav />
+        <BugReporter screenName="transfer_certificate" />
+      </div>
     </div>
   );
 }

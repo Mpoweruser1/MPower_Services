@@ -9,10 +9,12 @@ import PrintHeader from '../shared/PrintHeader';
 import HospitalNav from '../shared/HospitalNav';
 import NextActions from '../shared/NextActions';
 import BugReporter from '../shared/BugReporter';
-import { useRazorpay } from '../shared/useRazorpay';
 import UpiQrCode from '../shared/UpiQrCode';
 
-const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Insurance', 'Aarogyasri', 'PMJAY', 'Online'];
+// 'Online' (Razorpay) is deliberately not offered: hospital online payments are
+// switched off until the money destination is settled, and the database now
+// refuses any bill marked Online or carrying a Razorpay payment id.
+const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Insurance', 'Aarogyasri', 'PMJAY'];
 const SERVICE_TYPES = ['Consultation', 'Lab test', 'Medicines', 'Procedure', 'Bed charges', 'Nursing', 'X-Ray / Scan', 'Other'];
 const GST_RATES     = [0, 5, 12, 18];
 
@@ -54,7 +56,6 @@ export default function HospitalBilling() {
   // upi_id isn't part of TenantContext (it's branch-level business
   // data, not session data), so it's fetched here on mount.
   const [branchUpiId, setBranchUpiId] = useState('');
-  const { initiatePayment, paying } = useRazorpay();
   const [discountAmt, setDiscountAmt] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [saving, setSaving]     = useState(false);
@@ -135,30 +136,10 @@ export default function HospitalBilling() {
       return;
     }
 
-    if (paymentMode === 'Online') {
-      // Real checkout first — the invoice is only ever created after
-      // the payment is actually verified server-side, never before.
-      // Everything else (Cash/UPI/Card/Insurance/Aarogyasri/PMJAY)
-      // keeps its existing immediate-creation behavior untouched,
-      // since those really were already collected in person.
-      initiatePayment({
-        amount: totalAmount,
-        purpose: 'hospital_billing',
-        clientId: tenant.appId,
-        invoiceId: null, // no invoice exists yet — created only after verification
-        customerName: selectedPatient.full_name,
-        customerPhone: selectedPatient.phone,
-        description: `Hospital bill — ${selectedPatient.full_name}`,
-        onSuccess: (paymentId) => createInvoiceRecord(paymentId),
-        onFailure: (reason) => setSubmitError(`Online payment ${reason === 'payment_dismissed' ? 'was cancelled' : 'failed'}. No invoice was created — try again or choose a different payment mode.`),
-      });
-      return;
-    }
-
-    await createInvoiceRecord(null);
+    await createInvoiceRecord();
   }
 
-  async function createInvoiceRecord(razorpayPaymentId) {
+  async function createInvoiceRecord() {
     setSaving(true);
     const invoiceNo = generateInvoiceNo(tenant.orgName);
 
@@ -174,7 +155,6 @@ export default function HospitalBilling() {
         total_amount: totalAmount,
         payment_mode: paymentMode,
         status:       'paid',
-        razorpay_payment_id: razorpayPaymentId || null,
       })
       .select()
       .single();
@@ -322,9 +302,7 @@ export default function HospitalBilling() {
                   </select>
                   {/* Counter QR — only for UPI mode, and only when the
                       branch has actually configured a UPI ID in
-                      Business Details. "Online" mode intentionally
-                      does NOT show this: that path goes through
-                      Razorpay, which verifies the payment properly. */}
+                      Business Details. */}
                   {paymentMode === 'UPI' && branchUpiId && totalAmount > 0 && (
                     <div style={{ marginTop: 14 }}>
                       <UpiQrCode
@@ -395,9 +373,9 @@ export default function HospitalBilling() {
               </div>
             )}
 
-            <button onClick={generateBill} disabled={saving || paying || !selectedPatient}
-              style={{ width: '100%', padding: 14, background: saving || paying || !selectedPatient ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving || paying || !selectedPatient ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: saving || paying || !selectedPatient ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-              {paying ? 'Waiting for payment...' : saving ? 'Generating...' : paymentMode === 'Online' ? `💳 Collect online — ₹${totalAmount.toLocaleString('en-IN')}` : `🧾 Generate invoice — ₹${totalAmount.toLocaleString('en-IN')}`}
+            <button onClick={generateBill} disabled={saving || !selectedPatient}
+              style={{ width: '100%', padding: 14, background: saving || !selectedPatient ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving || !selectedPatient ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: saving || !selectedPatient ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              {saving ? 'Generating...' : `🧾 Generate invoice — ₹${totalAmount.toLocaleString('en-IN')}`}
             </button>
           </>
         ) : (

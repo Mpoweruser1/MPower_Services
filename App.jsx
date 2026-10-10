@@ -95,6 +95,7 @@ import ModificationRequestPortal from './controlpanel/ModificationRequestPortal'
 import HelpSystemAdmin from './controlpanel/HelpSystemAdmin';
 import ManageAccess from './controlpanel/ManageAccess';
 import SecurityMonitor from './controlpanel/SecurityMonitor';
+import WelfareSchemesAdmin from './controlpanel/WelfareSchemesAdmin';
 
 // Shared
 import BugReporter from './shared/BugReporter';
@@ -148,6 +149,7 @@ const SCREEN_NAMES = {
   '/control/billing': 'Billing tracker', '/control/onboarding': 'Onboarding',
   '/control/modifications': 'Modifications', '/control/help-admin': 'Help admin',
   '/control/access': 'Manage access', '/control/security': 'Security monitor',
+  '/control/welfare': 'Welfare schemes',
   '/corrections': 'Correction queue',
 };
 // ─────────────────────────────────────────────────────────────
@@ -437,6 +439,9 @@ function AppRoutes() {
         element={<RequireAuth><RequireRole roles={['developer','support']}><FeedbackOverview /></RequireRole></RequireAuth>} />
       <Route path="/control/security"
         element={<RequireAuth><RequireRole roles={['developer','support']}><SecurityMonitor /></RequireRole></RequireAuth>} />
+
+      <Route path="/control/welfare"
+        element={<RequireAuth><RequireRole roles={['developer','support']}><WelfareSchemesAdmin /></RequireRole></RequireAuth>} />
 
       {/* ── Fallback ── */}
       <Route path="*" element={<Navigate to="/" replace />} />

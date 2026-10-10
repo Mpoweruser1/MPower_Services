@@ -46,6 +46,32 @@ export default function BillingTracker() {
 
   useEffect(() => { loadData(); }, []);
 
+  // A client may have paid online and then closed the page before it finished.
+  // For every unpaid invoice that has a payment order on record, ask the server to
+  // check with Razorpay and record the payment if it really went through.
+  useEffect(() => {
+    if (loading) return;
+    const unpaid = invoices.filter((i) => i.status !== 'paid').map((i) => i.id);
+    if (unpaid.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data: orders } = await supabase.from('invoice_payment_orders')
+        .select('invoice_id').in('invoice_id', unpaid);
+      const ids = [...new Set((orders || []).map((o) => o.invoice_id))];
+      let recovered = false;
+      for (const invoiceId of ids) {
+        if (cancelled) return;
+        const { data } = await supabase.functions.invoke('razorpay-verify-payment', {
+          body: { purpose: 'subscription_invoice', invoiceId, reconcile: true },
+        });
+        if (data?.verified) recovered = true;
+      }
+      if (recovered && !cancelled) loadData();
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
   // apps.app_type calls CTS "grievance", but pricing_plans calls it
   // "cts" — without this translation every CTS client was priced at 0.
   function getModule(client) {
@@ -384,9 +410,10 @@ export default function BillingTracker() {
                           customerPhone={inv.crm_clients?.phone}
                           description={`MPower subscription — ${inv.month || 'invoice'}`}
                           onSuccess={() => {
-                            const today = new Date().toISOString().slice(0, 10);
-                            setInvoices((prev) => prev.map((i) =>
-                              i.id === inv.id ? { ...i, status: 'paid', paid_date: today, payment_mode: 'Online' } : i));
+                            // The server has already confirmed the payment with
+                            // Razorpay and marked this invoice paid. Reload so the
+                            // screen shows what the database really says.
+                            loadData();
                           }}
                           style={{ padding: '10px 16px', fontSize: 13 }}
                         />
