@@ -3,6 +3,8 @@
 // Full workflow: Submit → Reviewed → Quote sent → Pay → In development → Delivered
 // Razorpay payment via PayButton component
 // WhatsApp notification on submit
+// Payment is recorded ONLY by the server (razorpay-verify-payment) — this screen
+// never writes paid status itself, and the amount charged comes from the saved quote.
 // Dark theme
 
 import React, { useState, useEffect } from 'react';
@@ -169,7 +171,7 @@ function RaiseRequestForm({ onSubmit, submitting }) {
 // ─────────────────────────────────────────────────────────────
 // Request card
 // ─────────────────────────────────────────────────────────────
-function RequestCard({ req, tenant, onPaySuccess }) {
+function RequestCard({ req, tenant, onPaySuccess, isTeam }) {
   const [expanded, setExpanded] = useState(req.status === 'quote_sent'); // auto-open when quote arrived
   const statusCfg = STATUS_CONFIG[req.status] || STATUS_CONFIG.submitted;
   const hasQuote  = req.quote_amount && req.status === 'quote_sent' && !req.paid_at;
@@ -290,18 +292,24 @@ function RequestCard({ req, tenant, onPaySuccess }) {
                 Per Terms §6A — full payment required before development begins.
               </div>
 
-              {/* Razorpay payment button */}
-              <PayButton
-                amount={req.quote_amount}
-                label={`Accept & Pay ₹${Number(req.quote_amount).toLocaleString('en-IN')} — Start development`}
-                purpose="modification_request"
-                modRequestId={req.id}
-                clientId={tenant?.clientId}
-                customerName={tenant?.fullName}
-                customerPhone={tenant?.phone}
-                description={`MPower Modification: ${req.request_type}`}
-                onSuccess={(paymentId) => onPaySuccess(req.id, paymentId)}
-              />
+              {/* Razorpay payment button — the server charges the saved quote, whatever is passed here */}
+              {isTeam ? (
+                <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
+                  Waiting for the client to pay. Only the client's own account can pay this quote.
+                </p>
+              ) : (
+                <PayButton
+                  amount={req.quote_amount}
+                  label={`Accept & Pay ₹${Number(req.quote_amount).toLocaleString('en-IN')} — Start development`}
+                  purpose="modification_request"
+                  modRequestId={req.id}
+                  clientId={tenant?.clientId}
+                  customerName={tenant?.fullName}
+                  customerPhone={tenant?.phone}
+                  description={`MPower Modification: ${req.request_type}`}
+                  onSuccess={(paymentId) => onPaySuccess(req.id, paymentId)}
+                />
+              )}
 
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 10 }}>
                 UPI · Cards · Net Banking · Wallets accepted
@@ -406,6 +414,30 @@ export default function ModificationRequestPortal() {
     if (effectiveClientId) loadRequests();
   }, [effectiveClientId]);
 
+  // If a client paid but closed the page before it finished, the money is
+  // already at Razorpay but the request still says "quote sent". For each
+  // request still waiting for payment, ask the server to check Razorpay and
+  // record the payment if it really was made. Does nothing when nothing was paid.
+  useEffect(() => {
+    if (isDevOrSupport) return;
+    const waiting = requests.filter((r) => r.status === 'quote_sent' && r.quote_amount && !r.paid_at);
+    if (waiting.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      let recovered = false;
+      for (const r of waiting) {
+        const { data } = await supabase.functions.invoke('razorpay-verify-payment', {
+          body: { purpose: 'modification_request', modRequestId: r.id, reconcile: true },
+        });
+        if (data?.verified) recovered = true;
+      }
+      if (recovered && !cancelled) loadRequests();
+    })();
+    return () => { cancelled = true; };
+    // Only re-check when the set of waiting requests changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requests.map((r) => r.id + r.status).join('|'), isDevOrSupport]);
+
   async function loadRequests() {
     setLoading(true);
     const { data, error } = await supabase
@@ -460,25 +492,10 @@ export default function ModificationRequestPortal() {
   }
 
   async function handlePaySuccess(reqId, paymentId) {
-    // Update DB — mark as in_development + save payment id.
-    // Previously not checked at all — since this runs right after a
-    // real Razorpay payment has already succeeded, a silent failure
-    // here meant the client had genuinely paid but the system showed
-    // no record of it at all, with no alert to anyone.
-    const { error: payUpdateErr } = await supabase.from('modification_requests')
-      .update({
-        status:     'in_development',
-        paid_at:    new Date().toISOString(),
-        payment_id: paymentId,
-      })
-      .eq('id', reqId);
-
-    if (payUpdateErr) {
-      console.error('CRITICAL: payment succeeded but status update failed:', payUpdateErr, { reqId, paymentId });
-      alert(`Payment was successful (ID: ${paymentId}), but updating the request status failed: ${payUpdateErr.message}. This MUST be fixed manually — contact engineering with this payment ID immediately.`);
-      return;
-    }
-
+    // By the time this runs, the server (razorpay-verify-payment) has already
+    // checked the payment with Razorpay and recorded it against this request.
+    // This screen deliberately does NOT write any payment status itself —
+    // that is what stops anyone faking "paid" from a browser.
     // WhatsApp confirmation to client
     await supabase.functions.invoke('send-whatsapp', {
       body: {
@@ -488,7 +505,7 @@ export default function ModificationRequestPortal() {
       },
     });
 
-    // Refresh
+    // Refresh from the database so the card shows what the server recorded.
     loadRequests();
   }
 
@@ -625,6 +642,7 @@ export default function ModificationRequestPortal() {
                 req={req}
                 tenant={{ clientId: effectiveClientId, fullName: effectiveFullName, phone: effectivePhone }}
                 onPaySuccess={handlePaySuccess}
+                isTeam={isDevOrSupport}
               />
             ))
           )

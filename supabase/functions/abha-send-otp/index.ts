@@ -37,7 +37,10 @@ Deno.serve(async (req) => {
 
     const otpData = await otpRes.json();
 
-    await supabase.from('abha_consent_log').insert({ consent_type: 'creation', otp_verified: false, consent_text_language: 'english', signed_at: new Date().toISOString() });
+    // The consent record is NOT written here. abha_consent_log needs a
+    // patient_id, and at OTP time the patient may not exist yet, so this
+    // insert always failed (silently). The consent row is created by
+    // PatientRegistration.jsx, which has the patient's id.
 
     return new Response(JSON.stringify({ sent: true, txnId: otpData.txnId }), { headers: { 'Content-Type': 'application/json' } });
   } catch (err) {

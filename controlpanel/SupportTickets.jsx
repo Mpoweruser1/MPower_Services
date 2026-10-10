@@ -28,6 +28,220 @@ const STATUS_CONFIG = {
   closed:      { color: 'rgba(255,255,255,0.6)', label: 'Closed' },
 };
 
+// ─────────────────────────────────────────────────────────────
+// Modification requests — team review screen
+// The database enforces the rules (allowed status changes, quote needs
+// amount + days + scope, paid fields cannot be edited here). This screen
+// only offers the buttons that are valid for each status.
+// ─────────────────────────────────────────────────────────────
+const MOD_STATUS = {
+  submitted:      { color: '#9A8AE0', label: 'Submitted' },
+  reviewed:       { color: '#5A9ADF', label: 'Reviewed' },
+  quote_sent:     { color: '#E8A020', label: 'Quote sent — waiting for payment' },
+  in_development: { color: '#E8A020', label: 'Paid — in development' },
+  delivered:      { color: '#6AAA90', label: 'Delivered' },
+  closed:         { color: 'rgba(255,255,255,0.6)', label: 'Closed' },
+};
+
+function ModRequestsAdmin() {
+  const [rows, setRows]         = useState([]);
+  const [issues, setIssues]     = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [filter, setFilter]     = useState('active');
+  const [openId, setOpenId]     = useState(null);
+  const [err, setErr]           = useState('');
+  const [busy, setBusy]         = useState(false);
+  const [quote, setQuote]       = useState({ amount: '', days: '', scope: '' });
+  const [quoteFor, setQuoteFor] = useState(null);
+  const [notes, setNotes]       = useState('');
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    setLoading(true);
+    setErr('');
+    const { data, error } = await supabase
+      .from('modification_requests')
+      .select('*, crm_clients(org_name, phone, district)')
+      .order('created_at', { ascending: false });
+    if (error) setErr(`Could not load requests: ${error.message}`);
+    setRows(data || []);
+    const { data: iss } = await supabase
+      .from('payment_issues').select('*').eq('resolved', false).order('created_at', { ascending: false });
+    setIssues(iss || []);
+    setLoading(false);
+  }
+
+  async function change(id, patch) {
+    setBusy(true);
+    setErr('');
+    const { data, error } = await supabase
+      .from('modification_requests').update(patch).eq('id', id)
+      .select('*, crm_clients(org_name, phone, district)');
+    setBusy(false);
+    if (error) { setErr(error.message || 'Could not save. Please try again.'); return false; }
+    if (!data || data.length === 0) { setErr('Nothing was changed — you may not have permission.'); return false; }
+    setRows((prev) => prev.map((r) => (r.id === id ? data[0] : r)));
+    return true;
+  }
+
+  async function sendQuote(id) {
+    const amount = Number(quote.amount);
+    const days = parseInt(quote.days, 10);
+    if (!amount || amount <= 0) { setErr('Enter the quote amount in rupees.'); return; }
+    if (!days || days <= 0)     { setErr('Enter the number of working days.'); return; }
+    if (!quote.scope.trim())    { setErr('Describe the scope of work.'); return; }
+    const ok = await change(id, { status: 'quote_sent', quote_amount: amount, quote_days: days, quote_scope: quote.scope.trim() });
+    if (ok) { setQuoteFor(null); setQuote({ amount: '', days: '', scope: '' }); }
+  }
+
+  async function deliver(id) {
+    const ok = await change(id, { status: 'delivered', delivery_notes: notes.trim() || null });
+    if (ok) setNotes('');
+  }
+
+  async function resolveIssue(id) {
+    const { error } = await supabase.from('payment_issues').update({ resolved: true }).eq('id', id);
+    if (error) { setErr(error.message); return; }
+    setIssues((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  const shown = rows.filter((r) => filter === 'all' ? true : filter === 'active' ? r.status !== 'closed' : r.status === filter);
+  const btn = (bg, color, border) => ({ padding: '8px 14px', background: bg, color, border: `1px solid ${border}`, borderRadius: 7, cursor: busy ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600 });
+
+  return (
+    <div style={S.inner}>
+      {err && (
+        <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#E05A5A' }}>⚠ {err}</div>
+      )}
+
+      {issues.length > 0 && (
+        <div style={{ background: 'rgba(224,90,90,0.06)', border: '1px solid rgba(224,90,90,0.3)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+          <p style={{ margin: '0 0 8px', fontSize: 13, color: '#E05A5A', fontWeight: 600 }}>
+            ⚠ {issues.length} payment{issues.length > 1 ? 's' : ''} need your attention — money may have been received but was NOT marked paid
+          </p>
+          {issues.map((i) => (
+            <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
+                Payment <span style={{ fontFamily: 'monospace' }}>{i.razorpay_payment_id || '—'}</span> · {i.reason.replace(/_/g, ' ')}
+                {i.request_id ? ` · request MOD-${String(i.request_id).slice(0, 6).toUpperCase()}` : ''}
+              </p>
+              <button onClick={() => resolveIssue(i.id)} style={btn('rgba(106,170,144,0.12)', '#6AAA90', 'rgba(106,170,144,0.2)')}>Mark handled</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <select id="mod-filter-status" name="mod-filter-status" value={filter} onChange={(e) => setFilter(e.target.value)} style={S.select}>
+          <option value="active">Not closed</option>
+          <option value="all">All</option>
+          {Object.entries(MOD_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <button onClick={load} style={{ ...S.select, color: 'rgba(255,255,255,0.6)' }}>↻ Refresh</button>
+      </div>
+
+      {loading ? (
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>Loading requests...</p>
+      ) : shown.length === 0 ? (
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center', marginTop: 40 }}>No requests match this filter.</p>
+      ) : shown.map((r) => {
+        const cfg = MOD_STATUS[r.status] || MOD_STATUS.submitted;
+        const isOpen = openId === r.id;
+        return (
+          <div key={r.id} style={{ ...S.card, border: `1px solid ${r.status === 'submitted' ? 'rgba(154,138,224,0.35)' : 'rgba(255,255,255,0.07)'}` }}>
+            <div onClick={() => { setOpenId(isOpen ? null : r.id); setQuoteFor(null); setNotes(''); setErr(''); }} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 5, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#E8A020' }}>MOD-{String(r.id).slice(0, 6).toUpperCase()}</span>
+                  <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: `${cfg.color}20`, color: cfg.color }}>{cfg.label}</span>
+                  {r.urgency && r.urgency !== 'Normal' && (
+                    <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: 'rgba(224,90,90,0.12)', color: '#E05A5A' }}>{r.urgency}</span>
+                  )}
+                </div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#fff' }}>{r.request_type || 'Request'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                  {r.crm_clients?.org_name || 'Unknown client'}{r.crm_clients?.district ? ` · ${r.crm_clients.district}` : ''} · {new Date(r.created_at).toLocaleDateString('en-IN')}
+                </p>
+              </div>
+              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>{isOpen ? '▲' : '▼'}</span>
+            </div>
+
+            {isOpen && (
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 12, paddingTop: 12 }}>
+                {r.screen_name && <p style={{ margin: '0 0 6px', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Screen: {r.screen_name}</p>}
+                <div style={{ background: '#111113', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+                  <p style={{ margin: '0 0 4px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>CLIENT'S REQUEST</p>
+                  <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{r.description}</p>
+                  {r.crm_clients?.phone && <p style={{ margin: '8px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Contact: {r.crm_clients.phone}</p>}
+                </div>
+
+                {r.quote_amount && (
+                  <div style={{ background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.7 }}>
+                    <strong style={{ color: '#E8A020' }}>Quote:</strong> ₹{Number(r.quote_amount).toLocaleString('en-IN')} · {r.quote_days} working day{r.quote_days === 1 ? '' : 's'}
+                    {r.quote_scope && <><br /><span style={{ color: 'rgba(255,255,255,0.6)' }}>{r.quote_scope}</span></>}
+                  </div>
+                )}
+
+                {r.paid_at && (
+                  <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.7 }}>
+                    <strong style={{ color: '#6AAA90' }}>Paid</strong> ₹{Number(r.paid_amount ?? r.quote_amount).toLocaleString('en-IN')} on {new Date(r.paid_at).toLocaleString('en-IN')}
+                    <br />Razorpay payment ID: <span style={{ fontFamily: 'monospace' }}>{r.payment_id}</span> (confirmed with Razorpay by the server)
+                  </div>
+                )}
+
+                {r.delivery_notes && (
+                  <p style={{ margin: '0 0 12px', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Delivery notes: {r.delivery_notes}</p>
+                )}
+
+                {/* Actions valid for this status */}
+                {quoteFor === r.id ? (
+                  <div style={{ background: '#111113', borderRadius: 8, padding: 14 }}>
+                    <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>SEND QUOTE</p>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      <input id="mod-quote-amount" name="mod-quote-amount" type="number" min="1" value={quote.amount} onChange={(e) => setQuote({ ...quote, amount: e.target.value })} placeholder="Amount ₹" style={{ ...S.input, flex: 1 }} />
+                      <input id="mod-quote-days" name="mod-quote-days" type="number" min="1" value={quote.days} onChange={(e) => setQuote({ ...quote, days: e.target.value })} placeholder="Working days" style={{ ...S.input, flex: 1 }} />
+                    </div>
+                    <textarea id="mod-quote-scope" name="mod-quote-scope" rows={3} value={quote.scope} onChange={(e) => setQuote({ ...quote, scope: e.target.value })} placeholder="Scope of work — exactly what will be delivered" style={{ ...S.input, resize: 'vertical', marginBottom: 10 }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button disabled={busy} onClick={() => sendQuote(r.id)} style={btn('#E8A020', '#111113', '#E8A020')}>{busy ? '...' : 'Send quote →'}</button>
+                      <button onClick={() => setQuoteFor(null)} style={btn('transparent', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.12)')}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    {r.status === 'submitted' && (
+                      <button disabled={busy} onClick={() => change(r.id, { status: 'reviewed' })} style={btn('rgba(90,154,223,0.12)', '#5A9ADF', 'rgba(90,154,223,0.25)')}>Mark reviewed</button>
+                    )}
+                    {['submitted', 'reviewed', 'quote_sent'].includes(r.status) && (
+                      <button disabled={busy} onClick={() => { setQuoteFor(r.id); setQuote({ amount: r.quote_amount || '', days: r.quote_days || '', scope: r.quote_scope || '' }); setErr(''); }} style={btn('#E8A020', '#111113', '#E8A020')}>
+                        {r.status === 'quote_sent' ? 'Change quote' : 'Send quote'}
+                      </button>
+                    )}
+                    {r.status === 'quote_sent' && (
+                      <button disabled={busy} onClick={() => change(r.id, { status: 'reviewed' })} style={btn('transparent', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.12)')}>Withdraw quote</button>
+                    )}
+                    {r.status === 'in_development' && (
+                      <div style={{ width: '100%' }}>
+                        <textarea id="mod-delivery-notes" name="mod-delivery-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Delivery notes for the client (what changed, where to find it)" style={{ ...S.input, resize: 'vertical', marginBottom: 8 }} />
+                        <button disabled={busy} onClick={() => deliver(r.id)} style={btn('rgba(106,170,144,0.15)', '#6AAA90', 'rgba(106,170,144,0.3)')}>{busy ? '...' : '✓ Mark delivered'}</button>
+                      </div>
+                    )}
+                    {['submitted', 'reviewed', 'quote_sent', 'delivered'].includes(r.status) && (
+                      <button disabled={busy} onClick={() => { if (window.confirm('Close this request?')) change(r.id, { status: 'closed' }); }} style={btn('transparent', 'rgba(255,255,255,0.5)', 'rgba(255,255,255,0.12)')}>Close</button>
+                    )}
+                    {r.status === 'quote_sent' && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)', width: '100%' }}>Waiting for the client to pay. Payment is recorded automatically after Razorpay confirms it.</p>}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function SupportTickets() {
   const { tenant, loading: tenantLoading } = useTenant();
   const [tickets, setTickets]       = useState([]);
@@ -41,6 +255,7 @@ export default function SupportTickets() {
   const [loadingMsg, setLoadingMsg] = useState(false);
   const [actionError, setActionError] = useState('');
   const [sending, setSending]       = useState(false);
+  const [tab, setTab]               = useState('tickets');
 
   useEffect(() => { loadTickets(); }, []);
 
@@ -49,7 +264,7 @@ export default function SupportTickets() {
     const { data, error } = await supabase
       .from('support_tickets')
       .select('*, crm_clients(org_name, phone, district)')
-      .order('created_at', { ascending: false });
+      .order('raised_at', { ascending: false });
     if (error) {
       console.error('Loading tickets failed:', error);
       setActionError(`Could not load tickets: ${error.message || 'please try again.'}`);
@@ -66,7 +281,7 @@ export default function SupportTickets() {
       .from('ticket_messages')
       .select('*')
       .eq('ticket_id', ticket.id)
-      .order('created_at');
+      .order('sent_at');
     setMessages(data || []);
     setLoadingMsg(false);
   }
@@ -78,7 +293,6 @@ export default function SupportTickets() {
     const { data: msg, error } = await supabase.from('ticket_messages').insert({
       ticket_id:  replyingTo.id,
       sender_type: 'support',
-      sender_id:   tenant.userRowId,
       message:     replyText.trim(),
     }).select().single();
     // Previously: error wasn't even captured, and replyText cleared
@@ -139,7 +353,7 @@ export default function SupportTickets() {
     sla:      tickets.filter((t) => {
       if (['resolved', 'closed'].includes(t.status)) return false;
       const cfg = TYPE_CONFIG[t.type] || TYPE_CONFIG.other;
-      const hoursOpen = (Date.now() - new Date(t.created_at)) / 3600000;
+      const hoursOpen = (Date.now() - new Date(t.raised_at)) / 3600000;
       return hoursOpen > cfg.sla;
     }).length,
   }), [tickets]);
@@ -161,6 +375,18 @@ export default function SupportTickets() {
         <button onClick={loadTickets} style={{ padding: '7px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, background: 'transparent', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>↻</button>
       </nav>
 
+      <div style={{ ...S.inner, paddingBottom: 0, paddingTop: 16, display: 'flex', gap: 8 }}>
+        {[{ k: 'tickets', l: 'Support tickets' }, { k: 'mods', l: 'Modification requests' }].map((t) => (
+          <button key={t.k} onClick={() => setTab(t.k)}
+            style={{ padding: '8px 18px', fontSize: 13, borderRadius: 20, cursor: 'pointer', border: tab === t.k ? 'none' : '1px solid rgba(255,255,255,0.1)', background: tab === t.k ? '#E8A020' : 'transparent', color: tab === t.k ? '#111113' : 'rgba(255,255,255,0.5)', fontFamily: 'inherit', fontWeight: tab === t.k ? 600 : 400 }}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'mods' && <ModRequestsAdmin />}
+
+      {tab === 'tickets' && (
       <div style={S.inner}>
 
         {actionError && (
@@ -213,7 +439,7 @@ export default function SupportTickets() {
           filtered.map((ticket) => {
             const typeCfg   = TYPE_CONFIG[ticket.type] || TYPE_CONFIG.other;
             const statusCfg = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.open;
-            const hoursOpen = (Date.now() - new Date(ticket.created_at)) / 3600000;
+            const hoursOpen = (Date.now() - new Date(ticket.raised_at)) / 3600000;
             const slaBreached = hoursOpen > typeCfg.sla && !['resolved', 'closed'].includes(ticket.status);
             const isOpen = replyingTo?.id === ticket.id;
 
@@ -253,7 +479,7 @@ export default function SupportTickets() {
                             <div style={{ maxWidth: '80%', padding: '8px 12px', borderRadius: 10, background: msg.sender_type === 'support' ? 'rgba(232,160,32,0.12)' : '#111113', border: `1px solid ${msg.sender_type === 'support' ? 'rgba(232,160,32,0.2)' : 'rgba(255,255,255,0.06)'}` }}>
                               <p style={{ margin: 0, fontSize: 13, color: '#fff', lineHeight: 1.5 }}>{msg.message}</p>
                               <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
-                                {msg.sender_type === 'support' ? 'Support' : 'Client'} · {new Date(msg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                {msg.sender_type === 'support' ? 'Support' : 'Client'} · {new Date(msg.sent_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                               </p>
                             </div>
                           </div>
@@ -293,6 +519,7 @@ export default function SupportTickets() {
           })
         )}
       </div>
+      )}
 
       <ControlPanelNav />
       <BugReporter screenName="support_tickets" />

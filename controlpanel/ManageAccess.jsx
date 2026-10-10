@@ -18,8 +18,43 @@ import BugReporter from '../shared/BugReporter';
 // existing as a real assignable role anywhere reviewed so far.
 const ROLES_BY_APP_TYPE = {
   school: ['teacher', 'fee_clerk', 'warden'],
-  hospital: ['nurse', 'receptionist', 'pharmacist'],
+  // Matches the roles the hospital staff screen can actually invite
+  // (ManageHospitalStaff.jsx). 'pharmacist' removed: it could not be
+  // invited and there is no pharmacy module.
+  hospital: ['nurse', 'receptionist', 'lab_technician', 'billing_clerk'],
   grievance: ['grievance_staff', 'representative', 'authority'],
+};
+
+const ROLE_LABELS = {
+  teacher: 'Teacher',
+  fee_clerk: 'Fee Clerk',
+  warden: 'Warden',
+  nurse: 'Nurse',
+  receptionist: 'Receptionist',
+  lab_technician: 'Lab Technician',
+  billing_clerk: 'Billing Clerk',
+  grievance_staff: 'Grievance Staff',
+  representative: 'Representative',
+  authority: 'Authority',
+};
+const roleLabel = (r) => ROLE_LABELS[r] || r;
+
+// Modules shown by default for each role (module_code values from the
+// permission_modules table). A role with no entry here — e.g. the
+// grievance roles — simply shows every module, as before. "Show all
+// modules" always brings the full list back.
+const DEFAULT_MODULES = {
+  school: {
+    teacher:   ['attendance', 'marks_entry', 'homework', 'timetable', 'ptm'],
+    fee_clerk: ['fee_collection', 'admission', 'certificates'],
+    warden:    ['hostel', 'attendance'],
+  },
+  hospital: {
+    nurse:          ['patient_registration', 'opd_visit', 'ipd_management', 'appointments'],
+    receptionist:   ['patient_registration', 'appointments', 'billing'],
+    lab_technician: ['lab_reports'],
+    billing_clerk:  ['billing'],
+  },
 };
 
 const S = {
@@ -42,6 +77,10 @@ export default function ManageAccess() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  // Modules the person actually ticked/unticked in this session — these
+  // are always saved, even if "Show all modules" was switched off again.
+  const [touched, setTouched] = useState({});
 
   // Developer/support has no "own" org to manage — they need to pick
   // which client's access they're configuring first. Principal/doctor
@@ -76,6 +115,8 @@ export default function ManageAccess() {
 
       const defaultRole = ROLES_BY_APP_TYPE[appRow?.app_type]?.[0] || '';
       setSelectedRole(defaultRole);
+      setShowAll(false);
+      setTouched({});
       setLoading(false);
     }
     init();
@@ -96,14 +137,27 @@ export default function ManageAccess() {
 
   function togglePermission(moduleCode, action) {
     setSaved(false);
+    setTouched((t) => ({ ...t, [moduleCode]: true }));
     setPermissions((prev) => ({
       ...prev,
       [moduleCode]: { ...prev[moduleCode], module_code: moduleCode, [action]: !prev[moduleCode]?.[action] },
     }));
   }
 
+  // Which modules to list for the chosen role. Falls back to the full
+  // list when there is no default list for the role, or when none of
+  // its default modules exist for this client (never show a blank table).
+  const defaultCodes = DEFAULT_MODULES[appType]?.[selectedRole];
+  const filtered = defaultCodes ? modules.filter((m) => defaultCodes.includes(m.module_code)) : modules;
+  const canFilter = !!defaultCodes && filtered.length > 0 && filtered.length < modules.length;
+  const visibleModules = (showAll || !canFilter) ? modules : filtered;
+  const visibleCodes = new Set(visibleModules.map((m) => m.module_code));
+
   async function saveAll() {
-    const rows = Object.values(permissions).map((p) => ({
+    // Save what is on screen plus anything changed in this session.
+    // Rows for modules that are hidden and untouched are left exactly
+    // as they were in the database.
+    const rows = Object.values(permissions).filter((p) => visibleCodes.has(p.module_code) || touched[p.module_code]).map((p) => ({
       app_id: effectiveAppId,
       role: selectedRole,
       module_code: p.module_code,
@@ -200,10 +254,17 @@ export default function ManageAccess() {
 
         <div style={{ marginBottom: 16 }}>
           <label htmlFor="access-selected-role" style={{ ...S.muted, display: 'block', marginBottom: 4 }}>Select role to configure</label>
-          <select id="access-selected-role" name="access-selected-role" value={selectedRole} onChange={(e) => { setSelectedRole(e.target.value); setSaved(false); }} style={S.select}>
-            {availableRoles.map((r) => <option key={r} value={r}>{r}</option>)}
+          <select id="access-selected-role" name="access-selected-role" value={selectedRole} onChange={(e) => { setSelectedRole(e.target.value); setSaved(false); setShowAll(false); setTouched({}); }} style={S.select}>
+            {availableRoles.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
           </select>
         </div>
+
+        {canFilter && (
+          <label htmlFor="access-show-all" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, fontSize: 13, color: 'rgba(255,255,255,0.7)', cursor: 'pointer' }}>
+            <input id="access-show-all" name="access-show-all" type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
+            <span>Show all modules <span style={S.muted}>({showAll ? `showing all ${modules.length}` : `showing ${visibleModules.length} of ${modules.length} for ${roleLabel(selectedRole)}`})</span></span>
+          </label>
+        )}
 
         {modules.length === 0 ? (
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>No modules configured for this app type.</p>
@@ -212,7 +273,7 @@ export default function ManageAccess() {
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '10px 12px', background: '#111113', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>
               <span>Module</span><span>View</span><span>Create</span><span>Edit</span><span>Delete</span>
             </div>
-            {modules.map((m) => {
+            {visibleModules.map((m) => {
               const p = permissions[m.module_code] || {};
               return (
                 <div key={m.module_code} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.05)', alignItems: 'center', fontSize: 13 }}>
@@ -227,13 +288,13 @@ export default function ManageAccess() {
         )}
 
         {!saved ? (
-          <button onClick={saveAll} disabled={saving || modules.length === 0} style={{ width: '100%', padding: 12, background: saving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-            {saving ? 'Saving...' : `Save permissions for ${selectedRole}`}
+          <button onClick={saveAll} disabled={saving || visibleModules.length === 0} style={{ width: '100%', padding: 12, background: saving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: saving ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+            {saving ? 'Saving...' : `Save permissions for ${roleLabel(selectedRole)}`}
           </button>
         ) : (
           <>
             <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 10, padding: 12, textAlign: 'center', marginBottom: 4 }}>
-              <p style={{ margin: 0, fontWeight: 600, color: '#6AAA90' }}>✓ Permissions saved for {selectedRole}</p>
+              <p style={{ margin: 0, fontWeight: 600, color: '#6AAA90' }}>✓ Permissions saved for {roleLabel(selectedRole)}</p>
             </div>
             <NextActions
               title="Access configured — what next?"
