@@ -28,9 +28,10 @@ const EMPTY = {
   allergies: '', abha_id: '', abha_consent: false,
 };
 
-function generatePatientUid() {
-  return `PT-${Date.now().toString().slice(-8)}`;
-}
+// The patient ID is now assigned by the database when the patient is saved
+// (a per-hospital running number, so two patients can never get the same ID).
+// The value sent below is only a placeholder; the real ID comes back in the
+// saved row.
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -47,6 +48,9 @@ export default function PatientRegistration() {
   const [saving, setSaving]       = useState(false);
   const [registered, setRegistered] = useState(null);
   const [submitError, setSubmitError] = useState('');
+  // An existing patient with the same name and phone, found before saving.
+  const [possibleDuplicate, setPossibleDuplicate] = useState(null);
+  const [reusedExisting, setReusedExisting] = useState(false);
 
   const { errors, touched, validate, touch, onChange: onValidate, reset } =
     useFormValidation(RULES);
@@ -59,6 +63,7 @@ export default function PatientRegistration() {
     if (field === 'phone')   v = sanitize.phone(value);
     if (field === 'abha_id') v = sanitize.integer(value).slice(0, 14);
     setForm((f) => ({ ...f, [field]: v }));
+    if (field === 'full_name' || field === 'phone') setPossibleDuplicate(null);
     onValidate(field, v);
   }
 
@@ -77,7 +82,27 @@ export default function PatientRegistration() {
     }
 
     setSaving(true);
-    const patient_uid = generatePatientUid();
+
+    // Same name + same phone already registered here? Ask before creating a
+    // second record. Pressing the button again after the warning registers
+    // anyway (e.g. twins sharing a parent's phone).
+    if (!possibleDuplicate) {
+      const last10 = phoneClean.slice(-10);
+      const { data: sameName } = await supabase
+        .from('patients')
+        .select('id, patient_uid, full_name, phone, dob, gender, address, blood_group, allergies, abha_id')
+        .eq('app_id', tenant.appId)
+        .ilike('full_name', form.full_name.trim())
+        .ilike('phone', `%${last10}`)
+        .limit(1);
+      if (sameName && sameName.length > 0) {
+        setPossibleDuplicate(sameName[0]);
+        setSubmitError('');
+        setSaving(false);
+        return;
+      }
+    }
+    const patient_uid = 'pending';
 
     const { data: newPatient, error: insertErr } = await supabase
       .from('patients')
@@ -116,13 +141,27 @@ export default function PatientRegistration() {
 
     clearDraft();
     reset();
+    setPossibleDuplicate(null);
+    setReusedExisting(false);
     setActivePatient(newPatient);
     setRegistered(newPatient);
     setSaving(false);
   }
 
+  // The person already exists — carry on with their existing record.
+  function useExistingPatient() {
+    clearDraft();
+    reset();
+    setActivePatient(possibleDuplicate);
+    setRegistered(possibleDuplicate);
+    setReusedExisting(true);
+    setPossibleDuplicate(null);
+  }
+
   function registerAnother() {
     setRegistered(null);
+    setPossibleDuplicate(null);
+    setReusedExisting(false);
     setForm(EMPTY);
     setSubmitError('');
     reset();
@@ -275,6 +314,26 @@ export default function PatientRegistration() {
               </label>
             </div>
 
+            {possibleDuplicate && (
+              <div style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.3)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#E8A020' }}>⚠️ This patient may already be registered</p>
+                <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>
+                  {possibleDuplicate.full_name} · {possibleDuplicate.patient_uid} · {possibleDuplicate.phone}
+                  {possibleDuplicate.dob ? ` · DOB: ${possibleDuplicate.dob}` : ''}
+                </p>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                  <button onClick={useExistingPatient}
+                    style={{ padding: '9px 14px', border: 'none', borderRadius: 8, background: '#6AAA90', color: '#111113', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Use this patient
+                  </button>
+                  <button onClick={register}
+                    style={{ padding: '9px 14px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, background: 'transparent', color: 'rgba(255,255,255,0.8)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Register as a new patient anyway
+                  </button>
+                </div>
+              </div>
+            )}
+
             <WelfareSchemesPanel mode="patient" appId={tenant?.appId} compact={false} />
 
             {isDirty && (
@@ -291,7 +350,7 @@ export default function PatientRegistration() {
         ) : (
           <>
             <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.25)', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-              <p style={{ margin: '0 0 4px', fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 1 }}>PATIENT REGISTERED · రోగి నమోదైంది</p>
+              <p style={{ margin: '0 0 4px', fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 1 }}>{reusedExisting ? 'EXISTING PATIENT SELECTED · ఉన్న రోగి ఎంచుకోబడ్డారు' : 'PATIENT REGISTERED · రోగి నమోదైంది'}</p>
               <p style={{ margin: '6px 0 4px', fontSize: 20, fontWeight: 700, color: '#fff' }}>{registered.full_name}</p>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#6AAA90' }}>{registered.patient_uid}</p>
               <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
@@ -299,7 +358,7 @@ export default function PatientRegistration() {
               </p>
             </div>
             <NextActions
-              title="Patient registered — what next?"
+              title={reusedExisting ? 'Patient selected — what next?' : 'Patient registered — what next?'}
               actions={[
                 { icon: '🩺', label: 'Start OPD visit', href: '/hospital/opd', color: '#5A9ADF' },
                 { icon: '🛏️', label: 'Admit to IPD', href: '/hospital/ipd', color: '#E8A020' },
@@ -318,4 +377,4 @@ export default function PatientRegistration() {
       <BugReporter screenName="patient_registration" />
     </div>
   );
-}
+}

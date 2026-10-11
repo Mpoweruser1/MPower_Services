@@ -16,7 +16,7 @@ const COMMON_TESTS = [
   { test_name: 'Kidney Function Test (KFT)', normal_range: 'See report', unit: 'mg/dL', sample_type: 'blood', turnaround_hours: 24 },
   { test_name: 'Lipid Profile', normal_range: 'See report', unit: 'mg/dL', sample_type: 'blood', turnaround_hours: 24 },
   { test_name: 'Liver Function Test (LFT)', normal_range: 'See report', unit: 'U/L', sample_type: 'blood', turnaround_hours: 24 },
-  { test_name: 'Thyroid Profile (T3/T4/TSH)', normal_range: 'See report', unit: '\u00b5IU/mL', sample_type: 'blood', turnaround_hours: 24 },
+  { test_name: 'Thyroid Profile (T3/T4/TSH)', normal_range: 'See report', unit: 'µIU/mL', sample_type: 'blood', turnaround_hours: 24 },
 ];
 
 // Must match master_lab_tests_sample_type_check exactly — this is the
@@ -71,7 +71,7 @@ export default function ManageLabTests() {
 
     const { error } = await supabase.from('master_lab_tests').insert({ app_id: tenant.appId, ...test });
     if (error) showError(`Failed to add ${test.test_name}.`);
-    else showSuccess(`\u2705 ${test.test_name} added`);
+    else showSuccess(`✅ ${test.test_name} added`);
     setSaving(false);
     loadTests();
   }
@@ -104,7 +104,7 @@ export default function ManageLabTests() {
     else {
       setNewTest({ test_name: '', normal_range: '', unit: '', sample_type: 'blood', turnaround_hours: '24' });
       setTestErrors({});
-      showSuccess('\u2705 Test added');
+      showSuccess('✅ Test added');
     }
     setSaving(false);
     loadTests();
@@ -138,8 +138,8 @@ export default function ManageLabTests() {
 
         {submitError && (
           <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>\u26a0\ufe0f {submitError}</span>
-            <button onClick={() => setSubmitError('')} style={{ background: 'none', border: 'none', color: '#E05A5A', cursor: 'pointer', fontSize: 18, padding: 0 }}>\u2715</button>
+            <span>⚠️ {submitError}</span>
+            <button onClick={() => setSubmitError('')} style={{ background: 'none', border: 'none', color: '#E05A5A', cursor: 'pointer', fontSize: 18, padding: 0 }}>✕</button>
           </div>
         )}
 
@@ -151,7 +151,7 @@ export default function ManageLabTests() {
 
         {tests.length === 0 && !loading && (
           <div style={{ background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.15)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-            <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 600, color: '#E8A020' }}>\ud83d\udc4b Set up your lab test catalog</p>
+            <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 600, color: '#E8A020' }}>👋 Set up your lab test catalog</p>
             <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7 }}>
               Tap common tests below to add them instantly, or add any custom test not listed.
             </p>
@@ -166,7 +166,7 @@ export default function ManageLabTests() {
               return (
                 <button key={t.test_name} onClick={() => !exists && quickAdd(t)} disabled={saving || exists}
                   style={{ padding: '10px 16px', border: `1px solid ${exists ? 'rgba(106,170,144,0.3)' : 'rgba(90,154,223,0.3)'}`, color: exists ? '#6AAA90' : '#5A9ADF', background: exists ? 'rgba(106,170,144,0.08)' : 'rgba(90,154,223,0.08)', borderRadius: 8, cursor: exists ? 'not-allowed' : 'pointer', fontSize: 13, fontFamily: 'inherit', fontWeight: 500 }}>
-                  {exists ? '\u2713 ' : '+ '}{t.test_name}
+                  {exists ? '✓ ' : '+ '}{t.test_name}
                 </button>
               );
             })}
@@ -179,7 +179,7 @@ export default function ManageLabTests() {
             <label htmlFor="lab-test-name" style={S.label}>Test name *</label>
             <input id="lab-test-name" name="lab-test-name" value={newTest.test_name} onChange={(e) => { setNewTest((t) => ({ ...t, test_name: e.target.value })); setTestErrors({}); }}
               placeholder="e.g. Vitamin D, HbA1c" style={S.input(!!testErrors.test_name)} />
-            {testErrors.test_name && <p style={S.fieldErr}>\u26a0 {testErrors.test_name}</p>}
+            {testErrors.test_name && <p style={S.fieldErr}>⚠ {testErrors.test_name}</p>}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
@@ -219,11 +219,11 @@ export default function ManageLabTests() {
                 <div>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{t.test_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
-                    {t.normal_range}{t.unit ? ` ${t.unit}` : ''} \u00b7 {t.sample_type ? t.sample_type[0].toUpperCase() + t.sample_type.slice(1) : ''} \u00b7 {t.turnaround_hours}h turnaround
+                    {t.normal_range}{t.unit ? ` ${t.unit}` : ''} · {t.sample_type ? t.sample_type[0].toUpperCase() + t.sample_type.slice(1) : ''} · {t.turnaround_hours}h turnaround
                   </p>
                 </div>
                 <button onClick={() => deleteTest(t.id, t.test_name)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'rgba(224,90,90,0.4)', padding: '4px 8px' }}>\u2715</button>
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'rgba(224,90,90,0.4)', padding: '4px 8px' }}>✕</button>
               </div>
             ))}
           </div>

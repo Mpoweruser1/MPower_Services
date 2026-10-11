@@ -275,6 +275,7 @@ function SingleComplaintPrint({ complaint, constituency, stateName }) {
             ['Title / శీర్షిక', complaint.title],
             ['Category / వర్గం', categoryLabel(complaint.category)],
             ['Priority / ప్రాధాన్యత', complaint.priority || 'Normal'],
+            ['Assigned Department / కేటాయించిన శాఖ', complaint.assigned_department || 'Not assigned yet'],
             ['Stage / దశ', stageLabel(complaint.stage)],
             ['Filed Date / దాఖలు తేదీ', new Date(complaint.created_at).toLocaleDateString('en-IN')],
             ['Village / గ్రామం', complaint.villages?.name || '—'],

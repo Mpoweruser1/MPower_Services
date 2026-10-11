@@ -158,6 +158,10 @@ export default function OpdVisit() {
       visit_type: form.visit_type,
       symptoms:   form.chief_complaint.trim(),
       diagnosis:  form.diagnosis.trim(),
+      history:         form.history.trim() || null,
+      examination:     form.examination.trim() || null,
+      follow_up_date:  form.follow_up_date || null,
+      follow_up_notes: form.follow_up_notes.trim() || null,
     }).select().single();
 
     if (visitErr) { setSubmitError('Failed to save visit. Please try again.'); setSaving(false); return; }
@@ -281,9 +285,16 @@ export default function OpdVisit() {
                   </div>
 
                   <div style={{ marginBottom: 14 }}>
-                    <label htmlFor="opd-history" style={S.label}>History & examination</label>
+                    <label htmlFor="opd-history" style={S.label}>History</label>
                     <textarea id="opd-history" name="opd-history" value={form.history} onChange={(e) => update('history', e.target.value)}
-                      placeholder="Patient history, examination findings..."
+                      placeholder="Patient history..."
+                      style={S.textarea(false)} rows={3} />
+                  </div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <label htmlFor="opd-examination" style={S.label}>Examination</label>
+                    <textarea id="opd-examination" name="opd-examination" value={form.examination} onChange={(e) => update('examination', e.target.value)}
+                      placeholder="Examination findings..."
                       style={S.textarea(false)} rows={3} />
                   </div>
 

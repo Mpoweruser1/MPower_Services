@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
-import PrintHeader from '../shared/PrintHeader';
 import BugReporter from '../shared/BugReporter';
 
 const CERT_TYPES = [
@@ -76,25 +75,18 @@ export default function Certificates() {
     setError('');
   }
 
+  const schoolAddressLine = [tenant?.address, tenant?.city, tenant?.district, tenant?.pincode].filter(Boolean).join(', ');
+  const schoolPhone = tenant?.businessPhone || '';
+
   async function issueCertificate() {
     setError('');
     if (!student) { setError('Select a student first.'); return; }
     setIssuing(true);
 
-    // Generate certificate number
-    // certificates has no app_id column — same indirect-scoping
-    // pattern already confirmed on transfer_certificates and
-    // ipd_admissions/opd_visits: tenant scope goes through
-    // student_id -> students.app_id. The old .eq('app_id', ...) here
-    // referenced a column that doesn't exist and would fail outright.
-    const year = new Date().getFullYear();
-    const { count } = await supabase
-      .from('certificates')
-      .select('id, students!inner(app_id)', { count: 'exact', head: true })
-      .eq('students.app_id', tenant.appId)
-      .eq('cert_type', certType);
-
-    const certNo = `${certType.toUpperCase().slice(0, 3)}/${year}/${String((count || 0) + 1).padStart(4, '0')}`;
+    // The certificate number is assigned by the database when the row is
+    // saved (per school, no two can clash). The value sent here is only a
+    // placeholder; the real number comes back in the saved row.
+    const certNo = 'pending';
 
     // Real columns are id, student_id, cert_type, cert_no, issue_date
     // (a date, NOT NULL — was never set before, sent as issued_at
@@ -136,13 +128,20 @@ export default function Certificates() {
   }
 
   return (
-    <div style={S.page}>
+    <div className="cert-page" style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @media print { .no-print { display: none !important; } }
+        @media print {
+          .no-print { display: none !important; }
+          @page { size: A4 portrait; margin: 15mm 18mm; }
+          html, body { height: auto !important; background: #fff !important; }
+          .cert-page { min-height: 0 !important; padding-bottom: 0 !important; background: #fff !important; }
+          .cert-page .cert-inner { max-width: none !important; padding: 0 !important; }
+          .cert-page .cert-doc { padding: 0 !important; border-radius: 0 !important; }
+        }
       `}</style>
 
-      <div style={S.inner}>
+      <div className="cert-inner" style={S.inner}>
         <div className="no-print" style={{ marginBottom: 24 }}>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>
             Certificates · సర్టిఫికెట్లు
@@ -232,6 +231,11 @@ export default function Certificates() {
         ) : (
           /* Certificate document */
           <div>
+            {!schoolAddressLine && !schoolPhone && (
+              <div className="no-print" style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#E8A020' }}>
+                ⚠️ Your school's address and phone are not filled in, so the certificate shows only the school name. Add them in <a href="/school/business-details" style={{ color: '#E8A020', fontWeight: 600 }}>Business Details</a>, then print again.
+              </div>
+            )}
             <div className="no-print" style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
               <button onClick={() => window.print()}
                 style={{ flex: 1, padding: 12, background: '#E8A020', color: '#111113', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit' }}>
@@ -243,20 +247,21 @@ export default function Certificates() {
               </button>
             </div>
 
-            <div style={{ background: '#fff', color: '#000', padding: '32px 40px', borderRadius: 8, fontFamily: 'serif' }}>
-              {/* Shared header — was previously a hand-rolled header
-                  duplicating @page rules and page-number CSS already
-                  defined in PrintHeader.jsx, and missing the address/
-                  phone/GSTIN details PrintHeader now includes. Using
-                  the same component every printed document uses keeps
-                  this certificate consistent with everything else and
-                  automatically up to date if the header format ever
-                  changes again. */}
-              <PrintHeader documentTitle={issuedCert.certTypeLabel} />
+            <div className="cert-doc" style={{ background: '#fff', color: '#000', padding: '32px 40px', borderRadius: 8, fontFamily: 'serif' }}>
+              {/* School header — visible on screen and in print, from Business Details.
+                  Lines appear only for details that are filled in. */}
+              <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: 12, marginBottom: 18 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: 0.5 }}>{issuedCert.orgName || 'School'}</h2>
+                {schoolAddressLine && <p style={{ fontSize: 12, color: '#333', margin: '4px 0 0' }}>{schoolAddressLine}</p>}
+                {(schoolPhone || tenant?.registrationNo) && (
+                  <p style={{ fontSize: 12, color: '#333', margin: '2px 0 0' }}>
+                    {[schoolPhone ? `Ph: ${schoolPhone}` : null, tenant?.registrationNo ? `Reg. No: ${tenant.registrationNo}` : null].filter(Boolean).join(' · ')}
+                  </p>
+                )}
+              </div>
 
               <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Recognised by Govt. of Andhra Pradesh</p>
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: '14px 0 0', textTransform: 'uppercase', letterSpacing: 2 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, textTransform: 'uppercase', letterSpacing: 2 }}>
                   {issuedCert.certTypeLabel}
                 </h3>
               </div>
@@ -280,15 +285,17 @@ export default function Certificates() {
               </div>
 
               <div style={{ marginTop: 20, padding: '6px 10px', background: '#f5f5f5', borderRadius: 4, fontSize: 12, color: '#888', fontFamily: 'monospace' }}>
-                Cert No: {issuedCert.cert_no} · Issued: {new Date(issuedCert.issue_date).toLocaleString('en-IN')} · MPower
+                Cert No: {issuedCert.cert_no} · Issued: {new Date(issuedCert.issue_date).toLocaleString('en-IN')} · Powered by MPower
               </div>
             </div>
           </div>
         )}
       </div>
 
-      <SchoolNav />
-      <BugReporter screenName="certificates" />
+      <div className="no-print">
+        <SchoolNav />
+        <BugReporter screenName="certificates" />
+      </div>
     </div>
   );
 }
