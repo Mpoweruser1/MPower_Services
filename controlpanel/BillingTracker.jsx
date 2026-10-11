@@ -35,6 +35,11 @@ export default function BillingTracker() {
   const [pricingPlans, setPricingPlans] = useState([]); // full rows, for the Manage Pricing editor
   const [editedPrices, setEditedPrices] = useState({}); // plan id -> in-progress edited value (string, while typing)
   const [savingPlan, setSavingPlan] = useState({}); // plan id -> true while a save is in flight
+  const [discountMap, setDiscountMap] = useState({}); // `${module}_${tier}` -> { h: 6-month %, y: 12-month % }
+  const [settings, setSettings] = useState(null);       // billing_settings row (seller details + GST switch)
+  const [settingsDraft, setSettingsDraft] = useState({});
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [savingPeriod, setSavingPeriod] = useState({}); // client id -> true while saving
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('overview');
   const [generating, setGenerating] = useState(false);
@@ -84,6 +89,24 @@ export default function BillingTracker() {
   function getPrice(client) {
     return pricingMap[`${getModule(client)}_${getTier(client)}`] ?? 0;
   }
+  // How many months one invoice covers for this client: 1, 6 or 12.
+  function getMonths(client) {
+    const m = Number(client.billing_period_months);
+    return m === 6 || m === 12 ? m : 1;
+  }
+  // Everything an invoice needs, worked out in one place:
+  // plan price x months, less the advance-payment discount, plus GST if it is switched on.
+  // "total" is what the client pays (this is what goes into client_invoices.amount).
+  function getCharge(client) {
+    const list = getPrice(client);
+    const months = getMonths(client);
+    const d = discountMap[`${getModule(client)}_${getTier(client)}`] || { h: 0, y: 0 };
+    const discount = months === 6 ? d.h : months === 12 ? d.y : 0;
+    const base = Math.round(list * months * (1 - discount / 100));
+    const gstRate = settings?.gst_enabled ? Number(settings.gst_rate) : 0;
+    const gst = Math.round(base * gstRate) / 100;
+    return { list, months, discount, base, gstRate, gst, total: Number((base + gst).toFixed(2)) };
+  }
 
   async function loadData() {
     setLoading(true);
@@ -91,12 +114,15 @@ export default function BillingTracker() {
     // does not exist — every read/write here has silently failed
     // since this screen was written. client_invoices is the real,
     // correct table (confirmed via a direct schema check).
-    const [clientsRes, invoicesRes, pricingRes] = await Promise.allSettled([
+    const [clientsRes, invoicesRes, pricingRes, settingsRes] = await Promise.allSettled([
       supabase.from('crm_clients').select('*, apps(subscription_tier, app_type)')
         .in('status', ['active', 'trial']).order('org_name'),
       supabase.from('client_invoices').select('*, crm_clients(org_name, phone)')
         .order('due_date', { ascending: false }).limit(100),
-      supabase.from('pricing_plans').select('id, module, tier, name, price, display_order').order('module').order('display_order'),
+      // select('*') on purpose: if the discount columns are not there yet the
+      // prices still load (the discount simply counts as 0) instead of everything failing.
+      supabase.from('pricing_plans').select('*').order('module').order('display_order'),
+      supabase.from('billing_settings').select('*').eq('id', 1).maybeSingle(),
     ]);
     setClients(clientsRes.status === 'fulfilled' ? (clientsRes.value.data || []) : []);
     setInvoices(invoicesRes.status === 'fulfilled' ? (invoicesRes.value.data || []) : []);
@@ -105,6 +131,12 @@ export default function BillingTracker() {
     priceRows.forEach((r) => { map[`${r.module}_${r.tier}`] = Number(r.price); });
     setPricingMap(map);
     setPricingPlans(priceRows);
+    const dmap = {};
+    priceRows.forEach((r) => { dmap[`${r.module}_${r.tier}`] = { h: Number(r.discount_6m_pct || 0), y: Number(r.discount_12m_pct || 0) }; });
+    setDiscountMap(dmap);
+    const settingsRow = settingsRes.status === 'fulfilled' ? (settingsRes.value.data || null) : null;
+    setSettings(settingsRow);
+    setSettingsDraft(settingsRow || {});
     setLoading(false);
   }
 
@@ -133,6 +165,12 @@ export default function BillingTracker() {
     setEditedPrices((prev) => { const next = { ...prev }; delete next[plan.id]; return next; });
   }
 
+  // Month number counted from year 0, so "2026-10" can be compared and added to.
+  function monthIndex(ym) {
+    const [y, m] = String(ym).split('-').map(Number);
+    return y * 12 + (m - 1);
+  }
+
   async function generateMonthlyInvoices() {
     setGenerating(true);
     const month = new Date().toISOString().slice(0, 7);
@@ -142,27 +180,35 @@ export default function BillingTracker() {
 
     const activeClients = clients.filter((c) => c.status === 'active');
 
-    // Check which of these clients already have an invoice for this
-    // month BEFORE attempting to insert anything, so the normal case
-    // (pressing the button once) is clean with no wasted attempts.
+    // A client is skipped if ANY existing invoice already covers this month:
+    // a monthly invoice for this month, or a 6/12-month invoice that started
+    // earlier and has not run out yet.
     const { data: existing } = await supabase
       .from('client_invoices')
-      .select('client_id')
-      .eq('month', month)
+      .select('client_id, month, period_months')
       .in('client_id', activeClients.map((c) => c.id));
-    const alreadyInvoiced = new Set((existing || []).map((r) => r.client_id));
+    const nowIdx = monthIndex(month);
+    const covered = new Set(
+      (existing || [])
+        .filter((r) => r.month && monthIndex(r.month) <= nowIdx && nowIdx < monthIndex(r.month) + (r.period_months || 1))
+        .map((r) => r.client_id)
+    );
 
     for (const client of activeClients) {
-      if (alreadyInvoiced.has(client.id)) { skipped++; continue; }
-      const tier   = getTier(client);
-      const amount = getPrice(client);
+      if (covered.has(client.id)) { skipped++; continue; }
+      const tier = getTier(client);
+      const charge = getCharge(client);
       const { error } = await supabase.from('client_invoices').insert({
-        client_id:    client.id,
-        month:        month,
-        amount:       amount,
-        tier:         tier,
-        due_date:     dueDate,
-        status:       'pending',
+        client_id:     client.id,
+        month:         month,
+        amount:        charge.total,   // what the client pays, GST included
+        base_amount:   charge.base,    // before GST
+        gst_rate:      charge.gstRate,
+        gst_amount:    charge.gst,
+        period_months: charge.months,
+        tier:          tier,
+        due_date:      dueDate,
+        status:        'pending',
         // Built from the client's own id, so it is unique per client
         // per month (a random 4-digit number could repeat).
         invoice_no:   `MPOW/${month.replace('-', '/')}/${String(client.id).replace(/-/g, '').slice(0, 6).toUpperCase()}`,
@@ -170,15 +216,58 @@ export default function BillingTracker() {
       // A unique-violation here (Postgres code 23505) means the
       // database constraint itself caught a duplicate the check above
       // missed — e.g. two rapid clicks racing each other. Counted the
-      // same as a planned skip, not an error, since either way the
-      // end result (one invoice per client per month) is correct.
+      // same as a planned skip, not an error.
       if (!error) created++;
       else if (error.code === '23505') skipped++;
     }
 
-    alert(`Generated ${created} new invoice${created !== 1 ? 's' : ''} for ${month}.${skipped > 0 ? ` Skipped ${skipped} (already invoiced this month).` : ''}`);
+    alert(`Generated ${created} new invoice${created !== 1 ? 's' : ''} for ${month}.${skipped > 0 ? ` Skipped ${skipped} (already covered by an existing invoice).` : ''}`);
     setGenerating(false);
     loadData();
+  }
+
+  // Save how often a client pays: every month, 6 months or 12 months.
+  async function savePeriod(client, months) {
+    setSavingPeriod((s) => ({ ...s, [client.id]: true }));
+    const { error } = await supabase.from('crm_clients').update({ billing_period_months: months }).eq('id', client.id);
+    setSavingPeriod((s) => ({ ...s, [client.id]: false }));
+    if (error) {
+      console.error('Saving billing period failed:', error);
+      alert(`Could not save the billing period: ${error.message || 'please try again.'}`);
+      return;
+    }
+    setClients((prev) => prev.map((c) => c.id === client.id ? { ...c, billing_period_months: months } : c));
+  }
+
+  async function saveSettings() {
+    const d = settingsDraft;
+    const gstin = (d.seller_gstin || '').trim().toUpperCase();
+    const rate = Number(d.gst_rate);
+    if (Number.isNaN(rate) || rate < 0 || rate > 100) { alert('The GST rate must be between 0 and 100.'); return; }
+    if (d.gst_enabled) {
+      if (!/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/.test(gstin)) { alert('Enter a valid 15-character GSTIN before turning GST on.'); return; }
+      if (!(d.seller_name || '').trim() || !(d.seller_address || '').trim()) { alert('Enter the company name and address before turning GST on.'); return; }
+    }
+    if (d.gst_enabled && !settings?.gst_enabled &&
+        !window.confirm('Turning GST on adds GST to every invoice generated from now on. Invoices already created do not change. Continue?')) return;
+    setSavingSettings(true);
+    const { error } = await supabase.from('billing_settings').update({
+      seller_name:    (d.seller_name || '').trim() || null,
+      seller_gstin:   gstin || null,
+      seller_address: (d.seller_address || '').trim() || null,
+      seller_state:   (d.seller_state || '').trim() || null,
+      sac_code:       (d.sac_code || '').trim() || null,
+      gst_enabled:    !!d.gst_enabled,
+      gst_rate:       rate,
+      updated_at:     new Date().toISOString(),
+    }).eq('id', 1);
+    setSavingSettings(false);
+    if (error) {
+      console.error('Saving billing settings failed:', error);
+      alert(`Could not save the settings: ${error.message || 'please try again.'}`);
+      return;
+    }
+    await loadData();
   }
 
   async function markPaid(invoiceId) {
@@ -241,8 +330,11 @@ export default function BillingTracker() {
 
   const stats = useMemo(() => {
     const currentMonth = new Date().toISOString().slice(0, 7);
+    // Monthly equivalent of what each active client really pays (advance
+    // discounts included, GST excluded — GST is not your income).
     const mrr         = clients.filter((c) => c.status === 'active').reduce((sum, c) => {
-      return sum + getPrice(c);
+      const ch = getCharge(c);
+      return sum + ch.base / ch.months;
     }, 0);
     // "This month" means paid_date actually falls in the current
     // month — previously this summed every paid invoice ever, however
@@ -253,7 +345,7 @@ export default function BillingTracker() {
     const pending     = invoices.filter((i) => i.status === 'pending').reduce((s, i) => s + Number(i.amount), 0);
     const overdue     = invoices.filter((i) => i.status === 'overdue' || (i.status === 'pending' && new Date(i.due_date) < new Date())).length;
     return { mrr, collected, pending, overdue };
-  }, [clients, invoices, pricingMap]);
+  }, [clients, invoices, pricingMap, discountMap, settings]);
 
   const pendingInvoices = invoices.filter((i) => ['pending', 'overdue'].includes(i.status) || (i.status === 'pending' && new Date(i.due_date) < new Date()));
 
@@ -277,7 +369,7 @@ export default function BillingTracker() {
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 20 }}>
           {[
-            { value: `₹${stats.mrr.toLocaleString('en-IN')}`, label: 'MRR',       color: '#6AAA90' },
+            { value: `₹${Math.round(stats.mrr).toLocaleString('en-IN')}`, label: 'MRR',       color: '#6AAA90' },
             { value: `₹${stats.collected.toLocaleString('en-IN')}`, label: 'Collected this month', color: '#6AAA90' },
             { value: `₹${stats.pending.toLocaleString('en-IN')}`, label: 'Pending', color: '#E8A020', alert: stats.pending > 0 },
             { value: stats.overdue, label: 'Overdue', color: '#E05A5A', alert: stats.overdue > 0 },
@@ -296,6 +388,7 @@ export default function BillingTracker() {
             { k: 'invoices', l: `Pending (${pendingInvoices.length})` },
             { k: 'all',      l: `All invoices (${invoices.length})` },
             { k: 'pricing',  l: 'Manage Pricing' },
+            { k: 'settings', l: 'Billing settings' },
           ].map((t) => (
             <button key={t.k} onClick={() => setTab(t.k)}
               style={{ padding: '8px 16px', fontSize: 13, borderRadius: 20, cursor: 'pointer', border: tab === t.k ? 'none' : '1px solid rgba(255,255,255,0.1)', background: tab === t.k ? '#E8A020' : 'transparent', color: tab === t.k ? '#111113' : 'rgba(255,255,255,0.5)', fontFamily: 'inherit', fontWeight: tab === t.k ? 600 : 400 }}>
@@ -311,14 +404,14 @@ export default function BillingTracker() {
             {/* Client rates */}
             {tab === 'overview' && (
               <div style={S.card}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px', gap: 8, marginBottom: 8, padding: '0 0 8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  {['Client', 'Tier', 'Monthly'].map((h) => (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px 90px', gap: 8, marginBottom: 8, padding: '0 0 8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  {['Client', 'Tier', 'Pays every', 'Invoice'].map((h) => (
                     <p key={h} style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>{h}</p>
                   ))}
                 </div>
                 {clients.map((client) => {
                   const tier   = getTier(client);
-                  const amount = getPrice(client);
+                  const charge = getCharge(client);
                   // Extended to cover every real tier name across all three
                   // modules — the old list ('basic'/'standard'/'advanced'/
                   // 'specialised') didn't include 'enterprise' (School/
@@ -330,13 +423,26 @@ export default function BillingTracker() {
                     free: '#6AAA90', starter: '#5A9ADF', active: '#5A9ADF', pro: '#9A8AE0', unlimited: '#E8A020',
                   };
                   return (
-                    <div key={client.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px', gap: 8, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                    <div key={client.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px 90px', gap: 8, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
                       <div>
                         <p style={{ margin: 0, fontSize: 13, color: '#fff' }}>{client.org_name}</p>
                         <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{client.district || '—'}</p>
                       </div>
                       <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 12, background: `${TIER_COLORS[tier]}15`, color: TIER_COLORS[tier] || '#fff', fontWeight: 500 }}>{tier}</span>
-                      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#6AAA90' }}>₹{amount}</p>
+                      <select id={`billing-period-${client.id}`} name={`billing-period-${client.id}`} aria-label="Billing period"
+                        value={charge.months} disabled={!!savingPeriod[client.id]}
+                        onChange={(e) => savePeriod(client, Number(e.target.value))}
+                        style={{ padding: '6px 8px', fontSize: 12, borderRadius: 7, border: '1px solid rgba(255,255,255,0.15)', background: '#111113', color: '#fff', fontFamily: 'inherit' }}>
+                        <option value={1}>1 month</option>
+                        <option value={6}>6 months</option>
+                        <option value={12}>12 months</option>
+                      </select>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#6AAA90' }}>₹{charge.total.toLocaleString('en-IN')}</p>
+                        <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                          {charge.discount > 0 ? `${charge.discount}% off` : ''}{charge.gst > 0 ? `${charge.discount > 0 ? ' · ' : ''}+GST` : ''}
+                        </p>
+                      </div>
                     </div>
                   );
                 })}
@@ -363,7 +469,13 @@ export default function BillingTracker() {
                         <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
                           Due: {inv.due_date}
                           {inv.month ? ` · Month: ${inv.month}` : ''}
+                          {inv.period_months > 1 ? ` · covers ${inv.period_months} months` : ''}
                         </p>
+                        {Number(inv.gst_amount) > 0 && (
+                          <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                            Plan ₹{Number(inv.base_amount).toLocaleString('en-IN')} + GST {Number(inv.gst_rate)}% ₹{Number(inv.gst_amount).toLocaleString('en-IN')}
+                          </p>
+                        )}
                       </div>
                       <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: inv.status === 'paid' ? '#6AAA90' : '#fff' }}>
                         ₹{Number(inv.amount).toLocaleString('en-IN')}
@@ -476,6 +588,57 @@ export default function BillingTracker() {
                 {pricingPlans.length === 0 && (
                   <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '20px 0' }}>No pricing plans found.</p>
                 )}
+              </div>
+            )}
+
+            {/* Billing settings — seller details and the GST switch.
+                GST stays OFF until it is switched on here, so saving
+                nothing changes what anyone is invoiced. */}
+            {tab === 'settings' && (
+              <div style={S.card}>
+                <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600, color: '#fff' }}>Seller details and GST</p>
+                <p style={{ margin: '0 0 14px', fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>
+                  These appear on invoices. When the new company starts, change the details here — nothing else needs editing.
+                </p>
+                {[
+                  ['seller_name', 'Company / proprietor name'],
+                  ['seller_gstin', 'GSTIN (15 characters)'],
+                  ['seller_address', 'Registered address'],
+                  ['seller_state', 'State'],
+                  ['sac_code', 'SAC code (ask your CA)'],
+                ].map(([key, label]) => (
+                  <div key={key} style={{ marginBottom: 10 }}>
+                    <label htmlFor={`billing-setting-${key}`} style={{ display: 'block', fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</label>
+                    <input id={`billing-setting-${key}`} name={`billing-setting-${key}`}
+                      value={settingsDraft[key] || ''}
+                      onChange={(e) => setSettingsDraft((d) => ({ ...d, [key]: e.target.value }))}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#fff', fontSize: 13, fontFamily: 'inherit' }} />
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center', margin: '14px 0', flexWrap: 'wrap' }}>
+                  <label htmlFor="billing-setting-gst-enabled" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#fff', cursor: 'pointer' }}>
+                    <input id="billing-setting-gst-enabled" name="billing-setting-gst-enabled" type="checkbox"
+                      checked={!!settingsDraft.gst_enabled}
+                      onChange={(e) => setSettingsDraft((d) => ({ ...d, gst_enabled: e.target.checked }))} />
+                    Add GST to new invoices
+                  </label>
+                  <label htmlFor="billing-setting-gst-rate" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#fff' }}>
+                    GST rate %
+                    <input id="billing-setting-gst-rate" name="billing-setting-gst-rate" type="number" min="0" max="100"
+                      value={settingsDraft.gst_rate ?? 18}
+                      onChange={(e) => setSettingsDraft((d) => ({ ...d, gst_rate: e.target.value }))}
+                      style={{ width: 70, padding: '7px 10px', background: '#111113', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, color: '#fff', fontSize: 13, fontFamily: 'inherit' }} />
+                  </label>
+                </div>
+                {!settings && (
+                  <p style={{ margin: '0 0 12px', fontSize: 12, color: '#E8A020' }}>
+                    The billing settings table was not found. Run fix_gst_and_advance_billing.sql first.
+                  </p>
+                )}
+                <button onClick={saveSettings} disabled={savingSettings || !settings}
+                  style={{ padding: '10px 20px', border: 'none', borderRadius: 8, background: settings ? '#6AAA90' : 'rgba(255,255,255,0.06)', color: settings ? '#111113' : 'rgba(255,255,255,0.3)', cursor: settings ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
+                  {savingSettings ? 'Saving...' : 'Save settings'}
+                </button>
               </div>
             )}
           </>

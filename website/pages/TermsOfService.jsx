@@ -21,7 +21,7 @@ export default function TermsOfService() {
       </div>
       <div style={S.inner}>
         <h1 style={{ fontSize: 36, fontWeight: 700, color: '#fff', margin: '0 0 8px', letterSpacing: -1 }}>Terms of Service</h1>
-        <p style={{ ...S.p, color: 'rgba(255,255,255,0.4)' }}>Last updated: 24 September 2026</p>
+        <p style={{ ...S.p, color: 'rgba(255,255,255,0.4)' }}>Last updated: 11 October 2026</p>
         {/* Entity name added here, immediately under the title — STPL's
             DLT review checked the live website for the registered
             entity name (Suribabu Kommana) and couldn't find it
@@ -33,10 +33,13 @@ export default function TermsOfService() {
         <p style={S.p}>By registering for and using MPower, you agree to these Terms of Service. If you do not agree, do not use the platform.</p>
 
         <h2 style={S.h2}>§2 — Free trial</h2>
-        <p style={S.p}>New accounts receive 6 months free on the Basic tier. No credit card is required for the trial. After the trial period, you must choose a paid plan to continue using the platform. If no plan is chosen, the account moves to read-only mode.</p>
+        <p style={S.p}>New accounts receive 6 months free on the entry-level School or Hospital plan. No credit card is required for the trial. After the trial period, you must choose a paid plan to continue using the platform. If no plan is chosen, the account moves to read-only mode.</p>
 
         <h2 style={S.h2}>§3 — Subscription and billing</h2>
-        <p style={S.p}>Paid subscriptions are billed monthly or annually as selected. Prices are shown inclusive of applicable taxes. We reserve the right to change pricing with 30 days notice. Your subscription renews automatically unless cancelled.</p>
+        <p style={S.p}>Paid subscriptions are billed monthly, every 6 months or every 12 months, as selected. Paying 6 or 12 months in advance may earn a discount, as shown on our Pricing page. Prices are shown without GST; GST and any other applicable taxes are added to your invoice. Your subscription renews automatically unless cancelled.</p>
+
+        <h2 style={S.h2}>§3A — Changes to plans, prices and the service</h2>
+        <p style={S.p}>We may change our plans, prices, features, usage limits, discounts and offers from time to time, including by adding, changing or withdrawing a plan. We will give you at least 30 days' notice of any change that affects your subscription. A change applies from your next billing period; it does not change any period you have already paid for. If you do not accept a change, you may cancel before it takes effect.</p>
 
         <h2 style={S.h2}>§4 — Cancellation</h2>
         <p style={S.p}>You may cancel at any time. Cancellation takes effect at the end of the current billing period. No partial refunds are given for mid-period cancellations. Refer to our Refund Policy for details.</p>

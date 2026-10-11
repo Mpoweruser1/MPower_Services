@@ -8,7 +8,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const LAST_UPDATED = '26 September 2026';
+const LAST_UPDATED = '11 October 2026';
 const CONTACT_EMAIL = 'adminzoho@mpowerind.in';
 
 const S = {
@@ -35,16 +35,19 @@ export default function RefundPolicy() {
         <p style={S.p}>MPower is operated by <span style={S.strong}>Suribabu Kommana, Sole Proprietor, trading as MPower Services</span>, Andhra Pradesh, India.</p>
 
         <h2 style={S.h2}>Free trial</h2>
-        <p style={S.p}>New accounts get 6 months free on the Basic plan. No payment is taken during the trial, so there is nothing to refund. You are charged only if you choose a paid plan.</p>
+        <p style={S.p}>New accounts get 6 months free on the entry-level School or Hospital plan. No payment is taken during the trial, so there is nothing to refund. You are charged only if you choose a paid plan.</p>
 
         <h2 style={S.h2}>Subscription fees</h2>
-        <p style={S.p}>Subscriptions are charged at the start of each billing period, monthly or annually as you choose. If you cancel partway through a period, your access continues until the end of that paid period. We do not give partial refunds for unused time.</p>
+        <p style={S.p}>Subscriptions are charged at the start of each billing period, monthly, every 6 months or every 12 months, as you choose. If you cancel partway through a period, your access continues until the end of that paid period. We do not give partial refunds for unused time.</p>
 
         <h2 style={S.h2}>7-day refund on your first payment</h2>
-        <p style={S.p}>If you are not satisfied with your <span style={S.strong}>first</span> paid subscription payment, you may ask for a full refund within 7 days of that payment. This applies to the first payment only, whether monthly or annual.</p>
+        <p style={S.p}>If you are not satisfied with your <span style={S.strong}>first</span> paid subscription payment, you may ask for a full refund within 7 days of that payment. This applies to the first payment only, whether it is for one month, 6 months or 12 months.</p>
 
-        <h2 style={S.h2}>Annual plans</h2>
-        <p style={S.p}>Annual plans are paid in advance for 12 months. Apart from the 7-day refund on your first payment, annual fees are not refunded, including for unused months if you cancel partway through the year. Your access continues until the end of the paid year.</p>
+        <h2 style={S.h2}>6-month and annual plans</h2>
+        <p style={S.p}>These plans are paid in advance for 6 or 12 months, usually at a discounted price. Apart from the 7-day refund on your first payment, advance payments are not refunded, including for unused months if you cancel partway through the period. Your access continues until the end of the paid period.</p>
+
+        <h2 style={S.h2}>Changes to plans and prices</h2>
+        <p style={S.p}>If we change our plans or prices, the change applies from your next billing period. It never changes a period you have already paid for.</p>
 
         <h2 style={S.h2}>How to cancel</h2>
         <p style={S.p}>Email {CONTACT_EMAIL} from your registered email address with your organisation name. Cancellation takes effect at the end of your current paid period, and you will not be charged again after that.</p>

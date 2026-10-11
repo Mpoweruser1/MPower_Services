@@ -13,31 +13,38 @@ const PRODUCTS = {
     tagline: 'Complete school management — attendance to TC',
     taglineTe: 'పాఠశాల నిర్వహణ — హాజరు నుండి TC వరకు',
     features: [
-      { icon: '✅', title: 'Smart Attendance', desc: 'Class-wise daily attendance with WhatsApp absent alerts to parents. Works offline.' },
-      { icon: '💰', title: 'Fee Collection — 3 ways', desc: 'Counter cash, online Razorpay on this device, or WhatsApp payment link to parent.' },
+      { icon: '✅', title: 'Smart Attendance', desc: 'Class-wise daily attendance with a ready absent list for each class. WhatsApp alerts to parents are coming soon.' },
+      { icon: '💰', title: 'Fee Collection — 3 ways', desc: 'Counter cash, online Razorpay on this device, or a payment link you can share with the parent.' },
       { icon: '👤', title: 'Student Admission — 5 steps', desc: 'Full wizard with APAAR ID, caste, welfare scheme detection, village/mandal/district.' },
       { icon: '📄', title: 'Transfer Certificate', desc: '16-field TC with fee dues check, conduct grade, print-ready A4 format.' },
       { icon: '🎓', title: 'Certificates — 7 types', desc: 'Bonafide, study, conduct, income support, caste support, medium, attendance.' },
       { icon: '🚌', title: 'Transport', desc: 'Routes, drivers, vehicle numbers, timings, student-route assignment.' },
       { icon: '🏠', title: 'Hostel', desc: 'Room management, bed allocation, occupancy tracking, gender-wise blocks.' },
       { icon: '⚽', title: 'Activities & Coaching', desc: 'Sports, cultural, NSS/NCC, coaching classes — participant tracking.' },
-      { icon: '📊', title: 'Reports', desc: 'Attendance, fee defaulters, caste-wise, village-wise, welfare eligible students, UDISE+ export.' },
+      { icon: '📊', title: 'Reports', desc: 'Attendance, fee defaulters, caste-wise, village-wise, welfare eligible students.' },
       { icon: '🔍', title: 'Power Search', desc: 'Search "SC girls", "absent today", "fee due ravi", "hostel 6A" — fuzzy matching, typo tolerant.' },
     ],
   },
   hospital: {
     icon: '🏥', name: 'MPower Hospital', color: '#5A9ADF',
-    tagline: 'OPD, IPD, lab, billing and ABHA — all connected',
-    taglineTe: 'OPD, IPD, లాబ్, బిల్లింగ్ మరియు ABHA — అన్నీ కలిపి',
+    tagline: 'OPD, IPD, lab, billing and Aarogyasri — all connected',
+    taglineTe: 'OPD, IPD, లాబ్, బిల్లింగ్ మరియు ఆరోగ్యశ్రీ — అన్నీ కలిపి',
+    highlights: [
+      { title: 'Plans from ₹750 a month', desc: 'Clinic and nursing-home plans priced for small hospitals.' },
+      { title: 'Built for Andhra Pradesh and Telangana', desc: 'Welfare schemes like Aarogyasri and PMJAY are part of patient registration.' },
+      { title: 'Talk to the people who build it', desc: 'Direct support, quick changes, and help moving your old data.' },
+      { title: '6 months free', desc: 'Try the Clinic plan free for 6 months. No credit card.' },
+    ],
     features: [
-      { icon: '👤', title: 'Patient Registration', desc: 'Register with ABHA consent, blood group, allergies. Auto-generates patient UID.' },
+      { icon: '👤', title: 'Patient Registration', desc: 'Register with blood group and allergies. Each patient gets a unique ID automatically, and repeat patients are flagged.' },
       { icon: '🩺', title: 'OPD Visit', desc: 'Chief complaint, diagnosis, prescription with medicines table, follow-up date.' },
-      { icon: '🔬', title: 'Lab Reports', desc: 'Order tests, enter results, WhatsApp result-ready notification to patient.' },
-      { icon: '💳', title: 'Hospital Billing + GST', desc: 'Line items with GST rates, discount, totals. WhatsApp receipt + payment link.' },
+      { icon: '🔬', title: 'Lab Reports', desc: 'Order tests and enter results, ready to print for the patient.' },
+      { icon: '💳', title: 'Hospital Billing + GST', desc: 'Line items with GST rates, discount and totals, with a receipt for the patient.' },
       { icon: '🛏️', title: 'IPD / Bed Management', desc: 'Visual ward map, admit, discharge summary, bed availability.' },
       { icon: '💊', title: 'Aarogyasri & PMJAY', desc: 'Welfare schemes panel on patient registration — all AP health schemes identified.' },
-      { icon: '🔗', title: 'ABHA Linking', desc: 'Consent-based ABHA health account linking for ABDM compliance.' },
-      { icon: '📱', title: 'WhatsApp at every step', desc: 'Registration, prescription, lab results, discharge, bill — all via WhatsApp.' },
+      { icon: '📅', title: 'Online OPD appointments', desc: 'Share one link. Patients pick a time slot and book without installing anything; your staff see the booking at once.' },
+      { icon: '🔗', title: 'ABHA Linking — coming soon', desc: 'Consent-based ABHA health account linking for ABDM compliance, planned for a later release.' },
+      { icon: '📱', title: 'WhatsApp alerts — coming soon', desc: 'Appointment reminders, lab-ready and bill alerts, as an optional add-on sold in message packs.' },
     ],
   },
   grievance: {
@@ -123,12 +130,23 @@ export default function Products() {
           ))}
         </div>
 
+        {product.highlights && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginTop: 40 }}>
+            {product.highlights.map((h) => (
+              <div key={h.title} style={{ padding: '18px 20px', background: 'rgba(90,154,223,0.08)', border: '1px solid rgba(90,154,223,0.25)', borderRadius: 14 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, color: '#fff', margin: '0 0 6px' }}>{h.title}</h3>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.6 }}>{h.desc}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* CTA */}
         <div style={{ textAlign: 'center', marginTop: 60, padding: '40px 24px', background: '#161618', borderRadius: 20, border: '1px solid rgba(255,255,255,0.07)' }}>
           <h2 style={{ fontSize: 28, fontWeight: 700, color: '#fff', margin: '0 0 12px', letterSpacing: -0.5 }}>
-            Try {product.name} free for 6 months
+            {activeTab === 'grievance' ? 'Bring MPower CTS to your constituency' : `Try ${product.name} free for 6 months`}
           </h2>
-          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', margin: '0 0 28px' }}>No credit card · Setup in 10 minutes · Cancel anytime</p>
+          <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)', margin: '0 0 28px' }}>{activeTab === 'grievance' ? 'Free for citizens · Free plan for MLA offices to start' : 'No credit card · Setup in 10 minutes · Cancel anytime'}</p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             {activeTab === 'grievance' ? (
               <Link to="/grievance" style={{ padding: '13px 28px', background: '#E8A020', color: '#111113', borderRadius: 10, textDecoration: 'none', fontSize: 15, fontWeight: 700 }}>Get started with CTS →</Link>

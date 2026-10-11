@@ -64,7 +64,7 @@ function AppointmentAnalyticsContent() {
     a.click();
   }
 
-  if (loading) return <div style={{ ...S.page, textAlign: 'center', paddingTop: 60 }}><p style={{ color: 'rgba(255,255,255,0.3)' }}>Loading...</p></div>;
+  if (loading) return <div style={{ ...S.page, textAlign: 'center', paddingTop: 60 }}><p style={{ color: 'rgba(255,255,255,0.3)' }}>Loading...</p><HospitalNav /></div>;
 
   return (
     <div style={S.page}>
@@ -107,7 +107,7 @@ function AppointmentAnalyticsContent() {
 
 export default function AppointmentAnalytics() {
   return (
-    <TierGate requiredTier="advanced" featureName="Appointment Analytics" NavComponent={HospitalNav}>
+    <TierGate requiredTier="standard" requiredLabel="Nursing Home" featureName="Appointment Analytics" NavComponent={HospitalNav}>
       <AppointmentAnalyticsContent />
     </TierGate>
   );

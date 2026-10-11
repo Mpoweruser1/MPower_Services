@@ -8,9 +8,12 @@
 // connecting the two. Both now read from the same `pricing_plans`
 // table — this is the only place prices are defined at all.
 //
-// CTS_STATE_PLANS and COMBO_PLANS stay hardcoded below, deliberately —
-// a different shape (district/state packs, multi-module bundles) that
-// was never part of the original 3-way conflict this fixes.
+// CTS_STATE_PLANS stays hardcoded below, deliberately — a different shape
+// (district/state packs). There are no combo packs any more.
+//
+// Pay-in-advance discounts (6 months / 12 months) are columns on the
+// pricing_plans table (discount_6m_pct, discount_12m_pct), so this page and
+// the Billing Tracker always use the same numbers.
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
@@ -32,6 +35,10 @@ function rowToPlan(row) {
     color: row.color,
     highlight: row.highlight,
     features: row.features || [],
+    // Advance-payment discounts come from the pricing_plans table, the same
+    // numbers the Billing Tracker uses to raise invoices.
+    discount6: Number(row.discount_6m_pct || 0),
+    discount12: Number(row.discount_12m_pct || 0),
   };
   if (row.forever) plan.forever = true;
   const usageField = USAGE_FIELD_BY_MODULE[row.module];
@@ -45,17 +52,32 @@ const CTS_STATE_PLANS = [
   { key: 'state_full', name: 'Full State', price: 299999, constituencies: 'Unlimited', features: ['Everything in State Pack', 'State government branding', 'Direct integration support', 'Dedicated team'] },
 ];
 
-const COMBO_PLANS = [
-  { key: 'school_hrms', name: 'School + HRMS', price: 1999, saving: '30%', modules: 'School Standard + HRMS Basic', color: '#1D9E75' },
-  { key: 'hospital_hrms', name: 'Hospital + HRMS', price: 3999, saving: '25%', modules: 'Hospital Standard + HRMS Standard', color: '#185FA5' },
-  { key: 'school_hospital_hrms', name: 'School + Hospital + HRMS', price: 5999, saving: '35%', modules: 'All Standard plans', color: '#534AB7' },
-  { key: 'full_mpower', name: 'Full MPower', price: 8999, saving: '40%', modules: 'All modules Standard', color: '#854F0B' },
+// Hospital plans that are no longer sold on the page (kept in the database
+// so nothing already billed breaks). Large hospitals are quoted instead.
+const HOSPITAL_HIDDEN_TIERS = ['advanced', 'enterprise'];
+
+// Advance-payment discount for the hardcoded State packs (CTS plans read theirs from the database).
+const STATE_DISCOUNT = { half: 8, year: 16 };
+const PERIODS = [
+  { key: 'month', label: 'Monthly', months: 1 },
+  { key: 'half',  label: '6 months in advance', months: 6 },
+  { key: 'year',  label: '12 months in advance', months: 12 },
 ];
+
+function discountOfPlan(plan, period) {
+  if (period === 'half') return plan.discount6 || 0;
+  if (period === 'year') return plan.discount12 || 0;
+  return 0;
+}
 
 // ── Subcomponents ─────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, annual, subtitle }) {
-  const displayPrice = annual ? Math.round(plan.price * 0.84) : plan.price;
+function PlanCard({ plan, period, subtitle }) {
+  const months = (PERIODS.find(p => p.key === period) || PERIODS[0]).months;
+  const discount = discountOfPlan(plan, period);
+  const displayPrice = Math.round(plan.price * (1 - discount / 100));
+  const total = displayPrice * months;
+  const saved = (plan.price - displayPrice) * months;
 
   return (
     <div style={{
@@ -81,9 +103,9 @@ function PlanCard({ plan, annual, subtitle }) {
           {plan.price === 0 ? '₹0' : `₹${displayPrice.toLocaleString('en-IN')}`}
           {plan.price > 0 && <span style={{ fontSize: 12, fontWeight: 400 }}>/month</span>}
         </div>
-        {annual && plan.price > 0 && (
-          <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>
-            Save ₹{((plan.price - displayPrice) * 12).toLocaleString('en-IN')}/year
+        {period !== 'month' && plan.price > 0 && (
+          <div style={{ fontSize: 10, opacity: 0.9, marginTop: 2 }}>
+            {discount}% off · pay ₹{total.toLocaleString('en-IN')} for {months} months · save ₹{saved.toLocaleString('en-IN')}
           </div>
         )}
       </div>
@@ -133,7 +155,7 @@ function SectionHeader({ title, subtitle }) {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function Pricing() {
-  const [annual, setAnnual] = useState(false);
+  const [period, setPeriod] = useState('month');
   const [schoolPlans, setSchoolPlans]     = useState([]);
   const [hospitalPlans, setHospitalPlans] = useState([]);
   const [ctsPlans, setCtsPlans]           = useState([]);
@@ -159,7 +181,7 @@ export default function Pricing() {
 
     const rows = data || [];
     setSchoolPlans(rows.filter(r => r.module === 'school').map(rowToPlan));
-    setHospitalPlans(rows.filter(r => r.module === 'hospital').map(rowToPlan));
+    setHospitalPlans(rows.filter(r => r.module === 'hospital' && !HOSPITAL_HIDDEN_TIERS.includes(r.tier)).map(rowToPlan));
     setCtsPlans(rows.filter(r => r.module === 'cts').map(rowToPlan));
     setPlansLoading(false);
   }
@@ -169,7 +191,6 @@ export default function Pricing() {
     { key: 'cts', label: '🏛️ CTS — Grievance' },
     { key: 'school', label: '🏫 School' },
     { key: 'hospital', label: '🏥 Hospital' },
-    { key: 'combo', label: '📦 Combo Packs' },
   ];
 
   return (
@@ -183,28 +204,21 @@ export default function Pricing() {
           Free to start. Pay only when you grow.
         </p>
 
-        {/* Annual toggle */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 24 }}>
-          <button
-            onClick={() => setAnnual(false)}
-            style={{
-              padding: '7px 18px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
-              border: 'none',
-              background: !annual ? '#e8a020' : 'rgba(255,255,255,0.1)',
-              color: !annual ? '#1a1a2e' : 'rgba(255,255,255,0.7)',
-              fontWeight: !annual ? 700 : 400,
-            }}
-          >Monthly</button>
-          <button
-            onClick={() => setAnnual(true)}
-            style={{
-              padding: '7px 18px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
-              border: 'none',
-              background: annual ? '#e8a020' : 'rgba(255,255,255,0.1)',
-              color: annual ? '#1a1a2e' : 'rgba(255,255,255,0.7)',
-              fontWeight: annual ? 700 : 400,
-            }}
-          >Annual — Save 16%</button>
+        {/* Pay-in-advance toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+          {PERIODS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              style={{
+                padding: '7px 18px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
+                border: 'none', fontFamily: 'inherit',
+                background: period === p.key ? '#e8a020' : 'rgba(255,255,255,0.1)',
+                color: period === p.key ? '#1a1a2e' : 'rgba(255,255,255,0.7)',
+                fontWeight: period === p.key ? 700 : 400,
+              }}
+            >{p.label}</button>
+          ))}
         </div>
 
         {/* Product selector */}
@@ -256,7 +270,7 @@ export default function Pricing() {
                 <PlanCard
                   key={plan.key}
                   plan={plan}
-                  annual={annual}
+                  period={period}
                   subtitle={`${plan.complaints} · ${plan.sms}`}
                 />
               ))}
@@ -270,7 +284,7 @@ export default function Pricing() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
               {CTS_STATE_PLANS.map(plan => {
-                const displayPrice = annual ? Math.round(plan.price * 0.84) : plan.price;
+                const displayPrice = Math.round(plan.price * (1 - (period === 'half' ? STATE_DISCOUNT.half : period === 'year' ? STATE_DISCOUNT.year : 0) / 100));
                 return (
                   <div key={plan.key} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>{plan.name}</div>
@@ -300,7 +314,7 @@ export default function Pricing() {
 
             {/* Extra SMS note */}
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#64748b', textAlign: 'center' }}>
-              Extra SMS beyond plan — ₹0.12 each · Extra WhatsApp — ₹0.30 each · All prices exclusive of GST
+              Extra SMS beyond plan — ₹0.12 each · Extra WhatsApp — ₹0.75 each · All prices exclusive of GST
             </div>
           </>
         )}
@@ -317,13 +331,17 @@ export default function Pricing() {
                 <PlanCard
                   key={plan.key}
                   plan={plan}
-                  annual={annual}
+                  period={period}
                   subtitle={`${plan.students} students · ${plan.sms}`}
                 />
               ))}
             </div>
             <div style={{ marginTop: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#64748b', textAlign: 'center' }}>
               Extra SMS beyond plan — ₹0.15 each · All prices exclusive of GST · 6 months free trial on Basic
+            </div>
+
+            <div style={{ marginTop: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#166534', textAlign: 'center' }}>
+              📱 WhatsApp alerts for parents and patients — coming soon as an optional add-on, sold in message packs. Ask us to be told when it opens.
             </div>
           </>
         )}
@@ -340,54 +358,42 @@ export default function Pricing() {
                 <PlanCard
                   key={plan.key}
                   plan={plan}
-                  annual={annual}
+                  period={period}
                   subtitle={`${plan.opd} · ${plan.sms}`}
                 />
               ))}
             </div>
             <div style={{ marginTop: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#64748b', textAlign: 'center' }}>
-              Extra SMS beyond plan — ₹0.15 each · All prices exclusive of GST · 6 months free trial on Basic
+              Extra SMS beyond plan — ₹0.15 each · All prices exclusive of GST · 6 months free trial on the Clinic plan
+            </div>
+
+            <div style={{ marginTop: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#166534', textAlign: 'center' }}>
+              📱 WhatsApp alerts for parents and patients — coming soon as an optional add-on, sold in message packs. Ask us to be told when it opens.
+            </div>
+
+            <div style={{ marginTop: 10, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#1e40af', textAlign: 'center' }}>
+              🚀 Launch price: the Nursing Home plan is ₹1,250 a month for our first 10 hospitals.
+            </div>
+            <div style={{ marginTop: 10, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b' }}>Larger hospitals — 25 beds and above</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Priced by the number of beds, with setup and staff training. Tell us your size and we will send a quote.</div>
+              </div>
+              <a href="mailto:support@mpowerind.in?subject=Hospital%20quote%20request" style={{ padding: '10px 18px', borderRadius: 8, background: '#1a1a2e', color: '#e8a020', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>Ask for a quote →</a>
+            </div>
+            <div style={{ marginTop: 10, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 18px' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b' }}>Moving your old patient data</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, lineHeight: 1.7 }}>
+                Have your patient list in Excel? We can load it for you — setup from ₹1,500, and free for our first 5 clinics. Records on paper? You can start fresh and add each patient at their next visit, or ask us about data entry.
+              </div>
             </div>
           </>
         )}
 
-        {/* ── Combo Plans ── */}
-        {activeProduct === 'combo' && (
-          <>
-            <SectionHeader
-              title="Combo Packages"
-              subtitle="Save more by combining modules."
-            />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-              {COMBO_PLANS.map(plan => {
-                const displayPrice = annual ? Math.round(plan.price * 0.84) : plan.price;
-                return (
-                  <div key={plan.key} style={{ background: '#fff', border: `2px solid ${plan.color}`, borderRadius: 12, overflow: 'hidden' }}>
-                    <div style={{ background: plan.color, padding: '14px 16px', color: '#fff' }}>
-                      <div style={{ fontSize: 15, fontWeight: 700 }}>{plan.name}</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6 }}>
-                        ₹{displayPrice.toLocaleString('en-IN')}
-                        <span style={{ fontSize: 12, fontWeight: 400 }}>/month</span>
-                      </div>
-                    </div>
-                    <div style={{ padding: '14px 16px' }}>
-                      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>{plan.modules}</div>
-                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '6px 10px', fontSize: 12, color: '#166534', marginBottom: 14, textAlign: 'center', fontWeight: 700 }}>
-                        Save {plan.saving} vs individual plans
-                      </div>
-                      <Link
-                        to="/registration"
-                        style={{ display: 'block', textAlign: 'center', padding: '10px 16px', borderRadius: 8, background: plan.color, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
-                      >
-                        Get Started →
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
+        {/* ── Right to change plans ── */}
+        <div style={{ marginTop: 32, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px', fontSize: 12, color: '#64748b', lineHeight: 1.7, textAlign: 'center' }}>
+          MPower Services may change its plans, prices, features, usage limits, discounts and offers in future. We will give at least 30 days' notice of any change that affects you, and it applies from your next billing period. Amounts you have already paid for a period are not changed. See our Terms of Service for details.
+        </div>
 
         {/* ── FAQ ── */}
         <div style={{ marginTop: 48, borderTop: '1px solid #e2e8f0', paddingTop: 32 }}>
@@ -398,7 +404,9 @@ export default function Pricing() {
               { q: 'What happens if SMS limit is exceeded?', a: 'Extra SMS are billed at ₹0.12 each for CTS and ₹0.15 for School/Hospital. You will never be blocked — just pay for extras.' },
               { q: 'Can I upgrade or downgrade anytime?', a: 'Yes. Change plans anytime. Upgrades take effect immediately. Downgrades apply from next billing cycle.' },
               { q: 'Is there a setup fee?', a: 'No setup fee. No hidden charges. Pay only the monthly subscription.' },
-              { q: 'What is the annual discount?', a: '16% discount when you pay annually. Equivalent to getting about 2 months free.' },
+              { q: 'Do I get a discount if I pay in advance?', a: 'Yes. Pay for 6 months or 12 months in advance and the monthly price drops. For example, School Basic is 30% cheaper when paid for a full year. The exact discount is shown on each plan when you pick 6 or 12 months above.' },
+              { q: 'Can I get a refund on an advance payment?', a: 'You can ask for a full refund within 7 days of your first paid payment. After that, advance payments are not refunded for unused months, and your service continues until the end of the paid period. Please read our Refund Policy for details.' },
+              { q: 'Do these prices include GST?', a: 'No. All prices are shown without GST. GST is added on your invoice.' },
               { q: 'How does state government pricing work?', a: 'State packages cover multiple constituencies under one contract. Contact us for custom pricing and SLA agreements.' },
             ].map(faq => (
               <div key={faq.q} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px' }}>
@@ -413,7 +421,7 @@ export default function Pricing() {
         <div style={{ marginTop: 40, background: '#1a1a2e', borderRadius: 16, padding: '32px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 8 }}>Ready to get started?</div>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 20 }}>
-            Free trial on all plans. No credit card required.
+            6 months free on Basic plans. No credit card required.
           </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link

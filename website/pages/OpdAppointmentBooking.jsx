@@ -26,19 +26,16 @@ export default function OpdAppointmentBooking() {
     if (dayId) load();
   }, [dayId]);
 
+  // The page is public (patients are not logged in), so it never reads the
+  // tables directly. Two checked database functions do it instead:
+  //   opd_public_day  — doctor, date and OPEN times only
+  //   book_opd_slot   — books one open slot (name, phone, reason only)
   async function load() {
     setLoading(true);
-    const { data } = await supabase
-      .from('opd_appointment_days')
-      .select('id, appointment_date, doctors(designation, users(full_name))')
-      .eq('id', dayId).maybeSingle();
+    const { data, error: loadErr } = await supabase.rpc('opd_public_day', { p_day_id: dayId });
+    if (loadErr) console.error('Loading appointment day failed:', loadErr);
     setDay(data || null);
-    if (data) {
-      const { data: slotRows } = await supabase
-        .from('opd_appointment_slots').select('id, slot_time, status')
-        .eq('appointment_day_id', dayId).eq('status', 'open').order('slot_time');
-      setSlots(slotRows || []);
-    }
+    setSlots(data?.slots || []);
     setLoading(false);
   }
 
@@ -46,18 +43,24 @@ export default function OpdAppointmentBooking() {
     setError('');
     if (!name.trim() || !phone.trim()) { setError('Enter your name and phone number.'); return; }
 
-    const { data, error: bookErr } = await supabase
-      .from('opd_appointment_slots')
-      .update({ status: 'booked', booked_name: name.trim(), booked_phone: phone.trim(), reason: reason.trim() || null, booked_at: new Date().toISOString() })
-      .eq('id', selectedSlot.id)
-      .eq('status', 'open')
-      .select()
-      .maybeSingle();
+    const { data, error: bookErr } = await supabase.rpc('book_opd_slot', {
+      p_slot_id: selectedSlot.id,
+      p_name:    name.trim(),
+      p_phone:   phone.trim(),
+      p_reason:  reason.trim() || null,
+    });
 
     if (bookErr || !data) {
-      setError('That slot was just taken — please pick another.');
-      setSelectedSlot(null);
-      load();
+      const msg = bookErr?.message || '';
+      if (msg.includes('slot_taken') || !msg) {
+        setError('That slot was just taken — please pick another.');
+        setSelectedSlot(null);
+        load();
+      } else {
+        // The database's own wording is written for patients
+        // (e.g. "Please enter a valid phone number.").
+        setError(msg);
+      }
       return;
     }
     setBooked(data);
@@ -66,7 +69,7 @@ export default function OpdAppointmentBooking() {
   if (loading) return <div style={S.page}><p style={{ textAlign: 'center', padding: 60, color: 'rgba(255,255,255,0.3)' }}>Loading...</p></div>;
   if (!day) return <div style={S.page}><div style={S.inner}><p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>This appointment link isn't valid or has expired.</p></div></div>;
 
-  const doctorLabel = `${day.doctors?.users?.full_name || 'Doctor'}${day.doctors?.designation ? ` — ${day.doctors.designation}` : ''}`;
+  const doctorLabel = `${day.doctor_name || 'Doctor'}${day.designation ? ` — ${day.designation}` : ''}`;
 
   return (
     <div style={S.page}>

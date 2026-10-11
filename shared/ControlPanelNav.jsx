@@ -31,6 +31,7 @@ const MORE_ITEMS = [
   { path: '/control/help-admin',    icon: '📚', label: 'Help Admin',  roles: ['developer', 'support'] },
   { path: '/control/access',        icon: '🔐', label: 'Access',      roles: ['developer', 'support', 'principal', 'doctor'] },
   { path: '/control/security',      icon: '🛡️', label: 'Security',    roles: ['developer', 'support'] },
+  { path: '/control/welfare',       icon: '🎓', label: 'Welfare',     roles: ['developer', 'support'] },
 ];
 
 export default function ControlPanelNav() {
