@@ -29,6 +29,11 @@ function daysOverdue(dueDate) {
   return Math.max(0, Math.floor(diff));
 }
 
+const CATEGORY_LABEL = {
+  tuition: 'Tuition', admission: 'Admission', hostel: 'Hostel', transport: 'Transport', computer: 'Computer lab',
+  exam: 'Exam', books_uniform: 'Books & uniform', activities: 'Activities', other: 'Other',
+};
+
 function currency(n) {
   return `\u20b9${Number(n || 0).toLocaleString('en-IN')}`;
 }
@@ -53,6 +58,8 @@ function FeeAnalyticsContent() {
   const [students, setStudents] = useState([]);
   const [expandedClass, setExpandedClass] = useState(null);
   const [showPatterns, setShowPatterns] = useState(false);
+  // fee_structure id -> category, so each due can be grouped by kind of fee.
+  const [categoryById, setCategoryById] = useState({});
 
   useEffect(() => {
     if (tenant?.appId) loadData();
@@ -77,7 +84,7 @@ function FeeAnalyticsContent() {
     // discarded, so it failed completely silently.
     let duesQuery = supabase
       .from('fee_dues')
-      .select('id, student_id, amount_due, due_date, fee_type, fee_payments(amount)')
+      .select('id, student_id, fee_structure_id, amount_due, concession_amount, due_date, fee_type, fee_payments(amount)')
       .in('student_id', studentIds);
     if (dateFrom) duesQuery = duesQuery.gte('due_date', dateFrom);
     if (dateTo) duesQuery = duesQuery.lte('due_date', dateTo);
@@ -89,6 +96,12 @@ function FeeAnalyticsContent() {
       return;
     }
     setDues(dueRows || []);
+
+    // Category lives on the fee (fee_structure), not on the due. Read separately — a due whose fee
+    // can't be found simply counts under "Other".
+    const { data: structRows, error: structErr } = await supabase.from('fee_structure').select('id, category').eq('app_id', tenant.appId);
+    if (structErr) console.error('Loading fee categories failed:', structErr);
+    setCategoryById(Object.fromEntries((structRows || []).map((r) => [r.id, r.category || 'other'])));
 
     const { data: classRows } = await supabase.from('classes').select('id, class_name, class_order').eq('app_id', tenant.appId).order('class_order');
     setClasses(classRows || []);
@@ -102,7 +115,8 @@ function FeeAnalyticsContent() {
       const paid = (d.fee_payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
       const balance = Math.max(0, Number(d.amount_due) - paid);
       const student = studentMap[d.student_id];
-      return { ...d, paid, balance, student, overdueDays: balance > 0 ? daysOverdue(d.due_date) : 0 };
+      const category = categoryById[d.fee_structure_id] || 'other';
+      return { ...d, paid, balance, student, category, concession: Number(d.concession_amount || 0), overdueDays: balance > 0 ? daysOverdue(d.due_date) : 0 };
     });
     // Was unsorted (raw insertion order) — sorted by class_order (the
     // real ordering column; class_name alone sorts "Class 10" before
@@ -116,11 +130,12 @@ function FeeAnalyticsContent() {
       if (nameCompare !== 0) return nameCompare;
       return (a.fee_type || '').localeCompare(b.fee_type || '');
     });
-  }, [dues, students]);
+  }, [dues, students, categoryById]);
 
   const totalDue = enriched.reduce((s, d) => s + Number(d.amount_due), 0);
   const totalPaid = enriched.reduce((s, d) => s + d.paid, 0);
   const totalOutstanding = enriched.reduce((s, d) => s + d.balance, 0);
+  const totalConcession = enriched.reduce((s, d) => s + d.concession, 0);
   const efficiency = totalDue > 0 ? Math.round((totalPaid / totalDue) * 100) : 0;
 
   const byClass = useMemo(() => {
@@ -134,6 +149,20 @@ function FeeAnalyticsContent() {
       map[classId].dues.push(d);
     });
     return map;
+  }, [enriched]);
+
+  // By kind of fee (tuition, hostel, transport...) — which fees are bringing money in and which are stuck.
+  const byCategory = useMemo(() => {
+    const map = {};
+    enriched.forEach((d) => {
+      if (!map[d.category]) map[d.category] = { due: 0, paid: 0, outstanding: 0, concession: 0, count: 0 };
+      map[d.category].due += Number(d.amount_due);
+      map[d.category].paid += d.paid;
+      map[d.category].outstanding += d.balance;
+      map[d.category].concession += d.concession;
+      map[d.category].count += 1;
+    });
+    return Object.entries(map).sort((a, b) => b[1].due - a[1].due);
   }, [enriched]);
 
   // Family pattern — same parent phone, multiple children each with
@@ -158,12 +187,12 @@ function FeeAnalyticsContent() {
 
   const exportRows = enriched.map((d) => [
     d.student?.full_name || '', d.student?.sid || '', d.student?.classes?.class_name || '',
-    d.fee_type || '', d.amount_due, d.paid, d.balance, d.overdueDays,
+    d.fee_type || '', CATEGORY_LABEL[d.category] || 'Other', d.concession, d.amount_due, d.paid, d.balance, d.overdueDays,
   ]);
-  const exportHeaders = ['Student', 'SID', 'Class', 'Fee type', 'Amount due', 'Paid', 'Balance', 'Days overdue'];
+  const exportHeaders = ['Student', 'SID', 'Class', 'Fee type', 'Category', 'Concession', 'Amount due', 'Paid', 'Balance', 'Days overdue'];
 
   function exportCsv() {
-    const rows = [exportHeaders, ...exportRows].map((r) => r.join(',')).join('\n');
+    const rows = [exportHeaders, ...exportRows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -256,6 +285,12 @@ function FeeAnalyticsContent() {
           </div>
         </div>
 
+        {totalConcession > 0 && (
+          <p className="no-print" style={{ fontSize: 12, color: '#9A8AE0', margin: '-6px 0 16px', textAlign: 'center' }}>
+            Fee value {currency(totalDue + totalConcession)} − concessions given {currency(totalConcession)} = total due {currency(totalDue)}
+          </p>
+        )}
+
         <div className="no-print" style={{ ...S.card, marginBottom: 16 }}>
           <button onClick={() => setShowPatterns(!showPatterns)}
             style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
@@ -303,6 +338,28 @@ function FeeAnalyticsContent() {
               )}
             </div>
           )}
+        </div>
+
+        <p className="no-print" style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 10 }}>By kind of fee</p>
+        <div className="no-print" style={{ ...S.card, marginBottom: 16 }}>
+          {byCategory.length === 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>No fees in this period.</p>}
+          {byCategory.map(([cat, v]) => {
+            const pct = v.due > 0 ? Math.round((v.paid / v.due) * 100) : 0;
+            return (
+              <div key={cat} style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                  <span style={{ color: '#fff', fontWeight: 500 }}>{CATEGORY_LABEL[cat] || 'Other'} <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 400 }}>· {v.count} due{v.count === 1 ? '' : 's'}</span></span>
+                  <span style={{ color: '#E05A5A', fontWeight: 600 }}>{currency(v.outstanding)} owed</span>
+                </div>
+                <div style={{ background: '#111113', borderRadius: 4, height: 6, overflow: 'hidden', marginBottom: 4 }}>
+                  <div style={{ height: '100%', background: '#6AAA90', width: `${pct}%` }} />
+                </div>
+                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
+                  {currency(v.paid)} of {currency(v.due)} collected ({pct}%){v.concession > 0 ? ` · concessions ${currency(v.concession)}` : ''}
+                </p>
+              </div>
+            );
+          })}
         </div>
 
         <p className="no-print" style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 10 }}>By class</p>
@@ -365,6 +422,7 @@ function FeeAnalyticsContent() {
             <div><strong>{currency(totalPaid)}</strong><br />Collected</div>
             <div><strong>{currency(totalOutstanding)}</strong><br />Outstanding</div>
             <div><strong>{efficiency}%</strong><br />Efficiency</div>
+            {totalConcession > 0 && <div><strong>{currency(totalConcession)}</strong><br />Concessions</div>}
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
@@ -378,6 +436,8 @@ function FeeAnalyticsContent() {
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.sid}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.student?.classes?.class_name}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{d.fee_type || '—'}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{CATEGORY_LABEL[d.category] || 'Other'}</td>
+                  <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(d.concession)}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(d.amount_due)}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(d.paid)}</td>
                   <td style={{ padding: '5px 8px', borderBottom: '1px solid #ddd' }}>{currency(d.balance)}</td>

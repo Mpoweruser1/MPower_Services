@@ -1,5 +1,6 @@
 // hospital/HospitalBilling.jsx — FINAL
 import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import { useVisit } from '../context/VisitContext';
@@ -17,6 +18,23 @@ import UpiQrCode from '../shared/UpiQrCode';
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Insurance', 'Aarogyasri', 'PMJAY'];
 const SERVICE_TYPES = ['Consultation', 'Lab test', 'Medicines', 'Procedure', 'Bed charges', 'Nursing', 'X-Ray / Scan', 'Other'];
 const GST_RATES     = [0, 5, 12, 18];
+
+// Price list (set up on the Price list screen) → the service type shown on a bill line.
+const CATEGORY_TO_SERVICE = { room: 'Bed charges', daily_extra: 'Other', consultation: 'Consultation', lab: 'Lab test', procedure: 'Procedure', other: 'Other' };
+const PICKER_GROUPS = [
+  { k: 'consultation', label: 'Consultations' },
+  { k: 'lab',          label: 'Lab tests' },
+  { k: 'procedure',    label: 'Procedures' },
+  { k: 'daily_extra',  label: 'Daily extras' },
+  { k: 'other',        label: 'Other' },
+];
+const EMPTY_ITEM = { description: '', service_type: 'Consultation', quantity: '1', unit_price: '', gst_rate: '0', covered: false };
+
+function money(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
+function fmtDate(d) { return d ? new Date(`${d}T00:00:00`).toLocaleDateString('en-IN') : ''; }
+function lineBase(item) { return (Number(item.quantity) || 0) * (Number(item.unit_price) || 0); }
+function lineGst(item)  { return lineBase(item) * (Number(item.gst_rate) || 0) / 100; }
+function round2(n) { return Math.round(n * 100) / 100; }
 
 function generateInvoiceNo(orgName) {
   const prefix = (orgName || 'HOS').slice(0, 3).toUpperCase();
@@ -49,9 +67,20 @@ export default function HospitalBilling() {
   const { tenant }                                 = useTenant();
   const { activePatient, setActivePatient, clearPatient } = useVisit();
 
+  const location = useLocation();
+
   const [selectedPatient, setSelectedPatient] = useState(activePatient);
-  const [items, setItems]       = useState([{ description: '', service_type: 'Consultation', quantity: '1', unit_price: '', gst_rate: '0' }]);
+  const [items, setItems]       = useState([{ ...EMPTY_ITEM }]);
   const [itemErrors, setItemErrors] = useState([{}]);
+
+  // Price list + admission room charges
+  const [priceList, setPriceList]     = useState([]);
+  const [wardIdByName, setWardIdByName] = useState({});
+  const [admissions, setAdmissions]   = useState([]);
+  const [admissionId, setAdmissionId] = useState('');
+  const [billedIds, setBilledIds]     = useState([]);
+  const [roomRows, setRoomRows]       = useState([]);
+  const [roomNote, setRoomNote]       = useState('');
   const [paymentMode, setPaymentMode] = useState('Cash');
   // upi_id isn't part of TenantContext (it's branch-level business
   // data, not session data), so it's fetched here on mount.
@@ -73,8 +102,125 @@ export default function HospitalBilling() {
       });
   }, [tenant?.branchId]);
 
+  // Price list and wards, once.
+  useEffect(() => {
+    if (!tenant?.appId) return;
+    (async () => {
+      const [plRes, wardRes] = await Promise.all([
+        supabase.from('hospital_price_list').select('id, category, name, rate, gst_rate, ward_id')
+          .eq('app_id', tenant.appId).eq('active', true).order('sort_order').order('name'),
+        supabase.from('wards').select('id, ward_type').eq('app_id', tenant.appId),
+      ]);
+      if (plRes.error) console.error('Loading price list failed:', plRes.error);
+      if (wardRes.error) console.error('Loading wards failed:', wardRes.error);
+      setPriceList(plRes.data || []);
+      const map = {};
+      (wardRes.data || []).forEach((w) => { map[w.ward_type] = w.id; });
+      setWardIdByName(map);
+    })();
+  }, [tenant?.appId]);
+
+  // The selected patient's recent admissions. The open one (or the one the user
+  // came from on the IPD screen) is chosen automatically.
+  useEffect(() => {
+    setRoomRows([]);
+    setRoomNote('');
+    if (!selectedPatient?.id) { setAdmissions([]); setAdmissionId(''); return; }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from('ipd_admissions')
+        .select('id, admission_date, discharge_date, bed_no, wards(ward_type)')
+        .eq('patient_id', selectedPatient.id)
+        .order('admission_date', { ascending: false }).limit(5);
+      if (cancelled) return;
+      if (error) { console.error('Loading admissions failed:', error); setAdmissions([]); setAdmissionId(''); return; }
+      const list = data || [];
+      setAdmissions(list);
+      const fromIpd = location.state?.admissionId;
+      const pick = list.find((a) => a.id === fromIpd) || list.find((a) => !a.discharge_date) || null;
+      setAdmissionId(pick ? pick.id : '');
+    })();
+    return () => { cancelled = true; };
+  }, [selectedPatient?.id]);
+
+  // Which of those admissions already have a bill with room charges.
+  useEffect(() => {
+    if (admissions.length === 0) { setBilledIds([]); return; }
+    (async () => {
+      const { data, error } = await supabase.from('billing_invoices').select('admission_id')
+        .in('admission_id', admissions.map((a) => a.id));
+      if (error) { console.error('Checking billed admissions failed:', error); return; }
+      setBilledIds((data || []).map((r) => r.admission_id));
+    })();
+  }, [admissions, invoice]);
+
+  // Days and room charges for the chosen admission, worked out in the database.
+  useEffect(() => {
+    setRoomRows([]);
+    if (!admissionId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc('ipd_bill_preview', { p_admission: admissionId });
+      if (cancelled) return;
+      if (error) { console.error('Room charge preview failed:', error); setRoomNote('Could not work out room charges. Add them manually.'); return; }
+      setRoomNote('');
+      setRoomRows(data || []);
+    })();
+    return () => { cancelled = true; };
+  }, [admissionId]);
+
+  function setAllItems(next) {
+    setItems(next);
+    setItemErrors(next.map(() => ({})));
+  }
+
+  // A blank untouched first line is dropped when charges are added from the price list.
+  function withoutBlank(list) {
+    return list.filter((i) => !(i.description.trim() === '' && !i.unit_price && !i.source));
+  }
+
+  const totalRoomDays = roomRows.reduce((s, r) => s + Number(r.days || 0), 0);
+  const roomChargeRows = roomRows.filter((r) => !r.rate_missing);
+  const roomTotal = roomChargeRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const alreadyBilled = !!admissionId && billedIds.includes(admissionId);
+
+  function addRoomCharges() {
+    const lines = roomChargeRows.map((r) => {
+      const wardId = wardIdByName[r.ward_name];
+      const priced = priceList.find((p) => p.category === 'room' && p.ward_id === wardId);
+      return {
+        description: `Room charges — ${r.ward_name} Ward, bed ${r.bed_no} (${fmtDate(r.from_date)} to ${fmtDate(r.to_date)})`,
+        service_type: 'Bed charges', quantity: String(r.days), unit_price: String(r.rate),
+        gst_rate: String(priced ? priced.gst_rate : 0), covered: false, source: 'room',
+      };
+    });
+    if (lines.length === 0) return;
+    setAllItems([...withoutBlank(items).filter((i) => i.source !== 'room'), ...lines]);
+  }
+
+  function addDailyExtra(p) {
+    if (totalRoomDays <= 0) return;
+    const line = {
+      description: `${p.name} (${totalRoomDays} day${totalRoomDays === 1 ? '' : 's'})`,
+      service_type: CATEGORY_TO_SERVICE.daily_extra, quantity: String(totalRoomDays), unit_price: String(p.rate),
+      gst_rate: String(p.gst_rate), covered: false, source: 'extra', price_id: p.id,
+    };
+    setAllItems([...withoutBlank(items).filter((i) => !(i.source === 'extra' && i.price_id === p.id)), line]);
+  }
+
+  function pickFromPriceList(idx, priceId) {
+    const p = priceList.find((x) => x.id === priceId);
+    if (!p) return;
+    setItems((prev) => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], description: p.name, service_type: CATEGORY_TO_SERVICE[p.category] || 'Other', unit_price: String(p.rate), gst_rate: String(p.gst_rate), quantity: copy[idx].quantity || '1' };
+      return copy;
+    });
+    setItemErrors((prev) => { const c = [...prev]; c[idx] = {}; return c; });
+  }
+
   function addItem() {
-    setItems((prev) => [...prev, { description: '', service_type: 'Consultation', quantity: '1', unit_price: '', gst_rate: '0' }]);
+    setItems((prev) => [...prev, { ...EMPTY_ITEM }]);
     setItemErrors((prev) => [...prev, {}]);
   }
 
@@ -104,17 +250,16 @@ export default function HospitalBilling() {
   }
 
   // Calculations
-  const subtotal = items.reduce((sum, item) => {
-    return sum + (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
-  }, 0);
+  const subtotal = items.reduce((sum, item) => sum + lineBase(item), 0);
+  const totalGst = items.reduce((sum, item) => sum + lineGst(item), 0);
 
-  const totalGst = items.reduce((sum, item) => {
-    const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
-    return sum + (lineTotal * (Number(item.gst_rate) || 0) / 100);
-  }, 0);
+  // Lines ticked "covered by scheme" (PMJAY, Aarogyasri, insurance) stay on the
+  // bill but are not charged to the patient.
+  const coveredAmount = round2(items.filter((i) => i.covered).reduce((sum, item) => sum + lineBase(item) + lineGst(item), 0));
+  const patientGross  = round2(subtotal + totalGst - coveredAmount);
 
   const discount     = Math.max(0, Number(discountAmt) || 0);
-  const totalAmount  = Math.max(0, subtotal + totalGst - discount);
+  const totalAmount  = Math.max(0, round2(patientGross - discount));
 
   async function generateBill() {
     setSubmitError('');
@@ -128,12 +273,17 @@ export default function HospitalBilling() {
     const hasItemErrors = allItemErrors.some((e) => Object.keys(e).length > 0);
     if (hasItemErrors) { setSubmitError('Please fix the errors in billing items.'); return; }
 
-    if (totalAmount <= 0) { setSubmitError('Total amount must be greater than zero.'); return; }
+    // A bill fully covered by a scheme legitimately has nothing for the patient to pay.
+    if (totalAmount <= 0 && coveredAmount <= 0) { setSubmitError('Total amount must be greater than zero.'); return; }
 
-    // Discount cannot exceed subtotal
-    if (discount > subtotal + totalGst) {
-      setSubmitError('Discount cannot be more than the total amount.');
+    // Discount cannot exceed what the patient would otherwise pay
+    if (discount > patientGross) {
+      setSubmitError('Discount cannot be more than the amount payable by the patient.');
       return;
+    }
+
+    if (alreadyBilled && items.some((i) => i.source === 'room')) {
+      if (!window.confirm('Room charges for this admission were already billed on an earlier invoice. Billing them again will charge the patient twice. Continue anyway?')) return;
     }
 
     await createInvoiceRecord();
@@ -153,6 +303,10 @@ export default function HospitalBilling() {
         line_items:   items,
         gst_amount:   totalGst,
         total_amount: totalAmount,
+        covered_amount: coveredAmount,
+        // Only set when this bill really carries the admission's room charges,
+        // so the "already billed" warning is about room charges specifically.
+        admission_id: items.some((i) => i.source === 'room') ? admissionId : null,
         payment_mode: paymentMode,
         status:       'paid',
       })
@@ -177,13 +331,13 @@ export default function HospitalBilling() {
     // print view (built earlier) still shows them correctly right
     // after creating this invoice. A later re-fetch of an OLD invoice
     // from the database won't have these, only a freshly-created one.
-    setInvoice({ ...inv, patient: selectedPatient, subtotal, discount, invoice_date: invoiceDate });
+    setInvoice({ ...inv, patient: selectedPatient, subtotal, discount, covered_amount: coveredAmount, invoice_date: invoiceDate });
     setSaving(false);
   }
 
   function newBill() {
     setInvoice(null);
-    setItems([{ description: '', service_type: 'Consultation', quantity: '1', unit_price: '', gst_rate: '0' }]);
+    setItems([{ ...EMPTY_ITEM }]);
     setItemErrors([{}]);
     setDiscountAmt('');
     setSubmitError('');
@@ -226,6 +380,71 @@ export default function HospitalBilling() {
               />
             </div>
 
+            {/* Admission room charges — read from the Price list, days counted from
+                admission to discharge (admission day counts, discharge day does not). */}
+            {selectedPatient && admissions.length > 0 && (
+              <div style={S.card}>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', margin: '0 0 12px' }}>Room charges · గది ఛార్జీలు</p>
+                <label htmlFor="billing-admission" style={S.label}>Admission</label>
+                <select id="billing-admission" name="billing-admission" value={admissionId} onChange={(e) => setAdmissionId(e.target.value)} style={{ ...S.select, marginBottom: 12 }}>
+                  <option value="">-- Not billing room charges --</option>
+                  {admissions.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {fmtDate(a.admission_date)} · {a.wards?.ward_type || 'Ward'} · {a.discharge_date ? `discharged ${fmtDate(a.discharge_date)}` : 'still admitted'}
+                    </option>
+                  ))}
+                </select>
+
+                {alreadyBilled && (
+                  <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: '#E05A5A' }}>
+                    ⚠ Room charges for this admission were already billed on an earlier invoice. Adding them again would charge the patient twice.
+                  </div>
+                )}
+                {roomNote && <p style={{ fontSize: 12, color: '#E8A020', margin: '0 0 10px' }}>{roomNote}</p>}
+
+                {admissionId && roomRows.length > 0 && (
+                  <>
+                    {roomRows.map((r) => (
+                      <div key={r.stay_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)' }}>
+                        <span>{r.ward_name} Ward · bed {r.bed_no} · {fmtDate(r.from_date)} → {fmtDate(r.to_date)}<br />
+                          <span style={{ color: 'rgba(255,255,255,0.4)' }}>{r.days} day{r.days === 1 ? '' : 's'}{r.rate_missing ? '' : ` × ${money(r.rate)}`}</span>
+                        </span>
+                        {r.rate_missing
+                          ? <span style={{ color: '#E8A020', textAlign: 'right' }}>No rate<br /><Link to="/hospital/price-list" style={{ color: '#E8A020', fontSize: 11 }}>Set rate →</Link></span>
+                          : <span style={{ color: '#fff', fontWeight: 600 }}>{money(r.amount)}</span>}
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, margin: '10px 0' }}>
+                      <span>{totalRoomDays} day{totalRoomDays === 1 ? '' : 's'} in total</span>
+                      <span style={{ color: '#E8A020' }}>{money(roomTotal)}</span>
+                    </div>
+                    <button onClick={addRoomCharges} disabled={roomChargeRows.length === 0}
+                      style={{ width: '100%', padding: 10, border: 'none', borderRadius: 8, background: roomChargeRows.length === 0 ? 'rgba(255,255,255,0.08)' : '#6AAA90', color: '#111113', fontWeight: 600, fontSize: 13, cursor: roomChargeRows.length === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                      {items.some((i) => i.source === 'room') ? '↻ Update room charges on the bill' : '+ Add room charges to the bill'}
+                    </button>
+
+                    {priceList.some((p) => p.category === 'daily_extra') && (
+                      <div style={{ marginTop: 14 }}>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', margin: '0 0 8px' }}>Daily extras × {totalRoomDays} day{totalRoomDays === 1 ? '' : 's'}</p>
+                        {priceList.filter((p) => p.category === 'daily_extra').map((p) => {
+                          const added = items.some((i) => i.source === 'extra' && i.price_id === p.id);
+                          return (
+                            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, padding: '6px 0' }}>
+                              <span style={{ color: 'rgba(255,255,255,0.7)' }}>{p.name} · {money(p.rate)}/day</span>
+                              <button onClick={() => addDailyExtra(p)}
+                                style={{ padding: '4px 12px', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, background: added ? 'rgba(106,170,144,0.12)' : 'transparent', color: added ? '#6AAA90' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                                {added ? '✓ Added' : `+ Add ${money(p.rate * totalRoomDays)}`}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Billing items */}
             <div style={S.card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -245,6 +464,22 @@ export default function HospitalBilling() {
                         style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#E05A5A', padding: 0 }}>✕</button>
                     )}
                   </div>
+
+                  {priceList.some((p) => p.category !== 'room') && (
+                    <div style={{ marginBottom: 10 }}>
+                      <select aria-label={`Pick line item ${idx + 1} from price list`} value="" onChange={(e) => pickFromPriceList(idx, e.target.value)} style={S.select}>
+                        <option value="">📋 Pick from price list…</option>
+                        {PICKER_GROUPS.map((g) => {
+                          const opts = priceList.filter((p) => p.category === g.k);
+                          return opts.length === 0 ? null : (
+                            <optgroup key={g.k} label={g.label}>
+                              {opts.map((p) => <option key={p.id} value={p.id}>{p.name} — {money(p.rate)}</option>)}
+                            </optgroup>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
 
                   <div style={{ marginBottom: 10 }}>
                     <input id={`billing-item-desc-${idx}`} name={`billing-item-desc-${idx}`} aria-label={`Description for line item ${idx + 1}`} value={item.description}
@@ -280,10 +515,17 @@ export default function HospitalBilling() {
                     </select>
                   </div>
 
+                  <label htmlFor={`billing-item-covered-${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 12, color: item.covered ? '#6AAA90' : 'rgba(255,255,255,0.45)', cursor: 'pointer' }}>
+                    <input id={`billing-item-covered-${idx}`} name={`billing-item-covered-${idx}`} type="checkbox" checked={!!item.covered}
+                      onChange={(e) => updateItem(idx, 'covered', e.target.checked)} />
+                    Covered by scheme / insurance (not charged to the patient)
+                  </label>
+
                   {Number(item.unit_price) > 0 && Number(item.quantity) > 0 && (
                     <p style={{ margin: '8px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.5)', textAlign: 'right' }}>
                       Line total: ₹{((Number(item.quantity)) * (Number(item.unit_price))).toLocaleString('en-IN')}
                       {Number(item.gst_rate) > 0 ? ` + GST ₹${((Number(item.quantity)) * (Number(item.unit_price)) * Number(item.gst_rate) / 100).toFixed(2)}` : ''}
+                      {item.covered ? ' · covered' : ''}
                     </p>
                   )}
                 </div>
@@ -331,10 +573,10 @@ export default function HospitalBilling() {
                     }}
                     placeholder="0"
                     inputMode="numeric"
-                    style={S.input(discount > subtotal + totalGst)}
+                    style={S.input(discount > patientGross)}
                   />
-                  {discount > subtotal + totalGst && (
-                    <p style={S.fieldErr}>⚠ Discount cannot exceed total amount</p>
+                  {discount > patientGross && (
+                    <p style={S.fieldErr}>⚠ Discount cannot exceed the amount payable by the patient</p>
                   )}
                 </div>
               </div>
@@ -352,6 +594,7 @@ export default function HospitalBilling() {
                 {[
                   { label: 'Subtotal', value: `₹${subtotal.toLocaleString('en-IN')}`, color: 'rgba(255,255,255,0.5)' },
                   totalGst > 0 && { label: 'GST', value: `₹${totalGst.toFixed(2)}`, color: 'rgba(255,255,255,0.5)' },
+                  coveredAmount > 0 && { label: 'Covered by scheme', value: `−₹${coveredAmount.toLocaleString('en-IN')}`, color: '#5A9ADF' },
                   discount > 0 && { label: 'Discount', value: `−₹${discount.toLocaleString('en-IN')}`, color: '#6AAA90' },
                 ].filter(Boolean).map((row) => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: row.color, marginBottom: 4 }}>
@@ -359,8 +602,8 @@ export default function HospitalBilling() {
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 20, fontWeight: 700, color: '#fff', marginTop: 8 }}>
-                  <span>Total</span>
-                  <span style={{ color: totalAmount <= 0 ? '#E05A5A' : '#fff' }}>
+                  <span>{coveredAmount > 0 ? 'Payable by patient' : 'Total'}</span>
+                  <span style={{ color: totalAmount <= 0 && coveredAmount <= 0 ? '#E05A5A' : '#fff' }}>
                     ₹{totalAmount.toLocaleString('en-IN')}
                   </span>
                 </div>
@@ -429,7 +672,7 @@ export default function HospitalBilling() {
                 const lineGst = lineBase * Number(item.gst_rate) / 100;
                 return (
                   <tr key={i}>
-                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.description}</td>
+                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.description}{item.covered ? ' (covered by scheme)' : ''}</td>
                     <td style={{ padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.service_type}</td>
                     <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.quantity}</td>
                     <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>₹{Number(item.unit_price).toLocaleString('en-IN')}</td>
@@ -444,8 +687,9 @@ export default function HospitalBilling() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 13, marginBottom: 30, gap: 4 }}>
             <div>Subtotal: ₹{Number(invoice.subtotal).toLocaleString('en-IN')}</div>
             <div>GST: ₹{Number(invoice.gst_amount).toLocaleString('en-IN')}</div>
+            {Number(invoice.covered_amount) > 0 && <div>Covered by scheme / insurance: -₹{Number(invoice.covered_amount).toLocaleString('en-IN')}</div>}
             {Number(invoice.discount) > 0 && <div>Discount: -₹{Number(invoice.discount).toLocaleString('en-IN')}</div>}
-            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>Total: ₹{Number(invoice.total_amount).toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>{Number(invoice.covered_amount) > 0 ? 'Payable by patient' : 'Total'}: ₹{Number(invoice.total_amount).toLocaleString('en-IN')}</div>
           </div>
 
           <div style={{ fontSize: 13, marginBottom: 40 }}>

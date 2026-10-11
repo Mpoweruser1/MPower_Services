@@ -50,6 +50,17 @@ export default function Transport() {
   const [removingStopId, setRemovingStopId] = useState(null);
   const [reorderingStopId, setReorderingStopId] = useState(null);
 
+  // Transport fee by distance from school. A student's band comes from their
+  // "distance from school (km)" on the student page. Only the principal can
+  // change the bands; the database enforces this and that bands never overlap.
+  const [bands, setBands]         = useState([]);
+  const [noDistance, setNoDistance] = useState([]);
+  const [newBand, setNewBand]     = useState({ label: '', min_km: '', max_km: '', amount: '' });
+  const [bandErr, setBandErr]     = useState('');
+  const [bandMsg, setBandMsg]     = useState('');
+  const [savingBand, setSavingBand] = useState(false);
+  const canEditBands = tenant?.role === 'principal';
+
   useEffect(() => {
     if (tenant?.appId) loadAll();
   }, [tenant?.appId]);
@@ -115,7 +126,52 @@ export default function Transport() {
 
     setRoutes(routesWithCounts);
     setMaintenance(maintenanceRes.status === 'fulfilled' ? (maintenanceRes.value.data || []) : []);
+    await loadBands();
     setLoading(false);
+  }
+
+  async function loadBands() {
+    const [bandRes, gapRes] = await Promise.all([
+      supabase.from('transport_distance_bands').select('id, label, min_km, max_km, amount, active').eq('app_id', tenant.appId).order('min_km'),
+      supabase.rpc('school_fee_setup_gaps'),
+    ]);
+    if (bandRes.error) console.error('Loading distance bands failed:', bandRes.error);
+    if (gapRes.error) console.error('Loading fee setup gaps failed:', gapRes.error);
+    setBands(bandRes.data || []);
+    setNoDistance((gapRes.data || []).filter((g) => g.kind === 'transport'));
+  }
+
+  function flashBand(setter, text) { setter(text); setTimeout(() => setter(''), 5000); }
+
+  function bandError(error, fallback) {
+    if (/overlaps/i.test(error?.message || '')) return error.message;
+    if (error?.code === '23505') return 'A band starting at this distance already exists.';
+    if (/row-level security/i.test(error?.message || '')) return 'Only the principal can change transport fees.';
+    return error?.message || fallback;
+  }
+
+  async function addBand() {
+    const min = Number(newBand.min_km);
+    const max = newBand.max_km === '' ? null : Number(newBand.max_km);
+    if (newBand.min_km === '' || isNaN(min) || min < 0) { flashBand(setBandErr, 'Enter where this band starts (km).'); return; }
+    if (max !== null && (isNaN(max) || max <= min)) { flashBand(setBandErr, 'The end of the band must be more than its start. Leave it empty for "and above".'); return; }
+    if (newBand.amount === '' || Number(newBand.amount) < 0) { flashBand(setBandErr, 'Enter the fee for this band.'); return; }
+    setSavingBand(true);
+    const label = newBand.label.trim() || (max === null ? `${min} km and above` : `${min}–${max} km`);
+    const { error } = await supabase.from('transport_distance_bands').insert({
+      app_id: tenant.appId, label, min_km: min, max_km: max, amount: Number(newBand.amount),
+    });
+    setSavingBand(false);
+    if (error) { console.error('Adding distance band failed:', error); flashBand(setBandErr, bandError(error, 'Could not add the band.')); return; }
+    setNewBand({ label: '', min_km: max === null ? '' : String(max), max_km: '', amount: '' });
+    flashBand(setBandMsg, '✅ Band added');
+    loadBands();
+  }
+
+  async function updateBand(band, patch) {
+    const { error } = await supabase.from('transport_distance_bands').update(patch).eq('id', band.id);
+    if (error) { console.error('Updating distance band failed:', error); flashBand(setBandErr, bandError(error, 'Could not update the band.')); return; }
+    loadBands();
   }
 
   async function markStatus(routeId, status) {
@@ -381,6 +437,7 @@ export default function Transport() {
           {[
             { k: 'routes',      l: `Routes (${routes.length})` },
             { k: 'maintenance', l: `Maintenance (${maintenance.length})` },
+            { k: 'fees',        l: 'Distance fees' },
           ].map((t) => (
             <button key={t.k} onClick={() => setTab(t.k)}
               style={{ padding: '8px 16px', fontSize: 13, borderRadius: 20, cursor: 'pointer', border: tab === t.k ? 'none' : '1px solid rgba(255,255,255,0.1)', background: tab === t.k ? '#E8A020' : 'transparent', color: tab === t.k ? '#111113' : 'rgba(255,255,255,0.5)', fontFamily: 'inherit', fontWeight: tab === t.k ? 600 : 400 }}>
@@ -565,6 +622,60 @@ export default function Transport() {
                   );
                 })
               )
+            )}
+            {/* Distance fees */}
+            {tab === 'fees' && (
+              <>
+                {bandErr && <div role="alert" style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E05A5A' }}>⚠ {bandErr}</div>}
+                {bandMsg && <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#6AAA90' }}>{bandMsg}</div>}
+
+                {noDistance.length > 0 && (
+                  <div style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: '#E8A020' }}>
+                    {noDistance.length} student{noDistance.length === 1 ? '' : 's'} on transport {noDistance.length === 1 ? 'has' : 'have'} no fee band yet:
+                    {noDistance.slice(0, 8).map((g) => <span key={g.student_id} style={{ display: 'block', color: 'rgba(255,255,255,0.7)' }}>{g.name} ({g.sid}) — {g.reason}</span>)}
+                    <span style={{ display: 'block', marginTop: 6, color: 'rgba(255,255,255,0.45)' }}>Enter each student's distance on their student page.</span>
+                  </div>
+                )}
+
+                <div style={S.card}>
+                  <p style={{ margin: '0 0 4px', fontSize: 12, color: '#E8A020', fontWeight: 600 }}>Transport fee by distance from school</p>
+                  <p style={{ margin: '0 0 12px', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                    A band covers from its start up to, but not including, its end — so 0–5 km and 5–10 km never overlap. Used by a transport fee set to "By distance from school" on the Fee Structure screen.{!canEditBands && ' Only the principal can change these.'}
+                  </p>
+                  {bands.length === 0 && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '0 0 10px' }}>No bands yet.</p>}
+                  {bands.map((b) => (
+                    <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: b.active ? 1 : 0.5 }}>
+                      <span>{b.label}{!b.active && ' (off)'}<br /><span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{b.min_km} km {b.max_km === null ? 'and above' : `to under ${b.max_km} km`}</span></span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ color: '#E8A020', fontWeight: 600 }}>₹{Number(b.amount).toLocaleString('en-IN')}</span>
+                        {canEditBands && (
+                          <>
+                            <button onClick={() => { const v = window.prompt(`New fee for ${b.label}:`, b.amount); if (v !== null && v.trim() !== '' && !isNaN(Number(v)) && Number(v) >= 0) updateBand(b, { amount: Number(v) }); }}
+                              style={{ padding: '2px 8px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, background: 'transparent', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }}>Edit</button>
+                            <button onClick={() => updateBand(b, { active: !b.active })}
+                              style={{ padding: '2px 8px', border: `1px solid ${b.active ? 'rgba(224,90,90,0.3)' : 'rgba(106,170,144,0.3)'}`, borderRadius: 6, background: 'transparent', color: b.active ? '#E05A5A' : '#6AAA90', cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }}>{b.active ? 'Off' : 'On'}</button>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+
+                  {canEditBands && (
+                    <div style={{ marginTop: 14 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                        <input aria-label="Band from km" inputMode="decimal" value={newBand.min_km} onChange={(e) => setNewBand((b) => ({ ...b, min_km: e.target.value.replace(/[^\d.]/g, '') }))} placeholder="From km" style={S.input(false)} />
+                        <input aria-label="Band to km" inputMode="decimal" value={newBand.max_km} onChange={(e) => setNewBand((b) => ({ ...b, max_km: e.target.value.replace(/[^\d.]/g, '') }))} placeholder="To km (empty = no limit)" style={S.input(false)} />
+                        <input aria-label="Band fee" inputMode="numeric" value={newBand.amount} onChange={(e) => setNewBand((b) => ({ ...b, amount: e.target.value.replace(/\D/g, '') }))} placeholder="Fee ₹" style={S.input(false)} />
+                      </div>
+                      <input aria-label="Band label" value={newBand.label} onChange={(e) => setNewBand((b) => ({ ...b, label: e.target.value }))} placeholder="Name (optional), e.g. Zone 1" style={{ ...S.input(false), marginBottom: 10 }} />
+                      <button onClick={addBand} disabled={savingBand}
+                        style={{ width: '100%', padding: 11, background: savingBand ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: savingBand ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                        {savingBand ? 'Saving...' : '+ Add band'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </>
         )}

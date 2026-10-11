@@ -301,7 +301,7 @@ export default function Pricing() {
                       ))}
                     </ul>
                     <a
-                      href="mailto:support@mpowerind.in"
+                      href="mailto:adminzoho@mpowerind.in"
                       style={{ display: 'block', textAlign: 'center', padding: '10px 16px', borderRadius: 8, background: '#1a1a2e', color: '#e8a020', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
                     >
                       Contact Sales →
@@ -379,7 +379,7 @@ export default function Pricing() {
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b' }}>Larger hospitals — 25 beds and above</div>
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Priced by the number of beds, with setup and staff training. Tell us your size and we will send a quote.</div>
               </div>
-              <a href="mailto:support@mpowerind.in?subject=Hospital%20quote%20request" style={{ padding: '10px 18px', borderRadius: 8, background: '#1a1a2e', color: '#e8a020', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>Ask for a quote →</a>
+              <a href="mailto:adminzoho@mpowerind.in?subject=Hospital%20quote%20request" style={{ padding: '10px 18px', borderRadius: 8, background: '#1a1a2e', color: '#e8a020', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>Ask for a quote →</a>
             </div>
             <div style={{ marginTop: 10, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 18px' }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b' }}>Moving your old patient data</div>
@@ -431,7 +431,7 @@ export default function Pricing() {
               Start Free Trial →
             </Link>
             <a
-              href="mailto:support@mpowerind.in"
+              href="mailto:adminzoho@mpowerind.in"
               style={{ padding: '12px 28px', borderRadius: 10, background: 'transparent', color: '#fff', border: '1.5px solid rgba(255,255,255,0.3)', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}
             >
               Contact Sales

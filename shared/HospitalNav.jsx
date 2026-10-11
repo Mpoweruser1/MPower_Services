@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { path: '/hospital/dashboard',    icon: '📊', label: 'Home' },
   { path: '/hospital/patients/new', icon: '👤', label: 'Register' },
   { path: '/hospital/opd',          icon: '🩺', label: 'OPD' },
+  { path: '/hospital/lab',          icon: '🧪', label: 'Lab reports' },
   { path: '/hospital/billing',      icon: '💳', label: 'Billing' },
   { path: '/hospital/ipd',          icon: '🛏️', label: 'IPD' },
 ];
@@ -18,7 +19,12 @@ const MORE_ITEMS = [
   { path: '/hospital/patients/find', icon: '🔍', label: 'Find patient' },
   { path: '/hospital/wards',         icon: '🛏️', label: 'Manage wards' },
   { path: '/hospital/doctors',       icon: '🩺', label: 'Manage doctors' },
+  { path: '/hospital/staff',         icon: '👥', label: 'Manage staff' },
+  { path: '/hospital/business-details', icon: '🏥', label: 'Business details' },
+  { path: '/hospital/billing-analytics', icon: '📊', label: 'Billing analytics' },
+  { path: '/hospital/appointment-analytics', icon: '📈', label: 'Appointment analytics' },
   { path: '/hospital/lab-tests',     icon: '🔬', label: 'Manage lab tests' },
+  { path: '/hospital/price-list',    icon: '🏷️', label: 'Price list' },
   { path: '/hospital/appointments',  icon: '📅', label: 'OPD Appointments' },
   { path: '/hospital/reports',       icon: '📊', label: 'Reports' },
 ];

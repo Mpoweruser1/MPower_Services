@@ -30,6 +30,11 @@ const S = {
   input: { padding: '7px 10px', background: '#111113', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, fontSize: 13.5, color: '#fff', outline: 'none', fontFamily: 'inherit', width: 150 },
 };
 
+const FEE_CATEGORY_LABELS = {
+  tuition: 'Tuition', admission: 'Admission', hostel: 'Hostel', transport: 'Transport', computer: 'Computer',
+  exam: 'Exam', books_uniform: 'Books & uniform', activities: 'Activities', other: 'Other',
+};
+
 function StudentSearch({ appId, onSelect }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -93,6 +98,16 @@ export default function StudentDetail({ studentId }) {
   const [selectedStopId, setSelectedStopId] = useState('');
   const [savingTransport, setSavingTransport] = useState(false);
 
+  // Fee concessions — read by every school staff member, written by the
+  // principal only (the database enforces the same rule).
+  const [concessions, setConcessions] = useState(null); // null = loading
+  const [showConcForm, setShowConcForm] = useState(false);
+  const [conc, setConc] = useState({ category: '', kind: 'percent', value: '', reason: '' });
+  const [concErr, setConcErr] = useState('');
+  const [savingConc, setSavingConc] = useState(false);
+  const [hostelRoom, setHostelRoom] = useState(null); // { room_no, room_type, sharing, bed } | null
+  const canEditConcessions = tenant?.role === 'principal';
+
   React.useEffect(() => {
     if (!id) return;
     loadStudent();
@@ -108,12 +123,69 @@ export default function StudentDetail({ studentId }) {
       // wrongly exclude any family outside a registered constituency
       // anyway. village_name/mandal_name/district_name/state are the
       // real, plain-text columns StudentAdmission.jsx now saves to.
-      .select('id, full_name, sid, dob, gender, section, father_name, mother_name, parent_phone, blood_group, admission_no, caste_category, apaar_id, village_name, mandal_name, district_name, state, class_id, classes(class_name)')
+      .select('id, full_name, sid, dob, gender, section, father_name, mother_name, parent_phone, blood_group, admission_no, caste_category, apaar_id, village_name, mandal_name, district_name, state, class_id, distance_from_school_km, student_type, classes(class_name)')
       .eq('id', id)
       .single();
     setStudent(data || null);
     setLoading(false);
-    if (data) loadTransportAssignment(data.id);
+    if (data) { loadTransportAssignment(data.id); loadConcessions(data.id); loadHostelRoom(data.id); }
+  }
+
+  async function loadConcessions(studentId) {
+    const { data, error } = await supabase
+      .from('fee_concessions')
+      .select('id, category, kind, value, reason')
+      .eq('student_id', studentId)
+      .eq('active', true);
+    if (error) { console.error('Loading concessions failed:', error); setConcessions([]); return; }
+    setConcessions(data || []);
+  }
+
+  async function loadHostelRoom(studentId) {
+    setHostelRoom(null);
+    const { data: al, error } = await supabase
+      .from('hostel_allocations').select('room_id, bed_label').eq('student_id', studentId).maybeSingle();
+    if (error || !al) return;
+    const { data: room } = await supabase
+      .from('hostel_rooms').select('room_no, room_type, total_beds').eq('id', al.room_id).maybeSingle();
+    if (room) setHostelRoom({ room_no: room.room_no, room_type: room.room_type, sharing: room.total_beds, bed: al.bed_label });
+  }
+
+  async function addConcession() {
+    const value = Number(conc.value);
+    if (conc.value === '' || isNaN(value) || value <= 0) { setConcErr('Enter the concession amount or percentage.'); return; }
+    if (conc.kind === 'percent' && value > 100) { setConcErr('A percentage cannot be more than 100.'); return; }
+    if (!conc.reason.trim()) { setConcErr('Give a reason (for example: sibling, staff child, scholarship).'); return; }
+    setConcErr('');
+    setSavingConc(true);
+    const { error } = await supabase.from('fee_concessions').insert({
+      app_id: tenant.appId, student_id: id, category: conc.category || null,
+      kind: conc.kind, value, reason: conc.reason.trim(),
+    });
+    setSavingConc(false);
+    if (error) {
+      console.error('Adding concession failed:', error);
+      if (error.code === '23505') setConcErr('This student already has an active concession for this fee. Turn it off first.');
+      else if (/row-level security/i.test(error.message || '')) setConcErr('Only the principal can give a concession.');
+      else setConcErr(error.message || 'Could not save the concession.');
+      return;
+    }
+    logActivity(tenant, 'fee_concession_added', 'info', { studentId: id, category: conc.category || 'all', kind: conc.kind, value });
+    setConc({ category: '', kind: 'percent', value: '', reason: '' });
+    setShowConcForm(false);
+    loadConcessions(id);
+  }
+
+  async function turnOffConcession(c) {
+    if (!window.confirm('Turn off this concession? Fees already created keep their amount until you use "Update dues" on the fee.')) return;
+    const { error } = await supabase.from('fee_concessions').update({ active: false }).eq('id', c.id);
+    if (error) {
+      console.error('Turning off concession failed:', error);
+      alert(`Could not turn off: ${error.message || 'please try again.'}`);
+      return;
+    }
+    logActivity(tenant, 'fee_concession_removed', 'info', { studentId: id, concessionId: c.id });
+    loadConcessions(id);
   }
 
   async function loadTransportAssignment(studentId) {
@@ -187,15 +259,23 @@ export default function StudentDetail({ studentId }) {
 
   function startEdit(field) {
     setEditingField(field);
-    setFieldDraft(student[field] || '');
+    setFieldDraft(student[field] ?? '');
   }
 
   async function saveDirectEdit() {
     if (!editingField) return;
+    // Distance is a number; an empty box means "not known" and must be
+    // saved as null, never as an empty string (which the numeric column rejects).
+    let newValue = String(fieldDraft).trim();
+    if (editingField === 'distance_from_school_km') {
+      if (newValue === '') newValue = null;
+      else if (isNaN(Number(newValue)) || Number(newValue) < 0) { alert('Enter the distance in km, for example 3.5'); return; }
+      else newValue = Number(newValue);
+    }
     setSaving(true);
     const { error } = await supabase
       .from('students')
-      .update({ [editingField]: fieldDraft.trim() })
+      .update({ [editingField]: newValue })
       .eq('id', id);
 
     // Previously `if (!error)` with no else — a failed save closed the
@@ -207,7 +287,7 @@ export default function StudentDetail({ studentId }) {
       setSaving(false);
       return;
     }
-    setStudent((s) => ({ ...s, [editingField]: fieldDraft.trim() }));
+    setStudent((s) => ({ ...s, [editingField]: newValue }));
     logActivity(tenant, 'student_field_direct_edit', 'info', {
       studentId: id, field: editingField,
     });
@@ -335,6 +415,22 @@ export default function StudentDetail({ studentId }) {
           })}
 
           <div style={S.row}>
+            <span style={S.label}>Distance from school (km)</span>
+            {editingField === 'distance_from_school_km' ? (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input id="student-edit-distance" name="student-edit-distance" aria-label="Distance from school (km)" inputMode="decimal" value={fieldDraft} onChange={(e) => setFieldDraft(e.target.value.replace(/[^\d.]/g, ''))} style={{ ...S.input, width: 90 }} autoFocus />
+                <button onClick={saveDirectEdit} disabled={saving} style={{ padding: '0 12px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  {saving ? '...' : 'Save'}
+                </button>
+              </div>
+            ) : (
+              <span style={S.value} onClick={() => startEdit('distance_from_school_km')} title="Click to edit">
+                {student.distance_from_school_km != null ? `${student.distance_from_school_km} km` : '—'} <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>✎</span>
+              </span>
+            )}
+          </div>
+
+          <div style={S.row}>
             <span style={S.label}>Parent phone</span>
             {editingField === 'parent_phone' ? (
               <div style={{ display: 'flex', gap: 6 }}>
@@ -438,6 +534,83 @@ export default function StudentDetail({ studentId }) {
                 </button>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* Hostel room — read only; rooms are managed on the Hostel screen */}
+        {(student.student_type === 'hostel' || hostelRoom) && (
+          <div style={S.card}>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 10px' }}>Hostel</p>
+            {hostelRoom ? (
+              <p style={{ margin: 0, fontSize: 13.5, color: '#fff' }}>
+                Room {hostelRoom.room_no} · {hostelRoom.room_type || 'type not set'} · {hostelRoom.sharing}-sharing{hostelRoom.bed ? ` · bed ${hostelRoom.bed}` : ''}
+              </p>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: '#E8A020' }}>Hostel student with no room yet. Allocate one on the Hostel screen (Rooms &amp; rates).</p>
+            )}
+          </div>
+        )}
+
+        {/* Fee concession */}
+        <div style={S.card}>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 10px' }}>Fee concession</p>
+          {concessions === null ? (
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Loading...</p>
+          ) : (
+            <>
+              {concessions.length === 0 && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '0 0 10px' }}>No concession.</p>}
+              {concessions.map((c) => (
+                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 13.5, color: '#fff', fontWeight: 500 }}>
+                      {c.kind === 'percent' ? `${Number(c.value)}% off` : `₹${Number(c.value).toLocaleString('en-IN')} off`} · {c.category ? (FEE_CATEGORY_LABELS[c.category] || c.category) : 'All fees'}
+                    </p>
+                    <p style={{ margin: '2px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{c.reason}</p>
+                  </div>
+                  {canEditConcessions && (
+                    <button onClick={() => turnOffConcession(c)}
+                      style={{ padding: '6px 10px', border: '1px solid rgba(224,90,90,0.3)', borderRadius: 6, background: 'rgba(224,90,90,0.06)', color: '#E05A5A', cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }}>
+                      Turn off
+                    </button>
+                  )}
+                </div>
+              ))}
+              {concessions.length > 0 && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '8px 0 0' }}>A concession for one kind of fee is used instead of the "All fees" one; they are never added together.</p>}
+              {!canEditConcessions && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '8px 0 0' }}>Only the principal can give or remove a concession.</p>}
+
+              {canEditConcessions && !showConcForm && (
+                <button onClick={() => { setShowConcForm(true); setConcErr(''); }}
+                  style={{ width: '100%', marginTop: 10, padding: '8px 0', border: '1px solid rgba(232,160,32,0.3)', borderRadius: 6, background: 'rgba(232,160,32,0.08)', color: '#E8A020', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
+                  + Add concession
+                </button>
+              )}
+              {canEditConcessions && showConcForm && (
+                <div style={{ marginTop: 12 }}>
+                  {concErr && <div role="alert" style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12.5, color: '#E05A5A' }}>⚠ {concErr}</div>}
+                  <select aria-label="Concession applies to" value={conc.category} onChange={(e) => setConc((c) => ({ ...c, category: e.target.value }))} style={{ ...S.input, width: '100%', marginBottom: 8 }}>
+                    <option value="">All fees</option>
+                    {Object.entries(FEE_CATEGORY_LABELS).map(([k, l]) => <option key={k} value={k}>{l} fee only</option>)}
+                  </select>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <select aria-label="Concession type" value={conc.kind} onChange={(e) => setConc((c) => ({ ...c, kind: e.target.value }))} style={{ ...S.input, width: '50%' }}>
+                      <option value="percent">Percentage (%)</option>
+                      <option value="amount">Fixed amount (₹)</option>
+                    </select>
+                    <input aria-label="Concession value" inputMode="decimal" value={conc.value} onChange={(e) => setConc((c) => ({ ...c, value: e.target.value.replace(/[^\d.]/g, '') }))} placeholder={conc.kind === 'percent' ? 'e.g. 25' : 'e.g. 5000'} style={{ ...S.input, width: '50%' }} />
+                  </div>
+                  <input aria-label="Concession reason" value={conc.reason} onChange={(e) => setConc((c) => ({ ...c, reason: e.target.value }))} placeholder="Reason (sibling, staff child, scholarship...)" style={{ ...S.input, width: '100%', marginBottom: 10 }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => { setShowConcForm(false); setConcErr(''); }}
+                      style={{ flex: 1, padding: '8px 0', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, background: 'transparent', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Cancel</button>
+                    <button onClick={addConcession} disabled={savingConc}
+                      style={{ flex: 2, padding: '8px 0', border: 'none', borderRadius: 6, background: savingConc ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', cursor: savingConc ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
+                      {savingConc ? 'Saving...' : 'Save concession'}
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '8px 0 0' }}>Applies when fees are created or updated. Fees already created change only when you use "Update dues" on that fee. Paid fees are never changed.</p>
+                </div>
+              )}
+            </>
           )}
         </div>
 

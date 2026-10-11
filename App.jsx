@@ -71,6 +71,7 @@ import ManageHospitalStaff from './hospital/ManageHospitalStaff';
 import BillingAnalytics from './hospital/BillingAnalytics';
 import AppointmentAnalytics from './hospital/AppointmentAnalytics';
 import ManageLabTests from './hospital/ManageLabTests';
+import PriceList from './hospital/PriceList';
 import OpdAppointments from './hospital/OpdAppointments';
 import { HospitalReports } from './hospital/HospitalReports';
 
@@ -96,6 +97,7 @@ import HelpSystemAdmin from './controlpanel/HelpSystemAdmin';
 import ManageAccess from './controlpanel/ManageAccess';
 import SecurityMonitor from './controlpanel/SecurityMonitor';
 import WelfareSchemesAdmin from './controlpanel/WelfareSchemesAdmin';
+import ReportsHub from './controlpanel/ReportsHub';
 
 // Shared
 import BugReporter from './shared/BugReporter';
@@ -145,11 +147,13 @@ const SCREEN_NAMES = {
   '/hospital/opd': 'OPD visit', '/hospital/lab': 'Lab reports',
   '/hospital/billing': 'Billing', '/hospital/ipd': 'IPD management',
   '/hospital/business-details': 'Business details',
+  '/hospital/price-list': 'Price list',
   '/control/clients': 'Clients', '/control/tickets': 'Support tickets',
   '/control/billing': 'Billing tracker', '/control/onboarding': 'Onboarding',
   '/control/modifications': 'Modifications', '/control/help-admin': 'Help admin',
   '/control/access': 'Manage access', '/control/security': 'Security monitor',
   '/control/welfare': 'Welfare schemes',
+  '/control/reports': 'Reports',
   '/corrections': 'Correction queue',
 };
 // ─────────────────────────────────────────────────────────────
@@ -399,6 +403,8 @@ function AppRoutes() {
         element={<RequireAuth><AppointmentAnalytics /></RequireAuth>} />
       <Route path="/hospital/lab-tests"
         element={<RequireAuth><ManageLabTests /></RequireAuth>} />
+      <Route path="/hospital/price-list"
+        element={<RequireAuth><PriceList /></RequireAuth>} />
       <Route path="/hospital/appointments"
         element={<RequireAuth><VisitProvider><OpdAppointments /></VisitProvider></RequireAuth>} />
       <Route path="/hospital/reports"
@@ -442,6 +448,10 @@ function AppRoutes() {
 
       <Route path="/control/welfare"
         element={<RequireAuth><RequireRole roles={['developer','support']}><WelfareSchemesAdmin /></RequireRole></RequireAuth>} />
+
+      {/* Finance reports — developer only (also enforced inside the database functions) */}
+      <Route path="/control/reports"
+        element={<RequireAuth><RequireRole roles={['developer']}><ReportsHub /></RequireRole></RequireAuth>} />
 
       {/* ── Fallback ── */}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,5 +1,6 @@
 // hospital/ManageWards.jsx — NEW
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import { sanitize } from '../shared/useFormValidation';
@@ -184,6 +185,10 @@ export default function ManageWards() {
               {wards.length} ward{wards.length !== 1 ? 's' : ''} · {totalBeds} total beds for {tenant?.orgName}
             </p>
           )}
+        </div>
+
+        <div style={{ marginBottom: 14, fontSize: 12 }}>
+          <Link to="/hospital/price-list" style={{ color: '#5A9ADF' }}>Set room rates per day for these wards →</Link>
         </div>
 
         {/* Error / success banners */}

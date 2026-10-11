@@ -1,4 +1,6 @@
-// controlpanel/CrmClientView.jsx — FINAL
+// controlpanel/CrmClientView.jsx — FINAL + Change plan
+// Change plan calls the database function change_client_plan (fix_change_client_plan.sql),
+// which does the staff check, both tier fields, the invoice and the log in one step.
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -29,6 +31,7 @@ const STATUS_CONFIG = {
 // back to the plain "Basic" default below, regardless of their real tier.
 const TIER_CONFIG = {
   basic:       { color: '#6AAA90', label: 'Basic' },
+  specialised: { color: '#9A8AE0', label: 'Specialised' },
   standard:    { color: '#5A9ADF', label: 'Standard' },
   advanced:    { color: '#9A8AE0', label: 'Advanced' },
   enterprise:  { color: '#E8A020', label: 'Enterprise' },
@@ -38,6 +41,8 @@ const TIER_CONFIG = {
   pro:         { color: '#9A8AE0', label: 'Pro' },
   unlimited:   { color: '#E8A020', label: 'Unlimited' },
 };
+
+function getMonthsLabel(m) { return Number(m) === 6 ? '6 months in advance' : Number(m) === 12 ? '12 months in advance' : 'monthly'; }
 
 const APP_TYPES = {
   school:   { icon: '🏫', label: 'School' },
@@ -58,6 +63,11 @@ export default function CrmClientView() {
   const [clientDetails, setClientDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [plans, setPlans]           = useState([]);   // pricing_plans rows, for the Change plan panel
+  const [planForm, setPlanForm]     = useState(null); // { clientId, tier, months, note, activate, createInvoice }
+  const [planPreview, setPlanPreview] = useState(null);
+  const [planBusy, setPlanBusy]     = useState(false);
+  const [planMsg, setPlanMsg]       = useState('');
 
   useEffect(() => { loadClients(); }, []);
 
@@ -71,14 +81,15 @@ export default function CrmClientView() {
     const [clientsRes, pricingRes] = await Promise.allSettled([
       supabase.from('crm_clients')
         .select('*, apps(app_type, subscription_tier, active_modules), admin_user:admin_user_id(full_name, phone)')
-        .order('created_at', { ascending: false }),
-      supabase.from('pricing_plans').select('module, tier, price'),
+        .order('registered_at', { ascending: false }),   // crm_clients has registered_at, not created_at
+      supabase.from('pricing_plans').select('module, tier, name, price, display_order'),
     ]);
     setClients(clientsRes.status === 'fulfilled' ? (clientsRes.value.data || []) : []);
     const priceRows = pricingRes.status === 'fulfilled' ? (pricingRes.value.data || []) : [];
     const map = {};
     priceRows.forEach((r) => { map[`${r.module}_${r.tier}`] = Number(r.price); });
     setPricingMap(map);
+    setPlans(priceRows);
     setLoading(false);
   }
 
@@ -101,13 +112,15 @@ export default function CrmClientView() {
     // years of history) to compute real lifetime totals — separate
     // from billingRes below, which stays limited to 5 for the
     // "recent activity" list, a different purpose.
-    const [ticketsRes, onboardRes, billingRes, allInvoicesRes] = await Promise.allSettled([
+    const [ticketsRes, onboardRes, billingRes, allInvoicesRes, historyRes] = await Promise.allSettled([
       supabase.from('support_tickets').select('id, subject, status, created_at')
         .eq('client_id', client.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('client_onboarding').select('*').eq('client_id', client.id).single(),
       supabase.from('client_invoices').select('id, amount, status, due_date')
         .eq('client_id', client.id).order('due_date', { ascending: false }).limit(5),
       supabase.from('client_invoices').select('amount, status').eq('client_id', client.id),
+      supabase.from('plan_change_log').select('id, old_tier, new_tier, new_months, invoice_total, note, changed_at')
+        .eq('client_id', client.id).order('changed_at', { ascending: false }).limit(3),
     ]);
 
     const allInvoices = allInvoicesRes.status === 'fulfilled' ? (allInvoicesRes.value.data || []) : [];
@@ -118,6 +131,7 @@ export default function CrmClientView() {
       tickets:    ticketsRes.status === 'fulfilled' ? (ticketsRes.value.data || []) : [],
       onboarding: onboardRes.status === 'fulfilled' ? onboardRes.value.data : null,
       billing:    billingRes.status === 'fulfilled' ? (billingRes.value.data || []) : [],
+      planHistory: historyRes.status === 'fulfilled' ? (historyRes.value.data || []) : [],
       lifetime: {
         totalBilled,
         totalReceived,
@@ -147,6 +161,62 @@ export default function CrmClientView() {
     }
     setClients((prev) => prev.map((c) => c.id === clientId ? { ...c, status: newStatus } : c));
     if (selected?.id === clientId) setSelected((s) => ({ ...s, status: newStatus }));
+  }
+
+  // ---- Change plan -------------------------------------------------------
+  function moduleOf(client) {
+    const t = client.app_type || client.apps?.app_type;
+    return t === 'grievance' ? 'cts' : t;
+  }
+  // Hospital sells only Clinic and Nursing Home; the old Advanced/Enterprise rows are hidden.
+  function plansFor(client) {
+    const m = moduleOf(client);
+    return plans.filter((p) => p.module === m && !(m === 'hospital' && ['advanced', 'enterprise'].includes(p.tier)))
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+  }
+  function openPlanForm(client) {
+    const cur = client.tier || client.apps?.subscription_tier;
+    const options = plansFor(client);
+    setPlanMsg(''); setPlanPreview(null);
+    const first = options.find((p) => p.tier !== cur) || options[0];
+    const form = {
+      clientId: client.id, tier: first?.tier || '', months: Number(client.billing_period_months) || 1,
+      note: '', activate: client.status !== 'active', createInvoice: true,
+    };
+    setPlanForm(form);
+    previewPlan(form);
+  }
+  async function previewPlan(form) {
+    if (!form?.tier) { setPlanPreview(null); return; }
+    const { data, error } = await supabase.rpc('change_client_plan', {
+      p_client_id: form.clientId, p_new_tier: form.tier, p_months: form.months,
+      p_activate: form.activate, p_create_invoice: form.createInvoice, p_dry_run: true,
+    });
+    setPlanPreview(error ? { error: error.message } : data);
+  }
+  function updatePlanForm(patch) {
+    const next = { ...planForm, ...patch };
+    setPlanForm(next);
+    previewPlan(next);
+  }
+  async function confirmPlanChange(client) {
+    if (!planForm || !planPreview || planPreview.error) return;
+    const label = TIER_CONFIG[planForm.tier]?.label || planForm.tier;
+    const money = planPreview.invoice_action === 'none' ? 'No invoice will be created.'
+      : `Invoice: ₹${Number(planPreview.total).toLocaleString('en-IN')} for ${planForm.months} month${planForm.months > 1 ? 's' : ''}.`;
+    if (!window.confirm(`Change ${client.org_name} to ${label}? ${money} The new plan unlocks immediately.`)) return;
+    setPlanBusy(true); setActionError(''); setPlanMsg('');
+    const { data, error } = await supabase.rpc('change_client_plan', {
+      p_client_id: planForm.clientId, p_new_tier: planForm.tier, p_months: planForm.months,
+      p_note: planForm.note, p_activate: planForm.activate, p_create_invoice: planForm.createInvoice, p_dry_run: false,
+    });
+    setPlanBusy(false);
+    if (error) { setActionError(error.message || 'The plan could not be changed.'); return; }
+    setPlanMsg(`Plan changed to ${label}.${data?.invoice_no ? ` Invoice ${data.invoice_no}, ₹${Number(data.total).toLocaleString('en-IN')}, due in 7 days.` : ''}`);
+    setPlanForm(null); setPlanPreview(null);
+    await loadClients();
+    const fresh = (await supabase.from('crm_clients').select('*, apps(app_type, subscription_tier, active_modules), admin_user:admin_user_id(full_name, phone)').eq('id', client.id).single()).data;
+    if (fresh) loadClientDetails(fresh);
   }
 
   async function sendWhatsApp(client, type) {
@@ -351,7 +421,7 @@ export default function CrmClientView() {
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
-                        {new Date(client.created_at).toLocaleDateString('en-IN')}
+                        {client.registered_at ? new Date(client.registered_at).toLocaleDateString('en-IN') : ''}
                       </p>
                       <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.2)' }}>{isExpanded ? '▲' : '▼'}</span>
                     </div>
@@ -389,11 +459,78 @@ export default function CrmClientView() {
                               📞 Call
                             </a>
                           )}
+                          {['school', 'hospital'].includes(moduleOf(client)) && (
+                            <button onClick={() => (planForm?.clientId === client.id ? setPlanForm(null) : openPlanForm(client))}
+                              style={{ padding: '7px 14px', border: '1px solid rgba(90,154,223,0.35)', color: '#5A9ADF', background: 'rgba(90,154,223,0.08)', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                              ⇄ Change plan
+                            </button>
+                          )}
                           <a href={`/control/onboarding/${client.id}`}
                             style={{ padding: '7px 14px', border: '1px solid rgba(232,160,32,0.3)', color: '#E8A020', background: 'rgba(232,160,32,0.06)', borderRadius: 7, fontSize: 12, textDecoration: 'none' }}>
                             🚀 Onboarding
                           </a>
                         </div>
+
+                        {planMsg && selected?.id === client.id && (
+                          <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.25)', borderRadius: 8, padding: '9px 12px', marginBottom: 12, fontSize: 12, color: '#6AAA90' }}>✓ {planMsg}</div>
+                        )}
+
+                        {planForm?.clientId === client.id && (
+                          <div style={{ background: '#111113', border: '1px solid rgba(90,154,223,0.25)', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+                            <p style={{ margin: '0 0 10px', fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: 1 }}>CHANGE PLAN</p>
+                            <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+                              Now: {TIER_CONFIG[tier]?.label || tier} · {getMonthsLabel(client.billing_period_months)}
+                            </p>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                              <select id={`plan-tier-${client.id}`} name="plan-tier" value={planForm.tier} onChange={(e) => updatePlanForm({ tier: e.target.value })} style={S.select}>
+                                {plansFor(client).map((p) => (
+                                  <option key={p.tier} value={p.tier}>{p.name || TIER_CONFIG[p.tier]?.label || p.tier} — ₹{Number(p.price).toLocaleString('en-IN')}/mo</option>
+                                ))}
+                              </select>
+                              <select id={`plan-months-${client.id}`} name="plan-months" value={planForm.months} onChange={(e) => updatePlanForm({ months: Number(e.target.value) })} style={S.select}>
+                                <option value={1}>Monthly</option>
+                                <option value={6}>6 months in advance</option>
+                                <option value={12}>12 months in advance</option>
+                              </select>
+                            </div>
+                            <input id={`plan-note-${client.id}`} name="plan-note" value={planForm.note} onChange={(e) => setPlanForm({ ...planForm, note: e.target.value })}
+                              placeholder="Note, e.g. requested by email 11 Oct" style={{ ...S.input, width: '100%', boxSizing: 'border-box', marginBottom: 10 }} />
+                            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6, cursor: 'pointer' }}>
+                              <input type="checkbox" checked={planForm.createInvoice} onChange={(e) => updatePlanForm({ createInvoice: e.target.checked })} /> Create invoice now
+                            </label>
+                            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 12, cursor: 'pointer' }}>
+                              <input type="checkbox" checked={planForm.activate} onChange={(e) => updatePlanForm({ activate: e.target.checked })} /> Mark client Active
+                            </label>
+
+                            {planPreview?.error && <p style={{ margin: '0 0 10px', fontSize: 12, color: '#E05A5A' }}>⚠ {planPreview.error}</p>}
+                            {planPreview && !planPreview.error && (
+                              <div style={{ background: '#161618', borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
+                                {planPreview.invoice_action !== 'none' && (
+                                  <>
+                                    List price ₹{Number(planPreview.list_price).toLocaleString('en-IN')} × {planPreview.months} month{planPreview.months > 1 ? 's' : ''}
+                                    {planPreview.discount_pct > 0 ? ` − ${planPreview.discount_pct}% advance discount` : ''} = ₹{Number(planPreview.base).toLocaleString('en-IN')}<br />
+                                    {planPreview.gst_rate > 0 && <>GST {planPreview.gst_rate}%: ₹{Number(planPreview.gst).toLocaleString('en-IN')}<br /></>}
+                                    <strong style={{ color: '#fff' }}>Client pays ₹{Number(planPreview.total).toLocaleString('en-IN')}</strong><br />
+                                  </>
+                                )}
+                                <span style={{ color: planPreview.invoice_action === 'blocked' ? '#E05A5A' : 'rgba(255,255,255,0.45)' }}>{planPreview.invoice_note}</span>
+                              </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button onClick={() => confirmPlanChange(client)}
+                                disabled={planBusy || !planPreview || !!planPreview.error || planPreview.invoice_action === 'blocked'}
+                                style={{ padding: '8px 16px', border: 'none', borderRadius: 7, background: '#5A9ADF', color: '#111113', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                                  opacity: (planBusy || !planPreview || planPreview.error || planPreview.invoice_action === 'blocked') ? 0.4 : 1 }}>
+                                {planBusy ? 'Saving…' : 'Confirm change'}
+                              </button>
+                              <button onClick={() => { setPlanForm(null); setPlanPreview(null); }}
+                                style={{ padding: '8px 14px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, background: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer' }}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Recent tickets */}
                         {clientDetails?.tickets?.length > 0 && (
@@ -446,6 +583,20 @@ export default function CrmClientView() {
                                 <p style={{ margin: 0, fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Balance</p>
                               </div>
                             </div>
+                          </div>
+                        )}
+
+                        {clientDetails?.planHistory?.length > 0 && (
+                          <div style={{ marginTop: 14 }}>
+                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1, margin: '0 0 8px' }}>PLAN CHANGES</p>
+                            {clientDetails.planHistory.map((h) => (
+                              <div key={h.id} style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                                {new Date(h.changed_at).toLocaleDateString('en-IN')} · {TIER_CONFIG[h.old_tier]?.label || h.old_tier || '—'} → {TIER_CONFIG[h.new_tier]?.label || h.new_tier}
+                                {h.new_months > 1 ? ` · ${h.new_months} months` : ''}
+                                {h.invoice_total ? ` · ₹${Number(h.invoice_total).toLocaleString('en-IN')}` : ''}
+                                {h.note ? ` · ${h.note}` : ''}
+                              </div>
+                            ))}
                           </div>
                         )}
 

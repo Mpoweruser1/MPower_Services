@@ -60,6 +60,17 @@ export default function IPDManagement() {
   const [discharging, setDischarging]           = useState(false);
   const [completedDischarge, setCompletedDischarge] = useState(null);
 
+  // Room-charge estimates per open admission (from ipd_open_estimates) and
+  // the "Move bed / ward" dialog.
+  const [estimates, setEstimates]   = useState({});
+  const [movingAdm, setMovingAdm]   = useState(null);
+  const [moveWardId, setMoveWardId] = useState('');
+  const [moveBedNo, setMoveBedNo]   = useState('');
+  const [moveDate, setMoveDate]     = useState('');
+  const [moveError, setMoveError]   = useState('');
+  const [moving, setMoving]         = useState(false);
+  const [notice, setNotice]         = useState('');
+
   useEffect(() => {
     if (tenant?.appId) loadAll();
   }, [tenant?.appId]);
@@ -91,8 +102,67 @@ export default function IPDManagement() {
       wardName:      a.wards?.ward_type || '—',
       admittedOn:    a.admission_date,
       diagnosis:     a.diagnosis || '',
+      // Full patient record, so "Generate bill" can open billing with this
+      // patient already selected.
+      patient:       a.patients || null,
     })));
+
+    // Running room-charge estimate. Non-blocking: if it fails (for example the
+    // price-list database script has not been run yet) the screen still works
+    // and simply shows no estimate.
+    const { data: estData, error: estErr } = await supabase.rpc('ipd_open_estimates');
+    if (estErr) {
+      console.error('Loading room-charge estimates failed:', estErr);
+      setEstimates({});
+    } else {
+      const map = {};
+      (estData || []).forEach((e) => { map[e.admission_id] = e; });
+      setEstimates(map);
+    }
     setLoading(false);
+  }
+
+  function openMove(a) {
+    setMovingAdm(a);
+    setMoveWardId('');
+    setMoveBedNo('');
+    setMoveError('');
+    setMoveDate(new Date().toISOString().slice(0, 10));
+  }
+
+  async function moveBed() {
+    setMoveError('');
+    if (!moveWardId) { setMoveError('Select the ward to move to.'); return; }
+    const bedErr = validateBedNo(moveBedNo, moveWardId);
+    if (bedErr) { setMoveError(bedErr); return; }
+    if (!moveDate) { setMoveError('Select the date of the move.'); return; }
+    if (moveDate < movingAdm.admittedOn) { setMoveError('The move cannot be before the admission date.'); return; }
+    if (moveDate > new Date().toISOString().slice(0, 10)) { setMoveError('The move date cannot be in the future.'); return; }
+
+    setMoving(true);
+    const { error } = await supabase.rpc('ipd_transfer', {
+      p_admission: movingAdm.id,
+      p_ward: moveWardId,
+      p_bed: moveBedNo.trim(),
+      p_date: moveDate,
+    });
+    setMoving(false);
+    if (error) {
+      console.error('Moving patient failed:', error);
+      setMoveError(error.message || 'Could not move the patient. Please try again.');
+      return;
+    }
+    setNotice(`✅ ${movingAdm.patientName} moved to bed ${moveBedNo.trim()}. Room charges follow the new ward from ${moveDate}.`);
+    setTimeout(() => setNotice(''), 6000);
+    setMovingAdm(null);
+    loadAll();
+  }
+
+  function generateBillFor(a) {
+    // Hand the patient and the admission to billing so room charges can be
+    // worked out from the admission dates there.
+    if (a.patient) setActivePatient(a.patient);
+    navigate('/hospital/billing', { state: { admissionId: a.id } });
   }
 
   // The only real safeguard against double-booking a physical bed —
@@ -251,6 +321,12 @@ export default function IPDManagement() {
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>IPD / Bed Management</h1>
         </div>
 
+        {notice && (
+          <div style={{ background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#6AAA90' }}>
+            {notice}
+          </div>
+        )}
+
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 20 }}>
           {[
@@ -338,6 +414,21 @@ export default function IPDManagement() {
                       <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: 'rgba(106,170,144,0.12)', color: '#6AAA90', border: '1px solid rgba(106,170,144,0.2)', fontWeight: 500 }}>Admitted</span>
                     </div>
 
+                    {/* Running room charges — calendar days: admission day counts,
+                        discharge day does not, minimum 1 day. */}
+                    {estimates[a.id] && (
+                      estimates[a.id].rate_missing ? (
+                        <div style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: '#E8A020' }}>
+                          ⚠ No room rate set for {a.wardName} Ward — room charges cannot be worked out. <Link to="/hospital/price-list" style={{ color: '#E8A020', fontWeight: 600 }}>Set rate →</Link>
+                        </div>
+                      ) : (
+                        <div style={{ background: '#111113', borderRadius: 8, padding: '8px 12px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                          <span>Room charges so far · {estimates[a.id].days} day{estimates[a.id].days === 1 ? '' : 's'}</span>
+                          <span style={{ color: '#E8A020', fontWeight: 600 }}>₹{Number(estimates[a.id].amount).toLocaleString('en-IN')}</span>
+                        </div>
+                      )
+                    )}
+
                     {vitalsOpenFor === a.id && (
                       <VitalsEntry patientId={a.patientId} contextType="ipd" contextId={a.id} onSaved={() => setVitalsOpenFor(null)} />
                     )}
@@ -356,11 +447,15 @@ export default function IPDManagement() {
                           means the session lives only in memory. Reported bug:
                           "generate bill kicks me out of the system." Fixed to
                           use React Router's in-app navigation instead. */}
-                      <button onClick={() => navigate('/hospital/billing')}
+                      <button onClick={() => generateBillFor(a)}
                         style={{ flex: 1, padding: '8px 0', border: 'none', background: '#6AAA90', color: '#111113', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                         Generate bill
                       </button>
                     </div>
+                    <button onClick={() => openMove(a)}
+                      style={{ width: '100%', marginTop: 8, padding: '8px 0', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', background: 'transparent', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                      🔁 Move bed / ward
+                    </button>
                   </div>
                 ))
               )
@@ -486,6 +581,66 @@ export default function IPDManagement() {
               <button onClick={discharge} disabled={discharging || dischargeSummary.trim().length < 10}
                 style={{ flex: 2, padding: 11, background: discharging || dischargeSummary.trim().length < 10 ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: discharging || dischargeSummary.trim().length < 10 ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
                 {discharging ? 'Discharging...' : 'Complete discharge →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move bed / ward modal */}
+      {movingAdm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
+          <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 480, fontFamily: 'Inter, sans-serif' }}>
+            <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600, color: '#fff' }}>Move — {movingAdm.patientName}</p>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Now in bed {movingAdm.bedNo} · {movingAdm.wardName} Ward. Room charges follow the new ward from the move date.</p>
+
+            {moveError && (
+              <div role="alert" style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 13, color: '#E05A5A' }}>⚠️ {moveError}</div>
+            )}
+
+            <div style={{ marginBottom: 12 }}>
+              <label htmlFor="ipd-move-ward" style={S.label}>Move to ward</label>
+              <select id="ipd-move-ward" name="ipd-move-ward" value={moveWardId}
+                onChange={(e) => { setMoveWardId(e.target.value); setMoveBedNo(''); setMoveError(''); }}
+                style={{ ...S.input(false), cursor: 'pointer' }}>
+                <option value="">-- Select ward --</option>
+                {wards.filter((w) => w.available > 0).map((w) => (
+                  <option key={w.id} value={w.id}>{w.ward_type} Ward — {w.available} beds available</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label htmlFor="ipd-move-bed" style={S.label}>Bed number</label>
+              <input id="ipd-move-bed" name="ipd-move-bed" value={moveBedNo}
+                onChange={(e) => { setMoveBedNo(e.target.value); setMoveError(''); }}
+                placeholder="e.g. G-004" style={S.input(false)} />
+              {moveWardId && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                  {(wards.find((w) => w.id === moveWardId)?.beds || []).filter((b) => !b.occupied).slice(0, 8).map((b) => (
+                    <button key={b.bedNo} onClick={() => { setMoveBedNo(b.bedNo); setMoveError(''); }}
+                      style={{ padding: '4px 10px', border: '1px solid rgba(106,170,144,0.3)', borderRadius: 6, background: 'rgba(106,170,144,0.08)', color: '#6AAA90', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                      {b.bedNo}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ marginBottom: 6 }}>
+              <label htmlFor="ipd-move-date" style={S.label}>Date of move</label>
+              <input id="ipd-move-date" name="ipd-move-date" type="date" value={moveDate}
+                min={movingAdm.admittedOn} max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => { setMoveDate(e.target.value); setMoveError(''); }}
+                style={{ ...S.input(false), width: 'auto' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <button onClick={() => setMovingAdm(null)}
+                style={{ flex: 1, padding: 11, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'inherit' }}>
+                Cancel
+              </button>
+              <button onClick={moveBed} disabled={moving}
+                style={{ flex: 2, padding: 11, background: moving ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: moving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                {moving ? 'Moving...' : 'Move patient →'}
               </button>
             </div>
           </div>

@@ -404,6 +404,11 @@ export default function FeeCollection() {
                             {due.due_date ? ` · Due date: ${due.due_date}` : ''}
                             {isPaid ? ' — ✓ Cleared' : ''}
                           </p>
+                          {Number(due.concession_amount) > 0 && (
+                            <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6AAA90' }}>
+                              After {currency(due.concession_amount)} concession{due.concession_reason ? ` (${due.concession_reason})` : ''} — fee was {currency(due.list_amount)}
+                            </p>
+                          )}
                           {/* Partial amount entry */}
                           {selected && !isPaid && (
                             <div style={{ marginTop: 8 }}>
