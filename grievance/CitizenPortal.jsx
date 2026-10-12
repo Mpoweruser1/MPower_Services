@@ -20,7 +20,8 @@ import {
   createMandal, createVillage,
   fetchCategories, fetchCategoryTranslations, fetchSubissueTranslations, fetchCategoryDocuments,
   submitComplaint, checkDailyComplaintLimit, fetchMyComplaints, fetchComplaintHistory, uploadEvidence,
-  fetchConstituencyRep,
+  fetchConstituencyRep, slaInfo,
+  rateComplaint, reopenComplaint, fetchComplaintFeedback, reopenEligibility,
 } from './grievanceApi';
 
 // Plain emoji, not an icon library — works everywhere with zero new
@@ -79,6 +80,21 @@ export function StageBadge({ stage }) {
   );
 }
 
+// What the citizen sees about timing. Deliberately calm: how long ago it was
+// filed and how long a reply normally takes -- never a red "overdue" alarm,
+// and nothing that would reveal an internal escalation.
+export function citizenTimeline(complaint) {
+  const sla = slaInfo(complaint);
+  if (!sla || sla.closed) return null;
+  // A reopened complaint counts from the day it was reopened.
+  const verb = sla.reopened ? 'Reopened' : 'Filed';
+  const filed = sla.ageDays === 0 ? `${verb} today` : sla.ageDays === 1 ? `${verb} 1 day ago` : `${verb} ${sla.ageDays} days ago`;
+  const text = sla.status === 'overdue'
+    ? `${filed} · this is taking longer than the usual ${sla.allowedDays} days`
+    : `${filed} · usually answered within ${sla.allowedDays} days`;
+  return { text, late: sla.status === 'overdue' };
+}
+
 export default function CitizenPortal({ stateSlug }) {
   const [appId, setAppId] = useState(undefined); // undefined = still resolving, null = not found
   const [appSettings, setAppSettings] = useState(null);
@@ -112,7 +128,7 @@ export default function CitizenPortal({ stateSlug }) {
         onSignOut={auth.isAuthenticated && !auth.needsProfile ? auth.signOut : null}
       />
       {!auth.isAuthenticated ? (
-        <PhoneLogin auth={auth} />
+        <PhoneLogin auth={auth} stateSlug={stateSlug} />
       ) : auth.needsProfile ? (
         <ProfileRegistration appId={appId} appSettings={appSettings} auth={auth} t={t} />
       ) : (
@@ -180,7 +196,7 @@ function CenteredNote({ children, showHomeLink }) {
  * Step 1: phone OTP login
  * ------------------------------------------------------------------- */
 
-function PhoneLogin({ auth }) {
+function PhoneLogin({ auth, stateSlug }) {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -285,6 +301,12 @@ function PhoneLogin({ auth }) {
         </form>
       )}
       {auth.error && <p style={{ color: '#9B3C2E', fontSize: 12.5, marginTop: 10 }}>{auth.error}</p>}
+      {stateSlug && (
+        <p style={{ fontSize: 12.5, color: '#64748b', marginTop: 18, textAlign: 'center' }}>
+          Just want to check a complaint you already filed?{' '}
+          <Link to={`/grievance/${stateSlug}/track`} style={{ color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>Track it without signing in →</Link>
+        </p>
+      )}
     </div>
   );
 }
@@ -450,9 +472,12 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
           <input id="citizen-membership-id" name="citizen-membership-id" value={membershipId} onChange={(e) => setMembershipId(e.target.value)} style={inputStyle} />
         </Field>
         <GeographyFields geo={geo} appSettings={appSettings} suggestedBy={auth?.citizen?.id} />
-        <button type="submit" disabled={!geo.ready} style={buttonStyle}>
+        <button type="submit" disabled={!geo.ready} style={{ ...buttonStyle, opacity: geo.ready ? 1 : 0.55 }}>
           Continue
         </button>
+        {!geo.ready && (
+          <p style={{ fontSize: 12, color: '#64748b', margin: '-6px 0 0' }}>Please choose your constituency, mandal and village to continue.</p>
+        )}
       </form>
     </div>
   );
@@ -467,6 +492,8 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
   const [complaints, setComplaints] = useState([]);
   const [activeComplaint, setActiveComplaint] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  // One-line confirmation shown above the list (for example after a reopen).
+  const [notice, setNotice] = useState('');
   // Same representative info shown during registration review, now
   // persistent here — a citizen's own MLA, once known.
   const [rep, setRep] = useState(null);
@@ -536,6 +563,13 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
         </button>
       )}
 
+      {notice && (
+        <div role="status" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: '#F0F7F2', border: '1px solid #3E5C4540', borderRadius: 8, padding: '10px 14px', marginTop: 16, fontSize: 13, color: '#2F4A36' }}>
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} aria-label="Dismiss" style={{ border: 'none', background: 'none', color: '#2F4A36', cursor: 'pointer', fontSize: 14 }}>✕</button>
+        </div>
+      )}
+
       <h3 style={{ fontSize: 15, fontWeight: 600, margin: '20px 0 10px' }}>
         {t('your_complaints', 'Your complaints')} ({complaints.length})
       </h3>
@@ -550,7 +584,13 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{c.case_no}</div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{c.title}</div>
-              <div style={{ marginTop: 6 }}><StageBadge stage={c.stage} /></div>
+              <div style={{ marginTop: 6, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <StageBadge stage={c.stage} />
+                {Number(c.reopen_count) > 0 && <span style={{ fontSize: 11.5, color: '#64748b' }}>🔁 Reopened</span>}
+              </div>
+              {citizenTimeline(c) && (
+                <div style={{ fontSize: 11.5, marginTop: 5, color: citizenTimeline(c).late ? '#A8762C' : '#64748b' }}>{citizenTimeline(c).text}</div>
+              )}
             </div>
           </button>
         ))}
@@ -561,7 +601,12 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
           styled consistently with every other screen in this flow. */}
 
       {activeComplaint && (
-        <ComplaintDetail complaint={activeComplaint} citizenId={citizen.id} onClose={() => setActiveComplaint(null)} />
+        <ComplaintDetail
+          complaint={activeComplaint}
+          citizenId={citizen.id}
+          onClose={() => setActiveComplaint(null)}
+          onReopened={(message) => { setNotice(message); setActiveComplaint(null); loadComplaints(); }}
+        />
       )}
 
       {showFeedback && (
@@ -932,7 +977,150 @@ function MicButton({ onClick }) {
   );
 }
 
-function ComplaintDetail({ complaint, citizenId, onClose }) {
+/* ---------------------------------------------------------------------
+ * "Was it really solved?" -- shown on a Resolved complaint (12-10-2026)
+ * Yes  -> a 1-5 rating and an optional comment.
+ * No   -> a short reason; the complaint goes back to the office and the
+ *         response clock starts again. Allowed within 30 days of the
+ *         resolution, at most twice -- the database enforces this.
+ * ------------------------------------------------------------------- */
+function Stars({ value }) {
+  return (
+    <span aria-label={`${value} out of 5`} style={{ color: '#A8762C', letterSpacing: 1, fontSize: 15 }}>
+      {'★'.repeat(value)}{'☆'.repeat(5 - value)}
+    </span>
+  );
+}
+
+function ResolutionFeedback({ complaint, onReopened }) {
+  const [rows, setRows] = useState(null); // null = still loading
+  const [mode, setMode] = useState(null); // null | 'yes' | 'no'
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const cycle = Number(complaint.reopen_count) || 0;
+  const elig = reopenEligibility(complaint);
+
+  const load = useCallback(() => {
+    fetchComplaintFeedback(complaint.id).then(setRows).catch(() => setRows([]));
+  }, [complaint.id]);
+  useEffect(() => { load(); }, [load]);
+
+  if (rows === null) return null;
+  const given = rows.find((r) => r.cycle === cycle);
+
+  async function sendRating() {
+    if (rating < 1) { setError('Please tap the stars to choose a rating from 1 to 5.'); return; }
+    setBusy(true);
+    setError('');
+    try {
+      await rateComplaint({ complaintId: complaint.id, rating, comment: comment.trim() });
+      setMode(null);
+      setComment('');
+      load();
+    } catch (e) {
+      setError(e.message || 'Could not save your rating. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendReopen() {
+    if (reason.trim().length < 5) { setError('Please tell us briefly what is still not solved.'); return; }
+    setBusy(true);
+    setError('');
+    try {
+      await reopenComplaint({ complaintId: complaint.id, reason: reason.trim() });
+      onReopened?.('Your complaint has been reopened and is back with the office for another look.');
+    } catch (e) {
+      setError(e.message || 'Could not reopen the complaint. Please try again.');
+      setBusy(false);
+    }
+  }
+
+  const box = { background: '#F8FAFC', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, margin: '0 0 12px' };
+  const ghost = { background: 'none', border: '1px solid #e2e8f0', borderRadius: 7, padding: '9px 14px', fontSize: 13, fontWeight: 600, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit' };
+
+  const ineligibleText = elig.reason === 'max'
+    ? 'This complaint has already been reopened twice. If the problem is still there, please file a new complaint.'
+    : elig.reason === 'expired'
+      ? "This complaint was resolved more than 30 days ago, so it can't be reopened. If the problem is still there, please file a new complaint."
+      : '';
+
+  const reopenForm = (
+    <div style={{ display: 'grid', gap: 8 }}>
+      {elig.ok ? (
+        <>
+          <label htmlFor="citizen-reopen-reason" style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>What is still not solved?</label>
+          <textarea id="citizen-reopen-reason" name="citizen-reopen-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={3}
+            placeholder="Please describe briefly" style={{ ...inputStyle }} />
+          <p style={{ fontSize: 11.5, color: '#64748b', margin: 0 }}>Your complaint will go back to the office for another look.</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={sendReopen} disabled={busy} style={{ ...buttonStyle, flex: 1 }}>{busy ? 'Reopening…' : 'Reopen my complaint'}</button>
+            <button type="button" onClick={() => { setMode(null); setError(''); }} disabled={busy} style={ghost}>Back</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p style={{ fontSize: 13, color: '#374151', margin: 0 }}>{ineligibleText}</p>
+          <button type="button" onClick={() => { setMode(null); setError(''); }} style={{ ...ghost, justifySelf: 'start' }}>Back</button>
+        </>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={box}>
+      {given && mode !== 'no' ? (
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a2e' }}>Thank you for your feedback</div>
+          <div><Stars value={given.rating} /> <span style={{ fontSize: 12.5, color: '#64748b' }}>{given.rating}/5</span></div>
+          {given.comment && <div style={{ fontSize: 12.5, color: '#374151' }}>“{given.comment}”</div>}
+          {elig.ok && (
+            <button type="button" onClick={() => { setMode('no'); setError(''); }}
+              style={{ justifySelf: 'start', background: 'none', border: 'none', padding: 0, fontSize: 12.5, color: '#64748b', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit' }}>
+              The problem has come back? Reopen
+            </button>
+          )}
+        </div>
+      ) : mode === 'yes' ? (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a2e' }}>How satisfied are you with the result?</div>
+          <div role="group" aria-label="Rating" style={{ display: 'flex', gap: 4 }}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} type="button" onClick={() => { setRating(n); setError(''); }} aria-pressed={rating === n} aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                style={{ background: 'none', border: 'none', fontSize: 28, lineHeight: 1, cursor: 'pointer', color: n <= rating ? '#A8762C' : '#cbd5e1', padding: '2px 3px' }}>
+                {n <= rating ? '★' : '☆'}
+              </button>
+            ))}
+          </div>
+          <label htmlFor="citizen-rating-comment" style={{ fontSize: 12, color: '#64748b' }}>Anything you would like to add? (optional)</label>
+          <textarea id="citizen-rating-comment" name="citizen-rating-comment" value={comment} onChange={(e) => setComment(e.target.value)} maxLength={500} rows={2} style={{ ...inputStyle }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={sendRating} disabled={busy} style={{ ...buttonStyle, flex: 1 }}>{busy ? 'Sending…' : 'Send my rating'}</button>
+            <button type="button" onClick={() => { setMode(null); setError(''); }} disabled={busy} style={ghost}>Back</button>
+          </div>
+        </div>
+      ) : mode === 'no' ? (
+        reopenForm
+      ) : (
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1a1a2e' }}>Was your problem really solved?</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={() => { setMode('yes'); setError(''); }} style={{ ...buttonStyle, flex: 1 }}>👍 Yes, it is solved</button>
+            <button type="button" onClick={() => { setMode('no'); setError(''); }} style={{ ...ghost, flex: 1 }}>👎 No, not solved</button>
+          </div>
+        </div>
+      )}
+      {error && <p role="alert" style={{ color: '#9B3C2E', fontSize: 12.5, margin: '8px 0 0' }}>{error}</p>}
+    </div>
+  );
+}
+
+function ComplaintDetail({ complaint, citizenId, onClose, onReopened }) {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
 
@@ -949,6 +1137,11 @@ function ComplaintDetail({ complaint, citizenId, onClose }) {
           <span style={{ fontSize: 22 }}>{CATEGORY_EMOJI[complaint.category] || '📄'}</span>{complaint.title}
         </h3>
         <div style={{ margin: '8px 0' }}><StageBadge stage={complaint.stage} /></div>
+        {citizenTimeline(complaint) && (
+          <p style={{ fontSize: 12, margin: '0 0 10px', color: citizenTimeline(complaint).late ? '#A8762C' : '#64748b' }}>{citizenTimeline(complaint).text}</p>
+        )}
+
+        {complaint.stage === 'Resolved' && <ResolutionFeedback complaint={complaint} onReopened={onReopened} />}
 
         <button
           onClick={() => navigate(`/grievance/print?case=${encodeURIComponent(complaint.case_no)}`)}
@@ -997,25 +1190,29 @@ function useGeographyPicker(appId, appSettings) {
   const [addError, setAddError] = useState('');
 
   useEffect(() => {
+    // A choice is pre-selected only when there is exactly one to pick from.
+    // With several, the citizen must choose -- previously the first one in
+    // the list was silently selected, so skipping a dropdown filed the
+    // complaint under the wrong MLA, mandal or village.
     fetchConstituencies(appId, 'MLA').then((list) => {
       setConstituencies(list);
-      if (list.length) setConstituencyId(list[0].id);
+      setConstituencyId(list.length === 1 ? list[0].id : '');
     });
   }, [appId]);
 
   useEffect(() => {
-    if (!constituencyId) return;
+    if (!constituencyId) { setMandals([]); setMandalId(''); return; }
     fetchMandals(constituencyId).then((list) => {
       setMandals(list);
-      setMandalId(list[0]?.id || '');
+      setMandalId(list.length === 1 ? list[0].id : '');
     });
   }, [constituencyId]);
 
   useEffect(() => {
-    if (!mandalId) return;
+    if (!mandalId) { setVillages([]); setVillageId(''); return; }
     fetchVillages(mandalId).then((list) => {
       setVillages(list);
-      setVillageId(list[0]?.id || '');
+      setVillageId(list.length === 1 ? list[0].id : '');
     });
   }, [mandalId]);
 
@@ -1027,7 +1224,7 @@ function useGeographyPicker(appId, appSettings) {
     }
     fetchSachivalayams(villageId).then((list) => {
       setSachivalayams(list);
-      setSachivalayamId(list[0]?.id || '');
+      setSachivalayamId(list.length === 1 ? list[0].id : '');
     });
   }, [villageId, appSettings]);
 
@@ -1074,7 +1271,7 @@ function useGeographyPicker(appId, appSettings) {
     villageId, setVillageId,
     sachivalayamId, setSachivalayamId,
     addMandal, addVillage, addingMandal, addingVillage, addError,
-    ready: !!constituencyId && !!mandalId,
+    ready: !!constituencyId && !!mandalId && !!villageId,
   };
 }
 
@@ -1083,6 +1280,7 @@ function GeographyFields({ geo, appSettings, suggestedBy }) {
     <>
       <Field label="Constituency">
         <select id="citizen-constituency" name="citizen-constituency" value={geo.constituencyId} onChange={(e) => geo.setConstituencyId(e.target.value)} style={inputStyle}>
+          <option value="">Select your constituency…</option>
           {geo.constituencies.map((c) => <option key={c.id} value={c.id}>{c.name} — {c.rep_name}</option>)}
         </select>
       </Field>
@@ -1114,6 +1312,7 @@ function GeographyFields({ geo, appSettings, suggestedBy }) {
       {appSettings?.has_sachivalayam && geo.sachivalayams.length > 0 && (
         <Field label="Sachivalayam">
           <select id="citizen-sachivalayam" name="citizen-sachivalayam" value={geo.sachivalayamId} onChange={(e) => geo.setSachivalayamId(e.target.value)} style={inputStyle}>
+            <option value="">Select your sachivalayam (optional)…</option>
             {geo.sachivalayams.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </Field>

@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { VisitProvider } from './context/VisitContext';
 import { supabase } from './lib/supabaseClient';
+import { signOutAndRelease, SESSION_TOKEN_KEY } from './lib/signOutAndRelease';
 import TopNav from './shared/TopNav';
 
 // Website
@@ -79,6 +80,7 @@ import { HospitalReports } from './hospital/HospitalReports';
 import CtsLanding from './grievance/CtsLanding';
 import GrievanceStateSelect from './website/pages/GrievanceStateSelect';
 import CitizenPortal from './grievance/CitizenPortal';
+import TrackComplaint from './grievance/TrackComplaint';
 import StaffDashboard from './grievance/StaffDashboard';
 import ReportsDashboard from './grievance/ReportsDashboard';
 import FeedbackDashboard from './grievance/FeedbackDashboard';
@@ -128,6 +130,11 @@ function RequireAuth({ children }) {
 function CitizenPortalWrapper() {
   const { stateSlug } = useParams();
   return <CitizenPortal stateSlug={stateSlug} />;
+}
+
+function TrackComplaintWrapper() {
+  const { stateSlug } = useParams();
+  return <TrackComplaint stateSlug={stateSlug} />;
 }
 
 function RequestStaffAccessWrapper() {
@@ -187,7 +194,9 @@ function AppRoutes() {
     function resetTimer() {
       clearTimeout(idleTimer);
       idleTimer = setTimeout(async () => {
-        await supabase.auth.signOut();
+        // Frees the single-session lock too (12-10-2026) — a plain signOut
+        // left it held, so signing straight back in was refused for 30 min.
+        await signOutAndRelease();
         window.location.href = '/portal/login?reason=idle';
       }, 30 * 60 * 1000);
     }
@@ -197,6 +206,40 @@ function AppRoutes() {
     return () => {
       clearTimeout(idleTimer);
       events.forEach((e) => window.removeEventListener(e, resetTimer));
+    };
+  }, [session]);
+
+  // Session heartbeat (12-10-2026). Only for logins that claimed the
+  // single-session lock (a token is saved in sessionStorage at login) —
+  // citizens and anyone else never have one, so nothing runs for them.
+  // Every 4 minutes, and the moment a hidden tab comes back to the front
+  // (phones pause timers in the background), the server is told "still here".
+  // If it answers that another device took over, sign out with the message.
+  useEffect(() => {
+    if (!session) return;
+    let stopped = false;
+    async function beat() {
+      let token = null;
+      try { token = sessionStorage.getItem(SESSION_TOKEN_KEY); } catch { /* storage blocked */ }
+      if (!token || stopped) return;
+      try {
+        const { data, error } = await supabase.functions.invoke('check-and-claim-session', {
+          body: { action: 'heartbeat', sessionToken: token },
+        });
+        if (!error && data && data.stillActive === false && !stopped) {
+          try { sessionStorage.removeItem(SESSION_TOKEN_KEY); } catch { /* ignore */ }
+          await supabase.auth.signOut();
+          window.location.href = '/portal/login?reason=session_replaced';
+        }
+      } catch { /* network hiccup: try again next time */ }
+    }
+    const timer = setInterval(beat, 4 * 60 * 1000);
+    function onVisible() { if (document.visibilityState === 'visible') beat(); }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [session]);
 
@@ -256,6 +299,9 @@ function AppRoutes() {
 <Route path="/grievance/:stateSlug" element={<CtsLanding />} />
 <Route path="/grievance/:stateSlug/citizen"
   element={<CitizenPortalWrapper />} />
+{/* Public complaint tracking by case number + mobile number, no login (12-10-2026) */}
+<Route path="/grievance/:stateSlug/track"
+  element={<TrackComplaintWrapper />} />
 {/* Staff-only CTS screens (staff, admin, reports, feedback) — only CTS / government
     logins (RequireModule, 9-10-2026). Citizen, landing, request-access and print
     routes stay public exactly as before. */}

@@ -188,6 +188,12 @@ export default function CtsLanding() {
           <button onClick={() => chooseRole('citizen')} style={{ width: '100%', padding: 12, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#1a1a2e', color: '#e8a020' }}>
             📋 File a Complaint → ఫిర్యాదు దాఖలు చేయండి
           </button>
+          <button
+            onClick={() => navigate(`/grievance/${slug}/track`)}
+            style={{ width: '100%', background: 'none', border: 'none', textAlign: 'center', marginTop: 10, fontSize: 12, color: '#64748b', cursor: 'pointer', fontFamily: 'inherit', padding: 4 }}
+          >
+            Already filed? <span style={{ color: '#1a1a2e', fontWeight: 600, textDecoration: 'underline' }}>Track a complaint →</span> ఫిర్యాదు స్థితి తెలుసుకోండి
+          </button>
         </div>
 
         {/* MLA Card */}

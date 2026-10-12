@@ -5,7 +5,7 @@ import { useTenant } from '../context/TenantContext';
 import EvidenceGallery from './EvidenceGallery';
 import { CATEGORY_EMOJI, StageBadge } from './CitizenPortal';
 import { FeedbackWidget } from '../shared/FeedbackWidget';
-import { fetchStaffQueue, fetchComplaintHistory, advanceComplaint, updateAssignedDepartment, fetchCategories, fetchConstituencies, fetchMandals, fetchVillages, uploadStaffPhoto, updateStaffProfile } from './grievanceApi';
+import { fetchStaffQueue, fetchOverdueCount, slaInfo, fetchComplaintHistory, fetchComplaintFeedback, advanceComplaint, updateAssignedDepartment, fetchCategories, fetchConstituencies, fetchMandals, fetchVillages, uploadStaffPhoto, updateStaffProfile } from './grievanceApi';
 import GrievanceNav from './GrievanceNav';
 
 const TERMINAL_STAGES = ['Resolved', 'Sanctioned', 'Declined'];
@@ -28,6 +28,11 @@ export default function StaffDashboard() {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  // Deadline tools (12-10-2026): show only complaints past their response
+  // deadline, and/or list the oldest first so nothing waits at the bottom.
+  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [oldestFirst, setOldestFirst] = useState(false);
+  const [overdueCount, setOverdueCount] = useState(null);
   const [constituencyFilter, setConstituencyFilter] = useState('');
   const [mandalFilter, setMandalFilter] = useState('');
   const [villageFilter, setVillageFilter] = useState('');
@@ -53,13 +58,13 @@ export default function StaffDashboard() {
 
   const loadGridPage = useCallback((pageNum, replace) => {
     setGridLoading(true);
-    fetchStaffQueue({ page: pageNum, pageSize: PAGE_SIZE, search, category: categoryFilter, priority: priorityFilter, handled: activeTab === 'handled', constituencyId: constituencyFilter, mandalId: mandalFilter, villageId: villageFilter, dateFrom, dateTo })
+    fetchStaffQueue({ page: pageNum, pageSize: PAGE_SIZE, search, category: categoryFilter, priority: priorityFilter, handled: activeTab === 'handled', constituencyId: constituencyFilter, mandalId: mandalFilter, villageId: villageFilter, dateFrom, dateTo, overdueOnly, oldestFirst })
       .then(({ data, count }) => {
         setGridData((prev) => (replace ? data : [...prev, ...data]));
         setGridHasMore((pageNum + 1) * PAGE_SIZE < count);
       })
       .finally(() => setGridLoading(false));
-  }, [search, categoryFilter, priorityFilter, activeTab, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo]);
+  }, [search, categoryFilter, priorityFilter, activeTab, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo, overdueOnly, oldestFirst]);
 
   // Same filter/tab changes that reset the mobile page also restart
   // the grid from scratch — a stale grid full of the wrong filter's
@@ -69,7 +74,7 @@ export default function StaffDashboard() {
     setGridHasMore(true);
     loadGridPage(0, true);
     if (gridScrollRef.current) gridScrollRef.current.scrollTop = 0;
-  }, [search, categoryFilter, priorityFilter, activeTab, tenant?.appId, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo]);
+  }, [search, categoryFilter, priorityFilter, activeTab, tenant?.appId, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo, overdueOnly, oldestFirst]);
 
   function handleGridScroll(e) {
     const el = e.target;
@@ -83,14 +88,25 @@ export default function StaffDashboard() {
 
   const reload = useCallback(() => {
     setListLoading(true);
-    fetchStaffQueue({ page, pageSize: PAGE_SIZE, search, category: categoryFilter, priority: priorityFilter, handled: activeTab === 'handled', constituencyId: constituencyFilter, mandalId: mandalFilter, villageId: villageFilter, dateFrom, dateTo })
+    fetchStaffQueue({ page, pageSize: PAGE_SIZE, search, category: categoryFilter, priority: priorityFilter, handled: activeTab === 'handled', constituencyId: constituencyFilter, mandalId: mandalFilter, villageId: villageFilter, dateFrom, dateTo, overdueOnly, oldestFirst })
       .then(({ data, count }) => { setListData(data); setTotalCount(count); })
       .finally(() => setListLoading(false));
-  }, [page, search, categoryFilter, priorityFilter, activeTab, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo]);
+  }, [page, search, categoryFilter, priorityFilter, activeTab, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo, overdueOnly, oldestFirst]);
 
   useEffect(() => {
     if (tenant) reload();
   }, [tenant, reload]);
+
+  // The overdue number in the header and on the Overdue button is a small
+  // separate count, fetched once and again after any status change (not on
+  // every keystroke of the search box). If it fails the number is simply left
+  // out; the queue itself is unaffected.
+  const refreshOverdue = useCallback(() => {
+    fetchOverdueCount().then(setOverdueCount).catch(() => setOverdueCount(null));
+  }, []);
+  useEffect(() => {
+    if (tenant) refreshOverdue();
+  }, [tenant, refreshOverdue]);
 
   useEffect(() => {
     if (tenant?.appId) fetchCategories(tenant.appId).then(setCategories).catch(() => {});
@@ -116,7 +132,7 @@ export default function StaffDashboard() {
   // Any filter or tab change starts back at page 1 — staying on, say,
   // page 4 after narrowing the search would very likely land on an
   // empty page that no longer has anything on it.
-  useEffect(() => { setPage(0); }, [search, categoryFilter, priorityFilter, activeTab, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo]);
+  useEffect(() => { setPage(0); }, [search, categoryFilter, priorityFilter, activeTab, constituencyFilter, mandalFilter, villageFilter, dateFrom, dateTo, overdueOnly, oldestFirst]);
 
   // Both early-exit states previously showed CenteredNote with zero
   // navigation — if tenantLoading ever hung, or a wrong-role user
@@ -128,6 +144,7 @@ export default function StaffDashboard() {
     return <><CenteredNote>This dashboard is for representatives, authorities, or grievance admins.</CenteredNote><GrievanceNav /></>;
   }
 
+  const emptyText = activeTab === 'pending' ? (overdueOnly ? 'Nothing is overdue.' : 'Queue clear.') : 'Nothing here yet.';
   const profileIncomplete = !tenant.phone || !tenant.alternatePhone;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -161,7 +178,10 @@ export default function StaffDashboard() {
               {roleLabel(tenant.role)} — {tenant.fullName}
             </h1>
             <p style={{ fontSize: 12.5, color: '#5B6473', margin: 0 }}>
-              {totalCount} {activeTab === 'pending' ? 'pending' : 'handled'}
+              {totalCount} {activeTab === 'pending' ? (overdueOnly ? 'overdue' : 'pending') : 'handled'}
+              {activeTab === 'pending' && !overdueOnly && overdueCount > 0 && (
+                <span style={{ color: '#9B3C2E', fontWeight: 700 }}> · {overdueCount} overdue</span>
+              )}
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
@@ -173,7 +193,7 @@ export default function StaffDashboard() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           {[{ key: 'pending', label: 'Pending action' }, { key: 'handled', label: 'Handled' }].map((t) => (
             <button key={t.key} onClick={() => setActiveTab(t.key)}
               style={{ padding: '7px 16px', borderRadius: 20, cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
@@ -182,6 +202,21 @@ export default function StaffDashboard() {
               {t.label}
             </button>
           ))}
+          {activeTab === 'pending' && (
+            <>
+              <button onClick={() => setOverdueOnly((v) => !v)} aria-pressed={overdueOnly}
+                style={{ padding: '7px 14px', borderRadius: 20, cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+                  background: overdueOnly ? '#9B3C2E' : '#fff', color: overdueOnly ? '#fff' : '#9B3C2E',
+                  border: '1px solid #9B3C2E' }}>
+                ⏰ Overdue{overdueCount > 0 ? ` (${overdueCount})` : ''}
+              </button>
+              <select id="staff-dash-sort" name="staff-dash-sort" aria-label="Sort order" value={oldestFirst ? 'oldest' : 'newest'} onChange={(e) => setOldestFirst(e.target.value === 'oldest')}
+                style={{ padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 20, fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#5B6473', fontWeight: 600 }}>
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+            </>
+          )}
         </div>
 
         {/* Search + filter bar — sticky, stays visible while scrolling
@@ -213,7 +248,7 @@ export default function StaffDashboard() {
             <button onClick={() => {
               const params = new URLSearchParams();
               params.set('mode', 'staff_batch');
-              params.set('status', activeTab === 'pending' ? 'PENDING_ONLY' : 'HANDLED_ONLY');
+              params.set('status', activeTab === 'pending' ? (overdueOnly ? 'OVERDUE' : 'PENDING_ONLY') : 'HANDLED_ONLY');
               if (search.trim()) params.set('search', search.trim());
               if (categoryFilter) params.set('category', categoryFilter);
               if (priorityFilter) params.set('priority', priorityFilter);
@@ -287,7 +322,7 @@ export default function StaffDashboard() {
         {listLoading ? (
           <CenteredNote>Loading…</CenteredNote>
         ) : listData.length === 0 ? (
-          <CenteredNote>{activeTab === 'pending' ? 'Queue clear.' : 'Nothing here yet.'}</CenteredNote>
+          <CenteredNote>{emptyText}</CenteredNote>
         ) : (
           <>
             <p style={{ fontSize: 11.5, color: '#5B6473', margin: '0 0 10px' }}>
@@ -301,7 +336,7 @@ export default function StaffDashboard() {
                   role={tenant.role}
                   actorName={tenant.fullName}
                   onOpen={() => setActiveComplaint(c)}
-                  onAction={reload}
+                  onAction={() => { reload(); refreshOverdue(); }}
                 />
               )) : listData.map((c) => (
                 <button
@@ -312,7 +347,7 @@ export default function StaffDashboard() {
                   <span style={{ fontSize: 20 }}>{CATEGORY_EMOJI[c.category] || '📄'}</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{c.title}</div>
-                    <div style={{ marginTop: 4 }}><StageBadge stage={c.stage} /></div>
+                    <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}><StageBadge stage={c.stage} /><ReopenBadge complaint={c} /></div>
                   </div>
                 </button>
               ))}
@@ -353,14 +388,14 @@ export default function StaffDashboard() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ position: 'sticky', top: 0, background: '#F7F6F2', zIndex: 1 }}>
-                  {['Case No.', 'Title', 'Category', 'Priority', 'Stage', 'Filed'].map((h) => (
+                  {['Case No.', 'Title', 'Category', 'Priority', 'Stage', 'Filed', ...(activeTab === 'pending' ? ['Deadline'] : [])].map((h) => (
                     <th key={h} style={{ textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid #D9D5C8', fontSize: 11.5, color: '#5B6473', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {gridData.length === 0 && !gridLoading ? (
-                  <tr><td colSpan={6} style={{ padding: 20, textAlign: 'center', color: '#5B6473' }}>{activeTab === 'pending' ? 'Queue clear.' : 'Nothing here yet.'}</td></tr>
+                  <tr><td colSpan={activeTab === 'pending' ? 7 : 6} style={{ padding: 20, textAlign: 'center', color: '#5B6473' }}>{emptyText}</td></tr>
                 ) : gridData.map((c) => (
                   <tr
                     key={c.id}
@@ -375,12 +410,13 @@ export default function StaffDashboard() {
                     <td style={{ padding: '10px 14px', fontWeight: 600 }}>{CATEGORY_EMOJI[c.category] || '📄'} {c.title}</td>
                     <td style={{ padding: '10px 14px', color: '#5B6473' }}>{c.category}</td>
                     <td style={{ padding: '10px 14px' }}>{c.priority === 'Urgent' ? <span style={{ color: '#9B3C2E', fontWeight: 700 }}>🚨 Urgent</span> : 'Normal'}</td>
-                    <td style={{ padding: '10px 14px' }}><StageBadge stage={c.stage} /></td>
+                    <td style={{ padding: '10px 14px' }}><StageBadge stage={c.stage} /> <ReopenBadge complaint={c} /></td>
                     <td style={{ padding: '10px 14px', color: '#5B6473', whiteSpace: 'nowrap' }}>{new Date(c.created_at).toLocaleDateString('en-IN')}</td>
+                    {activeTab === 'pending' && <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}><SlaChip complaint={c} /></td>}
                   </tr>
                 ))}
                 {gridLoading && (
-                  <tr><td colSpan={6} style={{ padding: 14, textAlign: 'center', color: '#5B6473', fontSize: 12 }}>Loading more…</td></tr>
+                  <tr><td colSpan={activeTab === 'pending' ? 7 : 6} style={{ padding: 14, textAlign: 'center', color: '#5B6473', fontSize: 12 }}>Loading more…</td></tr>
                 )}
               </tbody>
             </table>
@@ -397,6 +433,7 @@ export default function StaffDashboard() {
             onClose={() => setActiveComplaint(null)}
             onAction={() => {
               reload();
+              refreshOverdue();
               setGridPage(0);
               setGridHasMore(true);
               loadGridPage(0, true);
@@ -492,6 +529,101 @@ function StaffProfileSetup({ tenant, onClose }) {
 
 const fieldStyle = { border: '1px solid #D9D5C8', borderRadius: 6, padding: '9px 11px', fontSize: 13.5, width: '100%' };
 
+// Deadline chip: red when past the deadline, amber in the last 2 days, quiet
+// green otherwise. Shown only while a complaint is still open.
+export function SlaChip({ complaint }) {
+  const sla = slaInfo(complaint);
+  if (!sla || sla.closed) return null;
+  const tone = sla.status === 'overdue'
+    ? { color: '#9B3C2E', bg: '#9B3C2E20' }
+    : sla.status === 'soon'
+      ? { color: '#A8762C', bg: '#A8762C20' }
+      : { color: '#3E5C45', bg: '#3E5C4520' };
+  return (
+    <span title={`Response due within ${sla.allowedDays} days of ${sla.reopened ? 'the citizen reopening it' : 'filing'}`}
+      style={{ fontSize: 11.5, fontWeight: 700, color: tone.color, background: tone.bg, borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap' }}>
+      ⏰ {sla.label}
+    </span>
+  );
+}
+
+// What each role may do to a complaint at each stage -- one list used by the
+// Queue card and the detail drawer, so the two can never disagree. The database
+// enforces the same rules; this only decides which buttons are worth showing.
+const OPEN_STAGES = ['Submitted', 'Acknowledged', 'In Progress', 'Escalated'];
+const ACT = {
+  ack:      { stage: 'Acknowledged', label: '👀 Acknowledge' },
+  start:    { stage: 'In Progress', label: '🔧 Start work' },
+  resolve:  { stage: 'Resolved', label: '✅ Mark resolved', color: '#3E5C45' },
+  escalate: { stage: 'Escalated', label: '⬆️ Escalate', color: '#9B3C2E', visibility: 'internal' },
+  decline:  { stage: 'Declined', label: '💬 Decline, with reason', color: '#6B5B73' },
+  sanction: { stage: 'Sanctioned', label: '💰 Approve & sanction', color: '#A8762C' },
+  sendBack: { stage: 'In Progress', label: '↩️ Send back', visibility: 'internal' },
+};
+
+export function actionsFor(role, stage) {
+  const list = [];
+  if (role === 'representative' || role === 'grievance_staff') {
+    if (stage === 'Submitted') list.push(ACT.ack);
+    if (stage === 'Acknowledged') list.push(ACT.start);
+    if (['Acknowledged', 'In Progress'].includes(stage)) list.push(ACT.resolve, ACT.escalate);
+    if (['Submitted', 'Acknowledged', 'In Progress'].includes(stage)) list.push(ACT.decline);
+  } else if (role === 'authority') {
+    if (stage === 'Escalated') list.push(ACT.sanction, ACT.sendBack, ACT.decline);
+  } else if (role === 'grievance_admin') {
+    // Acknowledge only makes sense on a brand-new complaint; Resolve and
+    // Decline are offered on any complaint that is still open, and never on a
+    // finished one.
+    if (stage === 'Submitted') list.push(ACT.ack);
+    if (OPEN_STAGES.includes(stage)) list.push(ACT.resolve, ACT.decline);
+  }
+  return list;
+}
+
+function ActionButtons({ role, stage, busy, onAct }) {
+  const list = actionsFor(role, stage);
+  if (list.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {list.map((a) => (
+        <ActionBtn key={a.label} onClick={() => onAct(a.stage, a.visibility)} disabled={busy} color={a.color}>{a.label}</ActionBtn>
+      ))}
+    </div>
+  );
+}
+
+// Small marker for a complaint the citizen reopened after it was resolved.
+export function ReopenBadge({ complaint }) {
+  const n = Number(complaint?.reopen_count) || 0;
+  if (n < 1) return null;
+  return (
+    <span title="The citizen said this was not really solved and reopened it"
+      style={{ fontSize: 11, fontWeight: 700, color: '#9B3C2E', border: '1px solid #9B3C2E', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      🔁 Reopened{n > 1 ? ` ×${n}` : ''}
+    </span>
+  );
+}
+
+// The ratings a citizen gave, as seen by staff.
+function FeedbackSummary({ rows, resolved }) {
+  if (!rows || rows.length === 0) {
+    return resolved ? <p style={{ fontSize: 12, color: '#5B6473', margin: '4px 0' }}>No citizen rating yet.</p> : null;
+  }
+  return (
+    <div style={{ background: '#F7F6F2', border: '1px solid #D9D5C8', borderRadius: 8, padding: '8px 10px', margin: '8px 0' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#5B6473', marginBottom: 4 }}>CITIZEN RATING</div>
+      {rows.map((r) => (
+        <div key={r.cycle} style={{ fontSize: 12.5, color: '#1A1A2E', marginBottom: 3 }}>
+          <span aria-label={`${r.rating} out of 5`} style={{ color: '#A8762C', letterSpacing: 1 }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+          {' '}<strong>{r.rating}/5</strong>
+          {(rows.length > 1 || r.cycle > 0) && <span style={{ color: '#5B6473' }}> · {r.cycle === 0 ? 'first resolution' : `after reopening ${r.cycle}`}</span>}
+          {r.comment && <div style={{ color: '#3A4250', marginTop: 1 }}>“{r.comment}”</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function roleLabel(role) {
   if (role === 'representative') return 'Representative Queue';
   if (role === 'authority') return 'Authority Decisions';
@@ -506,15 +638,25 @@ function ComplaintCard({ complaint, role, actorName, onOpen, onAction }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [warn, setWarn] = useState(false);
+  const [err, setErr] = useState('');
 
+  // The database now refuses a status change that is not allowed and says why;
+  // that message is shown here instead of the button silently doing nothing.
   async function act(stage, visibility = 'public') {
     if (stage === 'Declined' && !note.trim()) { setWarn(true); return; }
     setWarn(false);
+    setErr('');
     setBusy(true);
-    await advanceComplaint({ complaintId: complaint.id, stage, byName: actorName, note, visibility });
-    setNote('');
-    setBusy(false);
-    onAction();
+    let ok = false;
+    try {
+      await advanceComplaint({ complaintId: complaint.id, stage, byName: actorName, note, visibility });
+      ok = true;
+    } catch (e) {
+      setErr(e.message || 'Could not update this complaint. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+    if (ok) { setNote(''); onAction(); }
   }
 
   return (
@@ -534,11 +676,13 @@ function ComplaintCard({ complaint, role, actorName, onOpen, onAction }) {
           <div style={{ fontSize: 12, color: '#5B6473', marginTop: 3 }}>{complaint.description}</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
             <StageBadge stage={complaint.stage} />
+            <ReopenBadge complaint={complaint} />
             {complaint.priority === 'Urgent' && (
               <span style={{ fontSize: 11.5, fontWeight: 700, color: '#9B3C2E', background: '#9B3C2E20', borderRadius: 20, padding: '3px 10px' }}>
                 🚨 Urgent
               </span>
             )}
+            <SlaChip complaint={complaint} />
           </div>
         </div>
       </div>
@@ -550,38 +694,9 @@ function ComplaintCard({ complaint, role, actorName, onOpen, onAction }) {
         style={{ width: '100%', padding: '7px 10px', fontSize: 12.5, border: '1px solid #D9D5C8', borderRadius: 6, marginBottom: 8 }}
       />
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {(role === 'representative' || role === 'grievance_staff') && (
-          <>
-            {complaint.stage === 'Submitted' && <ActionBtn onClick={() => act('Acknowledged')} disabled={busy}>👀 Acknowledge</ActionBtn>}
-            {complaint.stage === 'Acknowledged' && <ActionBtn onClick={() => act('In Progress')} disabled={busy}>🔧 Start work</ActionBtn>}
-            {['Acknowledged', 'In Progress'].includes(complaint.stage) && (
-              <>
-                <ActionBtn onClick={() => act('Resolved')} disabled={busy} color="#3E5C45">✅ Mark resolved</ActionBtn>
-                <ActionBtn onClick={() => act('Escalated', 'internal')} disabled={busy} color="#9B3C2E">⬆️ Escalate</ActionBtn>
-              </>
-            )}
-            {['Submitted', 'Acknowledged', 'In Progress'].includes(complaint.stage) && (
-              <ActionBtn onClick={() => act('Declined')} disabled={busy} color="#6B5B73">💬 Decline, with reason</ActionBtn>
-            )}
-          </>
-        )}
-        {role === 'authority' && complaint.stage === 'Escalated' && (
-          <>
-            <ActionBtn onClick={() => act('Sanctioned')} disabled={busy} color="#A8762C">💰 Approve &amp; sanction</ActionBtn>
-            <ActionBtn onClick={() => act('In Progress', 'internal')} disabled={busy}>↩️ Send back</ActionBtn>
-            <ActionBtn onClick={() => act('Declined')} disabled={busy} color="#6B5B73">💬 Decline, with reason</ActionBtn>
-          </>
-        )}
-        {role === 'grievance_admin' && (
-          <>
-            <ActionBtn onClick={() => act('Acknowledged')} disabled={busy}>👀 Acknowledge</ActionBtn>
-            <ActionBtn onClick={() => act('Resolved')} disabled={busy} color="#3E5C45">✅ Mark resolved</ActionBtn>
-            <ActionBtn onClick={() => act('Declined')} disabled={busy} color="#6B5B73">💬 Decline, with reason</ActionBtn>
-          </>
-        )}
-      </div>
+      <ActionButtons role={role} stage={complaint.stage} busy={busy} onAct={act} />
       {warn && <p style={{ fontSize: 11, color: '#9B3C2E', marginTop: 6 }}>Add a reason before declining — the citizen will see it.</p>}
+      {err && <p role="alert" style={{ fontSize: 11.5, color: '#9B3C2E', marginTop: 6 }}>{err}</p>}
     </div>
   );
 }
@@ -621,25 +736,47 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [warn, setWarn] = useState(false);
+  const [err, setErr] = useState('');
+  const [feedback, setFeedback] = useState([]);
+  const [deptError, setDeptError] = useState('');
 
   useEffect(() => {
     fetchComplaintHistory(complaint.id).then(setHistory);
   }, [complaint.id]);
 
+  // The citizen's ratings for this complaint (empty if none, or if the table
+  // cannot be read -- the drawer works the same without it).
+  useEffect(() => {
+    let live = true;
+    fetchComplaintFeedback(complaint.id).then((rows) => { if (live) setFeedback(rows); }).catch(() => { if (live) setFeedback([]); });
+    return () => { live = false; };
+  }, [complaint.id]);
+
   async function act(stage, visibility = 'public') {
     if (stage === 'Declined' && !note.trim()) { setWarn(true); return; }
     setWarn(false);
+    setErr('');
     setBusy(true);
-    await advanceComplaint({ complaintId: complaint.id, stage, byName: actorName, note, visibility });
-    setNote('');
-    setBusy(false);
-    onAction?.();
-    onClose();
+    let ok = false;
+    try {
+      await advanceComplaint({ complaintId: complaint.id, stage, byName: actorName, note, visibility });
+      ok = true;
+    } catch (e) {
+      setErr(e.message || 'Could not update this complaint. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+    if (ok) {
+      setNote('');
+      onAction?.();
+      onClose();
+    }
   }
 
   async function handleSaveDepartment() {
     setSavingDept(true);
     setDeptSaved(false);
+    setDeptError('');
     try {
       await updateAssignedDepartment(complaint.id, department.trim() || null);
       // A remark, if given, is logged as a normal history entry — same
@@ -651,6 +788,8 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
         fetchComplaintHistory(complaint.id).then(setHistory);
       }
       setDeptSaved(true);
+    } catch (e) {
+      setDeptError(e.message || 'Could not save. Please try again.');
     } finally {
       setSavingDept(false);
     }
@@ -662,6 +801,20 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
         <button onClick={onClose} aria-label="Close" style={{ float: 'right', border: 'none', background: 'none' }}>✕</button>
         <div style={{ fontSize: 11, color: '#5B6473', fontFamily: 'monospace' }}>{complaint.case_no}</div>
         <h3 style={{ fontSize: 16, fontWeight: 600 }}>{complaint.title}</h3>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', margin: '6px 0' }}>
+          <StageBadge stage={complaint.stage} />
+          <ReopenBadge complaint={complaint} />
+          <SlaChip complaint={complaint} />
+          {slaInfo(complaint)?.closed && (
+            <span style={{ fontSize: 11.5, color: '#5B6473' }}>{slaInfo(complaint).label} (allowed {slaInfo(complaint).allowedDays}d)</span>
+          )}
+        </div>
+        {complaint.reopened_at && (
+          <p style={{ fontSize: 12, color: '#9B3C2E', margin: '4px 0' }}>
+            🔁 Reopened by the citizen {Number(complaint.reopen_count) > 1 ? `${complaint.reopen_count} times` : 'once'} · last on {new Date(complaint.reopened_at).toLocaleDateString('en-IN')}. The deadline restarted on that day.
+          </p>
+        )}
+        <FeedbackSummary rows={feedback} resolved={complaint.stage === 'Resolved'} />
         <p style={{ fontSize: 13, color: '#3A4250', margin: '10px 0' }}>{complaint.description}</p>
         {complaint.suggested_solution && (
           <p style={{ fontSize: 12.5, color: '#5B6473', background: '#F7F6F2', padding: 8, borderRadius: 6 }}>
@@ -676,38 +829,11 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
           placeholder="Add a note — required if declining"
           style={{ width: '100%', padding: '7px 10px', fontSize: 12.5, border: '1px solid #D9D5C8', borderRadius: 6, margin: '10px 0 8px', boxSizing: 'border-box' }}
         />
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-          {(role === 'representative' || role === 'grievance_staff') && (
-            <>
-              {complaint.stage === 'Submitted' && <ActionBtn onClick={() => act('Acknowledged')} disabled={busy}>👀 Acknowledge</ActionBtn>}
-              {complaint.stage === 'Acknowledged' && <ActionBtn onClick={() => act('In Progress')} disabled={busy}>🔧 Start work</ActionBtn>}
-              {['Acknowledged', 'In Progress'].includes(complaint.stage) && (
-                <>
-                  <ActionBtn onClick={() => act('Resolved')} disabled={busy} color="#3E5C45">✅ Mark resolved</ActionBtn>
-                  <ActionBtn onClick={() => act('Escalated', 'internal')} disabled={busy} color="#9B3C2E">⬆️ Escalate</ActionBtn>
-                </>
-              )}
-              {['Submitted', 'Acknowledged', 'In Progress'].includes(complaint.stage) && (
-                <ActionBtn onClick={() => act('Declined')} disabled={busy} color="#6B5B73">💬 Decline, with reason</ActionBtn>
-              )}
-            </>
-          )}
-          {role === 'authority' && complaint.stage === 'Escalated' && (
-            <>
-              <ActionBtn onClick={() => act('Sanctioned')} disabled={busy} color="#A8762C">💰 Approve &amp; sanction</ActionBtn>
-              <ActionBtn onClick={() => act('In Progress', 'internal')} disabled={busy}>↩️ Send back</ActionBtn>
-              <ActionBtn onClick={() => act('Declined')} disabled={busy} color="#6B5B73">💬 Decline, with reason</ActionBtn>
-            </>
-          )}
-          {role === 'grievance_admin' && (
-            <>
-              <ActionBtn onClick={() => act('Acknowledged')} disabled={busy}>👀 Acknowledge</ActionBtn>
-              <ActionBtn onClick={() => act('Resolved')} disabled={busy} color="#3E5C45">✅ Mark resolved</ActionBtn>
-              <ActionBtn onClick={() => act('Declined')} disabled={busy} color="#6B5B73">💬 Decline, with reason</ActionBtn>
-            </>
-          )}
+        <div style={{ marginBottom: 10 }}>
+          <ActionButtons role={role} stage={complaint.stage} busy={busy} onAct={act} />
         </div>
         {warn && <p style={{ fontSize: 11, color: '#9B3C2E', marginTop: -4, marginBottom: 10 }}>Add a reason before declining — the citizen will see it.</p>}
+        {err && <p role="alert" style={{ fontSize: 11.5, color: '#9B3C2E', marginTop: -4, marginBottom: 10 }}>{err}</p>}
 
         <div style={{ background: '#F7F6F2', border: '1px solid #D9D5C8', borderRadius: 8, padding: 12, margin: '12px 0' }}>
           <label htmlFor="staff-dash-department" style={{ fontSize: 11, fontWeight: 600, color: '#5B6473', display: 'block', marginBottom: 4 }}>
@@ -732,6 +858,7 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
             style={{ padding: '7px 14px', fontSize: 12.5, fontWeight: 700, background: '#15213A', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
             {savingDept ? 'Saving…' : deptSaved ? '✓ Saved' : 'Save'}
           </button>
+          {deptError && <p role="alert" style={{ fontSize: 11.5, color: '#9B3C2E', margin: '8px 0 0' }}>{deptError}</p>}
         </div>
 
         {/* FIX 3: Print button */}

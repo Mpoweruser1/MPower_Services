@@ -333,9 +333,9 @@ export async function updateCitizenProfile(citizenId, patch) {
  * Complaints
  * ------------------------------------------------------------------- */
 
-// Real, hard limit — 3 complaints per citizen per calendar day.
-// Previously there was no check anywhere in the submission path at
-// all, meaning nothing actually stopped repeated same-day submission.
+// 3 complaints per citizen per calendar day. This is the friendly early check;
+// the database now enforces the same limit (India date) for every caller, and
+// its message reaches the citizen if this check is ever passed.
 export async function checkDailyComplaintLimit(citizenId) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
@@ -435,6 +435,24 @@ export async function fetchMyComplaints() {
   return data;
 }
 
+// Public, no-login tracking (12-10-2026). The database checks the case number
+// together with the registered mobile number and answers with status, category
+// and dates only. Returns { status: 'ok', complaint } | { status: 'not_found' }
+// | { status: 'blocked' }. A wrong case number and a wrong mobile number are
+// deliberately the same 'not_found'. Throws only when the check itself failed.
+export async function trackComplaint({ caseNo, phone }) {
+  const { data, error } = await supabase.rpc('track_complaint', {
+    p_case_no: caseNo || '',
+    p_phone: phone || '',
+  });
+  if (error) throw new Error('Could not check the complaint right now. Please try again.');
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || row.outcome === 'not_found') return { status: 'not_found' };
+  if (row.outcome === 'blocked') return { status: 'blocked' };
+  const { outcome, ...complaint } = row;
+  return { status: 'ok', complaint };
+}
+
 export async function fetchComplaintHistory(complaintId) {
   // RLS here does the Minister<->MLA privacy split automatically: a
   // citizen session only ever gets visibility='public' rows back for
@@ -463,6 +481,80 @@ export async function fetchComplaintIssues(complaintId) {
 // in-state for an authority, everything in-state for an admin).
 const TERMINAL_STAGES = ['Resolved', 'Sanctioned', 'Declined'];
 
+/* ---------------------------------------------------------------------
+ * Response deadline (12-10-2026)
+ * One rule used by the Queue, the Reports screen and the citizen's own
+ * list, so they can never disagree about whether a complaint is late.
+ *   Normal complaint: 15 days from filing.   Urgent: 7 days.
+ * The clock runs while a complaint is Submitted, Acknowledged, In Progress
+ * or Escalated, and stops at Resolved, Sanctioned or Declined.
+ * A "day" here is a full 24 hours since the complaint was filed.
+ * ------------------------------------------------------------------- */
+export const SLA_DAYS = { Normal: 15, Urgent: 7 };
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// 12-10-2026 (round 3): the clock starts at sla_started_at -- the day the
+// complaint was filed, or the day the citizen reopened it (the database sets
+// this). Falls back to created_at for any row that does not carry the column.
+export function slaStart(complaint) {
+  return (complaint && (complaint.sla_started_at || complaint.created_at)) || null;
+}
+
+export function slaInfo(complaint, now = new Date()) {
+  const startRaw = slaStart(complaint);
+  if (!startRaw) return null;
+  const filed = new Date(startRaw);
+  if (Number.isNaN(filed.getTime())) return null;
+  const allowedDays = complaint.priority === 'Urgent' ? SLA_DAYS.Urgent : SLA_DAYS.Normal;
+  const reopened = !!complaint.reopened_at;
+
+  if (TERMINAL_STAGES.includes(complaint.stage)) {
+    const end = new Date(complaint.updated_at || startRaw);
+    const ageDays = Math.max(0, Math.floor((end - filed) / DAY_MS));
+    return { closed: true, status: 'closed', reopened, ageDays, allowedDays, daysLeft: null, label: `Closed in ${ageDays}d` };
+  }
+
+  const ageDays = Math.max(0, Math.floor((now - filed) / DAY_MS));
+  const daysLeft = allowedDays - ageDays;
+  let status = 'ok';
+  let label = `${daysLeft}d left`;
+  if (daysLeft < 0) { status = 'overdue'; label = `Overdue by ${-daysLeft}d`; }
+  else if (daysLeft === 0) { status = 'soon'; label = 'Due today'; }
+  else if (daysLeft <= 2) { status = 'soon'; }
+  return { closed: false, status, reopened, ageDays, allowedDays, daysLeft, label };
+}
+
+// Complaints still open past their deadline, for the "Overdue" filter and
+// counts. Cut-off dates are worked out here and sent to the database, so the
+// rule matches slaInfo() exactly: a complaint is overdue once it is a full
+// day past its allowance -- clock started more than 16 days ago (Normal / no
+// priority set) or more than 8 days ago (Urgent). On the last allowed day it
+// shows "Due today", not overdue. The clock start is sla_started_at (filing
+// date, or reopen date for a reopened complaint).
+function overdueCutoffs(now = new Date()) {
+  return {
+    normal: new Date(now.getTime() - (SLA_DAYS.Normal + 1) * DAY_MS).toISOString(),
+    urgent: new Date(now.getTime() - (SLA_DAYS.Urgent + 1) * DAY_MS).toISOString(),
+  };
+}
+export function applyOverdueFilter(query, now = new Date()) {
+  const { normal, urgent } = overdueCutoffs(now);
+  return query.or(
+    `and(priority.eq.Urgent,sla_started_at.lt.${urgent}),and(priority.eq.Normal,sla_started_at.lt.${normal}),and(priority.is.null,sla_started_at.lt.${normal})`
+  );
+}
+
+// How many open complaints are past their deadline, within whatever this
+// signed-in user is allowed to see (database rules scope it, as for the queue).
+export async function fetchOverdueCount() {
+  let query = supabase.from('complaints').select('id', { count: 'exact', head: true });
+  query = query.not('stage', 'in', `(${TERMINAL_STAGES.join(',')})`);
+  query = applyOverdueFilter(query);
+  const { count, error } = await query;
+  if (error) throw error;
+  return count || 0;
+}
+
 // Staff-side complaint search: matches the title OR the case number
 // (old style GR/2026/000070 and new style EGMAN202600000084 alike), case
 // ignored. Added 9-10-2026 -- search used to look at the title only, so a
@@ -482,7 +574,7 @@ export function applyComplaintSearch(query, search) {
 // (the default) returns the active/pending queue; handled=true
 // returns the resolved/sanctioned/declined ones separately, so the
 // two lists can be paginated and searched independently.
-export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', category = '', priority = '', handled = false, constituencyId = '', mandalId = '', villageId = '', dateFrom = '', dateTo = '' } = {}) {
+export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', category = '', priority = '', handled = false, constituencyId = '', mandalId = '', villageId = '', dateFrom = '', dateTo = '', overdueOnly = false, oldestFirst = false } = {}) {
   let query = supabase.from('complaints').select('*', { count: 'exact' });
   query = handled ? query.in('stage', TERMINAL_STAGES) : query.not('stage', 'in', `(${TERMINAL_STAGES.join(',')})`);
   query = applyComplaintSearch(query, search);
@@ -493,7 +585,11 @@ export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', ca
   if (villageId) query = query.eq('village_id', villageId);
   if (dateFrom) query = query.gte('created_at', `${dateFrom}T00:00:00`);
   if (dateTo) query = query.lte('created_at', `${dateTo}T23:59:59`);
-  query = query.order('created_at', { ascending: false });
+  // Overdue only makes sense for open complaints; ignored on the Handled list.
+  if (overdueOnly && !handled) query = applyOverdueFilter(query);
+  // Ordered by the deadline clock start, so a reopened complaint is listed by
+  // the day it was reopened, not the day it was first filed.
+  query = query.order('sla_started_at', { ascending: !!oldestFirst });
 
   const from = page * pageSize;
   const { data, error, count } = await query.range(from, from + pageSize - 1);
@@ -506,29 +602,31 @@ export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', ca
 // names are resolved here in a few batched queries (not one per row).
 // Shared here so any screen needing this doesn't have to duplicate it.
 export async function fetchEnrichedComplaints(appId) {
-  const { data, error } = await supabase
+  // Supabase returns at most 1,000 rows per request, so this reads page after
+  // page until a short page comes back. (Before 12-10-2026 it made one request
+  // and silently stopped at 1,000 complaints.)
+  const rows = await fetchAllPages(() => supabase
     .from('complaints')
     .select('*')
     .eq('app_id', appId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true }));
 
-  const rows = data || [];
   const mandalIds = [...new Set(rows.map((r) => r.mandal_id).filter(Boolean))];
   const villageIds = [...new Set(rows.map((r) => r.village_id).filter(Boolean))];
   const citizenIds = [...new Set(rows.map((r) => r.citizen_id).filter(Boolean))];
   const constituencyIds = [...new Set(rows.map((r) => r.constituency_id).filter(Boolean))];
 
   const [mandalRes, villageRes, citizenRes, constRes] = await Promise.all([
-    mandalIds.length ? supabase.from('mandals').select('id, name').in('id', mandalIds) : { data: [] },
-    villageIds.length ? supabase.from('villages').select('id, name').in('id', villageIds) : { data: [] },
-    citizenIds.length ? supabase.from('citizens').select('id, full_name, phone, ward_no, father_husband_name, membership_id').in('id', citizenIds) : { data: [] },
-    constituencyIds.length ? supabase.from('constituencies').select('id, name').in('id', constituencyIds) : { data: [] },
+    selectIn('mandals', 'id, name', mandalIds),
+    selectIn('villages', 'id, name', villageIds),
+    selectIn('citizens', 'id, full_name, phone, ward_no, father_husband_name, membership_id', citizenIds),
+    selectIn('constituencies', 'id, name', constituencyIds),
   ]);
-  const mandalMap = Object.fromEntries((mandalRes.data || []).map((m) => [m.id, m.name]));
-  const villageMap = Object.fromEntries((villageRes.data || []).map((v) => [v.id, v.name]));
-  const citizenMap = Object.fromEntries((citizenRes.data || []).map((c) => [c.id, c]));
-  const constMap = Object.fromEntries((constRes.data || []).map((c) => [c.id, c.name]));
+  const mandalMap = Object.fromEntries(mandalRes.map((m) => [m.id, m.name]));
+  const villageMap = Object.fromEntries(villageRes.map((v) => [v.id, v.name]));
+  const citizenMap = Object.fromEntries(citizenRes.map((c) => [c.id, c]));
+  const constMap = Object.fromEntries(constRes.map((c) => [c.id, c.name]));
 
   return rows.map((r) => ({
     ...r,
@@ -539,11 +637,37 @@ export async function fetchEnrichedComplaints(appId) {
   }));
 }
 
+// Reads every page of a query. `build` must return a FRESH query each call
+// (a query can only be used once) and should carry a stable order.
+async function fetchAllPages(build, pageSize = 1000) {
+  const all = [];
+  for (let from = 0; from < 200 * pageSize; from += pageSize) {
+    const { data, error } = await build().range(from, from + pageSize - 1);
+    if (error) throw error;
+    const batch = data || [];
+    all.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return all;
+}
+
+// `.in('id', [...])` puts every id in the web address, which breaks once the
+// list is long; so the ids are sent in groups of 150.
+async function selectIn(table, columns, ids, column = 'id') {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    const { data, error } = await supabase.from(table).select(columns).in(column, ids.slice(i, i + 150));
+    if (error) throw error;
+    out.push(...(data || []));
+  }
+  return out;
+}
+
 // The one function every staff action (acknowledge, resolve, escalate,
-// decline, sanction, send-back, reopen) funnels through — it's just a
-// complaint_history insert. The apply_history_entry trigger updates
-// complaints.stage/updated_at server-side; the app never writes those
-// columns directly.
+// decline, sanction, send-back) funnels through. Since 12-10-2026 the database
+// refuses a status change that is not allowed (back to Submitted, Escalated
+// back to Acknowledged, or outside the person's own scope) and then writes
+// NOTHING -- so this throws, and callers must show the message.
 // Writes a new stage to complaint_history AND updates the complaint's
 // own current stage — atomically, via a single database transaction
 // (see advance_complaint_stage() in the accompanying migration).
@@ -560,7 +684,7 @@ export async function advanceComplaint({ complaintId, stage, byName, note, visib
     p_note: note || '',
     p_visibility: visibility || 'public',
   });
-  if (error) throw error;
+  if (error) throw new Error(error.message || 'Could not update the complaint. Please try again.');
 }
 
 // Records which department is now handling a complaint — typically
@@ -574,6 +698,81 @@ export async function updateAssignedDepartment(complaintId, department) {
     .update({ assigned_department: department })
     .eq('id', complaintId);
   if (error) throw error;
+}
+
+/* ---------------------------------------------------------------------
+ * Citizen feedback: "was it really solved?" (12-10-2026)
+ * Rating and reopening go through two database functions that check the
+ * rules (own complaint, Resolved only, 30 days, twice at most), so the
+ * messages below come straight from the database.
+ * ------------------------------------------------------------------- */
+export const REOPEN_WINDOW_DAYS = 30;
+export const REOPEN_MAX = 2;
+
+// Mirror of the database rule, only used to decide what to show the citizen.
+// The database is the one that actually enforces it.
+export function reopenEligibility(complaint, now = new Date()) {
+  if (!complaint || complaint.stage !== 'Resolved') return { ok: false, reason: 'not_resolved' };
+  if ((Number(complaint.reopen_count) || 0) >= REOPEN_MAX) return { ok: false, reason: 'max' };
+  const resolvedAt = new Date(complaint.updated_at || complaint.created_at);
+  if (!Number.isNaN(resolvedAt.getTime()) && now - resolvedAt > REOPEN_WINDOW_DAYS * DAY_MS) return { ok: false, reason: 'expired' };
+  return { ok: true, reason: null };
+}
+
+export async function rateComplaint({ complaintId, rating, comment }) {
+  const { error } = await supabase.rpc('citizen_rate_complaint', {
+    p_complaint_id: complaintId,
+    p_rating: rating,
+    p_comment: comment || null,
+  });
+  if (error) throw new Error(error.message || 'Could not save your rating. Please try again.');
+}
+
+export async function reopenComplaint({ complaintId, reason }) {
+  const { error } = await supabase.rpc('citizen_reopen_complaint', {
+    p_complaint_id: complaintId,
+    p_reason: reason,
+  });
+  if (error) throw new Error(error.message || 'Could not reopen the complaint. Please try again.');
+}
+
+// Ratings given on one complaint, oldest round first. Visible to the citizen
+// who filed it and to staff whose scope covers it (database rules).
+export async function fetchComplaintFeedback(complaintId) {
+  const { data, error } = await supabase
+    .from('complaint_citizen_feedback')
+    .select('cycle, rating, comment, created_at')
+    .eq('complaint_id', complaintId)
+    .order('cycle', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+// Numbers for the Reports screen, within what this user may see:
+//  - ratingCount / avgRating: every rating given (all rounds)
+//  - confirmedCount of resolvedCount: complaints now Resolved whose citizen has
+//    rated the current round, i.e. confirmed it was really solved
+//  - reopenedCount: complaints reopened at least once
+export async function fetchFeedbackStats(appId) {
+  const [resolved, ratings, reopenedRes] = await Promise.all([
+    fetchAllPages(() => supabase.from('complaints').select('id, reopen_count').eq('app_id', appId).eq('stage', 'Resolved').order('id', { ascending: true })),
+    fetchAllPages(() => supabase.from('complaint_citizen_feedback').select('complaint_id, cycle, rating').eq('app_id', appId).order('complaint_id', { ascending: true }).order('cycle', { ascending: true })),
+    supabase.from('complaints').select('id', { count: 'exact', head: true }).eq('app_id', appId).gt('reopen_count', 0),
+  ]);
+  if (reopenedRes.error) throw reopenedRes.error;
+
+  const ratedRounds = new Set(ratings.map((r) => `${r.complaint_id}|${r.cycle}`));
+  const confirmedCount = resolved.filter((c) => ratedRounds.has(`${c.id}|${Number(c.reopen_count) || 0}`)).length;
+  const ratingCount = ratings.length;
+  const avgRating = ratingCount ? ratings.reduce((sum, r) => sum + Number(r.rating), 0) / ratingCount : null;
+  return {
+    ratingCount,
+    avgRating,
+    resolvedCount: resolved.length,
+    confirmedCount,
+    confirmedPct: resolved.length ? Math.round((confirmedCount / resolved.length) * 100) : null,
+    reopenedCount: reopenedRes.count || 0,
+  };
 }
 
 /* ---------------------------------------------------------------------

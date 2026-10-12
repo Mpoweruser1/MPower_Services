@@ -1,9 +1,9 @@
 // grievance/ReportsDashboard.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
+import { signOutAndRelease } from '../lib/signOutAndRelease';
 import { useTenant } from '../context/TenantContext';
-import { fetchReportRollup, fetchEnrichedComplaints, detectPatterns } from './grievanceApi';
+import { fetchReportRollup, fetchEnrichedComplaints, detectPatterns, fetchOverdueCount, fetchFeedbackStats, slaInfo } from './grievanceApi';
 import { ComplaintDetailDrawer } from './StaffDashboard';
 import GrievanceNav from './GrievanceNav';
 
@@ -13,6 +13,15 @@ const LEVELS = [
   { key: 'category', label: 'By Category', icon: '📋' },
   { key: 'constituency', label: 'By Constituency', icon: '🏛️' },
 ];
+
+// One CSV cell: wrapped in quotes when it holds a comma, quote or line break
+// (a village called "Pedana, East" used to spill into the next column), and a
+// leading = + - @ is defused so a spreadsheet can't read a name as a formula.
+function csvCell(value) {
+  let v = value == null ? '' : String(value);
+  if (typeof value === 'string' && /^[=+\-@]/.test(v)) v = `'${v}`;
+  return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+}
 
 const STAGE_COLORS = {
   Submitted:    '#f59e0b',
@@ -24,11 +33,12 @@ const STAGE_COLORS = {
   Sanctioned:   '#e8a020',
 };
 
+// Days since filing (or, once closed, days it took) now comes from the one
+// shared deadline rule in grievanceApi.js (slaInfo). The old local version
+// only treated Resolved and Declined as finished, so a Sanctioned complaint
+// kept ageing and was flagged overdue after 14 days even though it was done.
 function daysPending(complaint) {
-  const filed = new Date(complaint.created_at);
-  const isResolved = complaint.stage === 'Resolved' || complaint.stage === 'Declined';
-  const end = isResolved ? new Date(complaint.updated_at || complaint.created_at) : new Date();
-  return Math.max(0, Math.floor((end - filed) / (1000 * 60 * 60 * 24)));
+  return slaInfo(complaint)?.ageDays ?? 0;
 }
 
 export default function ReportsDashboard() {
@@ -44,6 +54,13 @@ export default function ReportsDashboard() {
   const [expandedRow, setExpandedRow] = useState(null);
   const [activeComplaint, setActiveComplaint] = useState(null);
   const [showPatterns, setShowPatterns] = useState(false);
+  // Exact count of open complaints past their deadline (same number as the
+  // Queue's Overdue button), straight from the database rather than counted
+  // from the loaded list.
+  const [overdueTotal, setOverdueTotal] = useState(null);
+  // Citizen feedback numbers (ratings, confirmed solved, reopened). Left null,
+  // and the cards simply not shown, if they can't be loaded.
+  const [feedbackStats, setFeedbackStats] = useState(null);
 
   useEffect(() => {
     if (!tenant) return;
@@ -58,6 +75,8 @@ export default function ReportsDashboard() {
   useEffect(() => {
     if (!tenant?.appId) return;
     fetchEnrichedComplaints(tenant.appId).then(setEnriched).catch(() => {});
+    fetchOverdueCount().then(setOverdueTotal).catch(() => setOverdueTotal(null));
+    fetchFeedbackStats(tenant.appId).then(setFeedbackStats).catch(() => setFeedbackStats(null));
   }, [tenant?.appId]);
 
   // Matches a summary row (whichever level it belongs to) back to its
@@ -128,6 +147,7 @@ export default function ReportsDashboard() {
             { label: 'Escalated', value: escalated, color: '#B91C1C' },
             { label: 'Declined', value: declined, color: '#64748b' },
             { label: 'Sanctioned', value: sanctioned, color: '#A8762C' },
+            ...(overdueTotal === null ? [] : [{ label: 'Overdue', value: overdueTotal, color: '#B91C1C' }]),
           ].map(s => (
             <div key={s.label} style={{ background: '#fff', borderRadius: 10, padding: 14, textAlign: 'center', border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -135,6 +155,31 @@ export default function ReportsDashboard() {
             </div>
           ))}
         </div>
+
+        {/* Citizen feedback -- what citizens say after a complaint is resolved */}
+        {feedbackStats && (
+          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>CITIZEN FEEDBACK</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#A8762C' }}>
+                  {feedbackStats.avgRating === null ? '—' : `${feedbackStats.avgRating.toFixed(1)}/5`}
+                </div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>Average rating ({feedbackStats.ratingCount} {feedbackStats.ratingCount === 1 ? 'rating' : 'ratings'})</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#16a34a' }}>
+                  {feedbackStats.confirmedPct === null ? '—' : `${feedbackStats.confirmedPct}%`}
+                </div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>Confirmed solved by citizen ({feedbackStats.confirmedCount} of {feedbackStats.resolvedCount} resolved)</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#B91C1C' }}>{feedbackStats.reopenedCount}</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>Reopened by citizen</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Patterns & Duplicates — real intelligence from data already
             being collected at registration (Ward No., Sachivalayam,
@@ -314,8 +359,9 @@ export default function ReportsDashboard() {
                     {rowComplaints.length === 0 ? (
                       <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>No individual complaints matched (data may still be loading).</p>
                     ) : rowComplaints.map((c) => {
+                      const sla = slaInfo(c);
                       const days = daysPending(c);
-                      const overdue = days >= 14 && c.stage !== 'Resolved' && c.stage !== 'Declined';
+                      const overdue = sla?.status === 'overdue';
                       return (
                         <button key={c.id} onClick={() => setActiveComplaint(c)}
                           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#f8fafc', borderRadius: 6, cursor: 'pointer', width: '100%', textAlign: 'left', border: 'none', fontFamily: 'inherit' }}>
@@ -327,7 +373,7 @@ export default function ReportsDashboard() {
                           </div>
                           <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
                             <div style={{ fontSize: 11, fontWeight: overdue ? 700 : 500, color: overdue ? '#B91C1C' : '#64748b' }}>
-                              {days}d
+                              {sla && !sla.closed ? sla.label : `${days}d`}
                             </div>
                             <div style={{ fontSize: 10, color: STAGE_COLORS[c.stage] || '#64748b', fontWeight: 600 }}>{c.stage}</div>
                           </div>
@@ -357,7 +403,7 @@ export default function ReportsDashboard() {
                 r.declined_count || 0,
                 r.sanctioned_count || 0,
               ])
-            ].map(row => row.join(',')).join('\n');
+            ].map(row => row.map(csvCell).join(',')).join('\n');
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -380,7 +426,7 @@ export default function ReportsDashboard() {
             ← Back
           </button>
           <Link to="/portal/dashboard" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Home</Link>
-          <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
+          <button onClick={() => signOutAndRelease()} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0 }}>
             Sign out
           </button>
         </div>
@@ -397,6 +443,8 @@ export default function ReportsDashboard() {
           onAction={() => {
             fetchReportRollup(level).then(setData).catch(e => setError(e.message));
             fetchEnrichedComplaints(tenant.appId).then(setEnriched).catch(() => {});
+            fetchOverdueCount().then(setOverdueTotal).catch(() => {});
+            fetchFeedbackStats(tenant.appId).then(setFeedbackStats).catch(() => {});
           }}
         />
       )}

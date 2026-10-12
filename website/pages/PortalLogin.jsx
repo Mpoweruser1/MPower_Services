@@ -13,6 +13,23 @@ const S = {
   success: { background: 'rgba(106,170,144,0.08)', border: '1px solid rgba(106,170,144,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#6AAA90', marginBottom: 14 },
 };
 
+// Calls one of our edge functions without needing a signed-in session (the
+// same way the citizen login calls send-otp). Never throws on a non-2xx reply:
+// the function's own plain-language message is in data.error.
+async function callFunction(name, body) {
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+  let data = null;
+  try { data = await res.json(); } catch { /* not JSON */ }
+  return { ok: res.ok, data };
+}
+
 export default function PortalLogin() {
   const navigate = useNavigate();
   const { session, loading } = useTenant();
@@ -30,6 +47,12 @@ export default function PortalLogin() {
   const [mfaFactorId, setMfaFactorId] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [verifyingMfa, setVerifyingMfa] = useState(false);
+  // Mobile-OTP sign-in (for staff approved by phone only — no email/password)
+  const [loginMode, setLoginMode] = useState('password'); // 'password' | 'otp'
+  const [otpPhone, setOtpPhone] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpBusy, setOtpBusy] = useState(false);
 
   // Check URL params for messages
   const reasonParam = new URLSearchParams(window.location.search).get('reason');
@@ -61,6 +84,13 @@ export default function PortalLogin() {
       return;
     }
 
+    await afterSignIn();
+  }
+
+  // Everything that must happen after ANY successful first sign-in step
+  // (password, or the mobile-OTP token): the two-factor check, then the
+  // single-session claim. Shared so both ways in behave identically.
+  async function afterSignIn() {
     // Two-factor check — password alone isn't enough for an account
     // that has TOTP enabled. Stop here and prompt for the code rather
     // than proceeding straight to session-claim.
@@ -121,6 +151,52 @@ export default function PortalLogin() {
 
     setLoggingIn(false);
     navigate('/portal/dashboard', { replace: true });
+  }
+
+  function switchLoginMode(mode) {
+    setLoginMode(mode);
+    setError('');
+    setOtpSent(false);
+    setOtpCode('');
+  }
+
+  async function sendStaffOtp() {
+    setError('');
+    const phone = otpPhone.trim();
+    if (phone.replace(/\D/g, '').length < 10) { setError('Please enter your 10-digit mobile number.'); return; }
+    setOtpBusy(true);
+    try {
+      const { data } = await callFunction('send-otp', { phone, purpose: 'staff_login' });
+      if (!data?.sent) { setError(data?.error || 'Could not send the code. Please try again.'); return; }
+      setOtpSent(true);
+      setOtpCode('');
+    } catch {
+      setError('Could not send the code. Please check your connection and try again.');
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
+  async function loginWithOtp() {
+    setError('');
+    if (otpCode.length !== 6) { setError('Enter the 6-digit code from the SMS.'); return; }
+    setOtpBusy(true);
+    let signedIn = false;
+    try {
+      // The server checks the code (same rules as every other OTP) and, only
+      // if it is right AND the number belongs to a phone-only staff login,
+      // returns a one-time sign-in token to exchange for a real session.
+      const { data } = await callFunction('staff-otp-login', { phone: otpPhone.trim(), otp: otpCode });
+      if (!data?.ok || !data.tokenHash) { setError(data?.error || 'Could not sign you in. Please try again.'); return; }
+      const { error: vErr } = await supabase.auth.verifyOtp({ token_hash: data.tokenHash, type: 'magiclink' });
+      if (vErr) { setError('Could not complete sign-in. Please request a new code and try again.'); return; }
+      signedIn = true;
+    } catch {
+      setError('Could not sign you in. Please check your connection and try again.');
+    } finally {
+      setOtpBusy(false);
+    }
+    if (signedIn) await afterSignIn();
   }
 
   async function verifyMfaCode() {
@@ -194,6 +270,7 @@ export default function PortalLogin() {
   function handleKeyDown(e) {
     if (e.key === 'Enter') {
       if (showForgot) sendReset();
+      else if (loginMode === 'otp') { if (otpSent) loginWithOtp(); else sendStaffOtp(); }
       else login();
     }
   }
@@ -282,6 +359,55 @@ export default function PortalLogin() {
 
         {!showForgot && !mfaRequired ? (
           <>
+            {loginMode === 'otp' ? (
+              <div>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: '0 0 14px', lineHeight: 1.6 }}>
+                  For staff whose login was approved with a mobile number. We will send a 6-digit code by SMS.
+                </p>
+                <label htmlFor="otp-phone" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Mobile number</label>
+                <input
+                  id="otp-phone" name="otp-phone"
+                  value={otpPhone}
+                  onChange={(e) => setOtpPhone(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="10-digit mobile number"
+                  type="tel" inputMode="tel" autoComplete="tel"
+                  disabled={otpSent || otpBusy}
+                  autoFocus
+                  style={{ ...S.input, opacity: otpSent ? 0.6 : 1 }}
+                />
+                {otpSent && (
+                  <div>
+                    <label htmlFor="otp-code" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>6-digit code</label>
+                    <input
+                      id="otp-code" name="otp-code" aria-label="6-digit code from the SMS"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onKeyDown={handleKeyDown}
+                      placeholder="000000"
+                      inputMode="numeric" autoComplete="one-time-code"
+                      autoFocus
+                      style={{ ...S.input, fontSize: 18, textAlign: 'center', letterSpacing: 6 }}
+                    />
+                  </div>
+                )}
+                <button onClick={otpSent ? loginWithOtp : sendStaffOtp} disabled={otpBusy}
+                  style={{ width: '100%', padding: 13, background: otpBusy ? 'rgba(255,255,255,0.08)' : '#E8A020', color: otpBusy ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: otpBusy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', marginBottom: 12 }}>
+                  {otpBusy ? 'Please wait...' : otpSent ? 'Verify & sign in →' : 'Send code →'}
+                </button>
+                {otpSent && (
+                  <button onClick={() => { setOtpSent(false); setOtpCode(''); setError(''); }} disabled={otpBusy}
+                    style={{ width: '100%', padding: 11, marginBottom: 12, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.5)', fontFamily: 'inherit' }}>
+                    Change number or send a new code
+                  </button>
+                )}
+                <button onClick={() => switchLoginMode('password')}
+                  style={{ width: '100%', padding: 8, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#E8A020', fontFamily: 'inherit' }}>
+                  ← Use email and password
+                </button>
+              </div>
+            ) : (
+            <>
             {/* Login form */}
             <div>
               <label htmlFor="login-email" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>Email</label>
@@ -322,6 +448,13 @@ export default function PortalLogin() {
               style={{ width: '100%', padding: 13, background: loggingIn ? 'rgba(255,255,255,0.08)' : '#E8A020', color: loggingIn ? 'rgba(255,255,255,0.3)' : '#111113', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: loggingIn ? 'not-allowed' : 'pointer', fontFamily: 'inherit', marginBottom: 16 }}>
               {loggingIn ? 'Signing in...' : 'Sign in →'}
             </button>
+
+            <button onClick={() => switchLoginMode('otp')}
+              style={{ width: '100%', padding: 8, marginBottom: 12, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#E8A020', fontFamily: 'inherit' }}>
+              Sign in with mobile OTP instead
+            </button>
+            </>
+            )}
 
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: 0 }}>
               New to MPower?{' '}

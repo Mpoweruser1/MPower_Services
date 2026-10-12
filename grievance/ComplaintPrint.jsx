@@ -7,7 +7,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
-import { fetchCategories, getStaffPhotoUrl, fetchConstituencies, fetchMandals, fetchVillages, fetchMyConstituencyId, applyComplaintSearch } from './grievanceApi';
+import { fetchCategories, getStaffPhotoUrl, fetchConstituencies, fetchMandals, fetchVillages, fetchMyConstituencyId, applyComplaintSearch, applyOverdueFilter } from './grievanceApi';
 import GrievanceNav from './GrievanceNav';
 
 // ─── Shared print styles ───────────────────────────────────
@@ -39,6 +39,7 @@ const PRINT_STYLES = `
       color: #000;
       border: 1px solid #ddd;
       border-radius: 4px;
+      box-shadow: 0 2px 14px rgba(26, 26, 46, 0.10);
       font-family: 'Times New Roman', serif;
     }
   }
@@ -561,6 +562,7 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
           Generated: {new Date().toLocaleString('en-IN')} · 
           MPower CTS · {totalCount} complaints · 
           {filters?.dateFrom ? `Period: ${filters.dateFrom} to ${filters.dateTo || 'today'}` : 'All time'}
+          {filters?.filterStage === 'OVERDUE' ? ' · Overdue complaints only (open past the 15-day Normal / 7-day Urgent response deadline)' : ''}
         </p>
       </div>
     </div>
@@ -774,6 +776,7 @@ function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole,
           Generated: {new Date().toLocaleString('en-IN')} · 
           MPower CTS · {totalCount} complaints across {constituencyCount} constituencies · 
           {filters?.dateFrom ? `Period: ${filters.dateFrom} to ${filters.dateTo || 'today'}` : 'All time'}
+          {filters?.filterStage === 'OVERDUE' ? ' · Overdue complaints only (open past the 15-day Normal / 7-day Urgent response deadline)' : ''}
         </p>
       </div>
     </div>
@@ -1089,6 +1092,10 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     query = applyComplaintSearch(query, filterSearch);
     if (filterStage === 'PENDING_ONLY') {
       query = query.not('stage', 'in', '(Resolved,Sanctioned,Declined)');
+    } else if (filterStage === 'OVERDUE') {
+      // Open complaints past their response deadline (15 days Normal, 7 Urgent) -- same rule as the Queue's Overdue button.
+      query = query.not('stage', 'in', '(Resolved,Sanctioned,Declined)');
+      query = applyOverdueFilter(query);
     } else if (filterStage === 'HANDLED_ONLY') {
       query = query.in('stage', ['Resolved', 'Sanctioned', 'Declined']);
     } else if (filterStage) {
@@ -1164,6 +1171,10 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     query = applyComplaintSearch(query, filterSearch);
     if (filterStage === 'PENDING_ONLY') {
       query = query.not('stage', 'in', '(Resolved,Sanctioned,Declined)');
+    } else if (filterStage === 'OVERDUE') {
+      // Open complaints past their response deadline (15 days Normal, 7 Urgent) -- same rule as the Queue's Overdue button.
+      query = query.not('stage', 'in', '(Resolved,Sanctioned,Declined)');
+      query = applyOverdueFilter(query);
     } else if (filterStage === 'HANDLED_ONLY') {
       query = query.in('stage', ['Resolved', 'Sanctioned', 'Declined']);
     } else if (filterStage) {
@@ -1208,18 +1219,18 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
   }
 
   const S = {
-    page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff' },
+    page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#f0f4f8', minHeight: '100vh', color: '#1a1a2e' },
     inner: { maxWidth: 860, margin: '0 auto', padding: '24px 20px' },
-    card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, marginBottom: 16 },
-    input: { width: '100%', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, fontSize: 13, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
-    select: { width: '100%', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, fontSize: 13, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' },
-    label: { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
+    card: { background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(26,26,46,0.06)', borderRadius: 12, padding: 16, marginBottom: 16 },
+    input: { width: '100%', padding: '9px 12px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 7, fontSize: 13, color: '#1a1a2e', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
+    select: { width: '100%', padding: '9px 12px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 7, fontSize: 13, color: '#1a1a2e', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' },
+    label: { fontSize: 11, color: '#64748b', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
   };
 
   if (tenantLoading) {
     return (
       <div style={S.page}>
-        <div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading…</p></div>
+        <div style={S.inner}><p style={{ color: '#64748b', fontSize: 13 }}>Loading…</p></div>
       </div>
     );
   }
@@ -1228,17 +1239,19 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     <div style={S.page}>
       <style>{PRINT_STYLES}</style>
 
-      <div style={S.inner} className="no-print">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className="no-print" style={{ background: '#1a1a2e', padding: '14px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 860, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 4 }}>Print / Export</p>
-            <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0, letterSpacing: -0.5 }}>Complaint Print Centre</h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>ఫిర్యాదు ముద్రణ కేంద్రం</p>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '2px', textTransform: 'uppercase' }}>Print / Export</div>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: '2px 0 0', letterSpacing: -0.3 }}>Complaint Print Centre</h1>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>ఫిర్యాదు ముద్రణ కేంద్రం</div>
           </div>
-          <button onClick={() => window.print()} style={{ padding: '10px 24px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: 'inherit' }}>
+          <button onClick={() => window.print()} style={{ padding: '10px 20px', background: '#e8a020', color: '#1a1a2e', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
             🖨️ Print now
           </button>
         </div>
+      </div>
+      <div style={S.inner} className="no-print">
 
         {/* Print type selector — citizens only ever see the one option
             relevant to them; the other two are staff-only. Previously
@@ -1258,11 +1271,11 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
               // constituency in the first place.
               { k: 'staff_statewide', icon: '🗺️', title: 'Statewide Summary for Minister', sub: 'Many constituencies at once', te: 'రాష్ట్రవ్యాప్త సారాంశం', roles: ['grievance_admin', 'developer', 'support'] },
             ].filter((opt) => isStaff || opt.k === 'citizen').filter((opt) => !opt.roles || opt.roles.includes(tenant?.role)).map((opt) => (
-              <button key={opt.k} onClick={() => setPrintType(opt.k)} aria-pressed={printType === opt.k} style={{ textAlign: 'left', padding: 14, border: `1px solid ${printType === opt.k ? 'rgba(232,160,32,0.5)' : 'rgba(255,255,255,0.07)'}`, background: printType === opt.k ? 'rgba(232,160,32,0.08)' : '#111113', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button key={opt.k} onClick={() => setPrintType(opt.k)} aria-pressed={printType === opt.k} style={{ textAlign: 'left', padding: 14, border: `1px solid ${printType === opt.k ? '#e8a020' : '#e2e8f0'}`, background: printType === opt.k ? '#FFF8E8' : '#fff', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <p style={{ fontSize: 22, margin: '0 0 6px' }}>{opt.icon}</p>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{opt.title}</p>
-                <p style={{ margin: '2px 0', fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{opt.sub}</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{opt.te}</p>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#1a1a2e' }}>{opt.title}</p>
+                <p style={{ margin: '2px 0', fontSize: 11, color: '#64748b' }}>{opt.sub}</p>
+                <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{opt.te}</p>
               </button>
             ))}
           </div>
@@ -1285,7 +1298,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                 navigate(`/grievance/print?case=${encodeURIComponent(manualCaseNo.trim().toUpperCase())}`, { replace: true });
                 loadSingleComplaint(manualCaseNo.trim().toUpperCase());
               }}
-              style={{ padding: '9px 18px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+              style={{ padding: '9px 18px', background: '#1a1a2e', color: '#e8a020', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
             >
               Load
             </button>
@@ -1304,8 +1317,8 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
               implies an ownership/addressing relationship that
               document was never meant to have. */}
           {isStaff && printType !== 'staff_single' && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', marginBottom: 14, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{mlaName || 'MLA name not set'} · {constituency || 'Constituency not set'}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', marginBottom: 14, borderBottom: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: 13, color: '#64748b' }}>{mlaName || 'MLA name not set'} · {constituency || 'Constituency not set'}</span>
             </div>
           )}
 
@@ -1328,7 +1341,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
           {(printType === 'staff_batch' || printType === 'staff_statewide') && (
             <>
               {/* Recipient — clearly its own section, separate from filters */}
-              <p style={{ ...S.label, marginBottom: 8, color: 'rgba(255,255,255,0.5)' }}>Recipient</p>
+              <p style={{ ...S.label, marginBottom: 8, color: '#64748b' }}>Recipient</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
                 <div>
                   <label style={S.label}>Addressed to (name)</label>
@@ -1351,16 +1364,17 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
               {/* Filters — separate section, real category/status values,
                   plus quick presets so common cases don't need manual
                   date-range picking every time */}
-              <p style={{ ...S.label, marginBottom: 8, color: 'rgba(255,255,255,0.5)' }}>Filters</p>
+              <p style={{ ...S.label, marginBottom: 8, color: '#64748b' }}>Filters</p>
               <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                 {[
                   { label: 'All pending', apply: () => { setFilterStage('PENDING_ONLY'); setFilterPriority(''); setDateFrom(''); setDateTo(''); } },
+                  { label: 'Overdue only', apply: () => { setFilterStage('OVERDUE'); setFilterPriority(''); setDateFrom(''); setDateTo(''); } },
                   { label: 'This month', apply: () => { const now = new Date(); const first = new Date(now.getFullYear(), now.getMonth(), 1); setDateFrom(first.toISOString().slice(0, 10)); setDateTo(now.toISOString().slice(0, 10)); } },
                   { label: 'Urgent only', apply: () => { setFilterPriority('Urgent'); setDateFrom(''); setDateTo(''); } },
                   { label: 'All time', apply: () => { setFilterCategory(''); setFilterStage(''); setFilterPriority(''); setDateFrom(''); setDateTo(''); } },
                 ].map((preset) => (
                   <button key={preset.label} type="button" onClick={preset.apply}
-                    style={{ padding: '6px 12px', borderRadius: 16, border: '1px solid rgba(232,160,32,0.3)', background: 'rgba(232,160,32,0.08)', color: '#E8A020', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    style={{ padding: '6px 12px', borderRadius: 16, border: '1px solid #F5DEB3', background: '#FFF8E8', color: '#A8762C', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                     {preset.label}
                   </button>
                 ))}
@@ -1373,32 +1387,32 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                     <option value="">All districts — full statewide summary</option>
                     {branchOptions.map((b) => <option key={b.id} value={b.id}>{b.branch_name}</option>)}
                   </select>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
+                  <p style={{ fontSize: 11, color: '#64748b', margin: '4px 0 0' }}>
                     Narrows this report to just one district's constituencies — the real scope a District Collector actually needs, rather than the whole state.
                   </p>
                 </div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 10 }}>
                 <div>
-                  <label style={S.label}>Constituency {printType === 'staff_batch' && <span style={{ color: '#E8A020' }}>(required)</span>}</label>
-                  <select value={filterConstituencyId} onChange={(e) => { setFilterConstituencyId(e.target.value); setFilterMandalId(''); setFilterVillageId(''); setError(''); }} style={{ ...S.select, border: (printType === 'staff_batch' && !filterConstituencyId) ? '1px solid rgba(232,160,32,0.5)' : S.select.border }}>
+                  <label style={S.label}>Constituency {printType === 'staff_batch' && <span style={{ color: '#A8762C' }}>(required)</span>}</label>
+                  <select value={filterConstituencyId} onChange={(e) => { setFilterConstituencyId(e.target.value); setFilterMandalId(''); setFilterVillageId(''); setError(''); }} style={{ ...S.select, border: (printType === 'staff_batch' && !filterConstituencyId) ? '1px solid #e8a020' : S.select.border }}>
                     <option value="">{printType === 'staff_batch' ? 'Select a constituency…' : 'All constituencies'}</option>
                     {constituencyOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                   {printType === 'staff_batch' && !filterConstituencyId && (
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
+                    <p style={{ fontSize: 11, color: '#64748b', margin: '4px 0 0' }}>
                       This letter is written as one MLA's own correspondence — it needs exactly one office to be from. For a statewide or multi-constituency overview instead, use Reports.
                     </p>
                   )}
                 </div>
                 <div>
-                  <label style={S.label}>Mandal {addresseeRole === 'MRO' && <span style={{ color: '#E8A020' }}>(required for MRO)</span>}</label>
-                  <select value={filterMandalId} onChange={(e) => { setFilterMandalId(e.target.value); setFilterVillageId(''); setError(''); }} disabled={!filterConstituencyId} style={{ ...S.select, opacity: filterConstituencyId ? 1 : 0.5, border: (addresseeRole === 'MRO' && !filterMandalId) ? '1px solid rgba(232,160,32,0.5)' : S.select.border }}>
+                  <label style={S.label}>Mandal {addresseeRole === 'MRO' && <span style={{ color: '#A8762C' }}>(required for MRO)</span>}</label>
+                  <select value={filterMandalId} onChange={(e) => { setFilterMandalId(e.target.value); setFilterVillageId(''); setError(''); }} disabled={!filterConstituencyId} style={{ ...S.select, opacity: filterConstituencyId ? 1 : 0.5, border: (addresseeRole === 'MRO' && !filterMandalId) ? '1px solid #e8a020' : S.select.border }}>
                     <option value="">{addresseeRole === 'MRO' ? 'Select a mandal…' : 'All mandals'}</option>
                     {mandalOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                   {addresseeRole === 'MRO' && !filterMandalId && (
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
+                    <p style={{ fontSize: 11, color: '#64748b', margin: '4px 0 0' }}>
                       An MRO can only act on their own mandal, not the whole constituency.
                     </p>
                   )}
@@ -1426,6 +1440,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                   <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} style={S.select}>
                     <option value="">All statuses</option>
                     <option value="PENDING_ONLY">Pending only (not resolved/sanctioned/declined)</option>
+                    <option value="OVERDUE">Overdue only (open, past response deadline)</option>
                     <option value="HANDLED_ONLY">Handled only (resolved/sanctioned/declined)</option>
                     <option value="Submitted">Submitted</option>
                     <option value="Acknowledged">Acknowledged</option>
@@ -1453,11 +1468,11 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                   <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={S.input} />
                 </div>
               </div>
-              <button onClick={() => printType === 'staff_statewide' ? loadStatewideComplaints() : loadBatchComplaints()} style={{ padding: '8px 18px', background: (printType === 'staff_batch' && (!filterConstituencyId || (addresseeRole === 'MRO' && !filterMandalId))) ? 'rgba(232,160,32,0.3)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
+              <button onClick={() => printType === 'staff_statewide' ? loadStatewideComplaints() : loadBatchComplaints()} style={{ padding: '8px 18px', background: (printType === 'staff_batch' && (!filterConstituencyId || (addresseeRole === 'MRO' && !filterMandalId))) ? '#cbd5e1' : '#1a1a2e', color: (printType === 'staff_batch' && (!filterConstituencyId || (addresseeRole === 'MRO' && !filterMandalId))) ? '#475569' : '#e8a020', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
                 Apply filters & preview
               </button>
               {complaints.length > 0 && (
-                <p style={{ fontSize: 12, color: '#6AAA90', marginTop: 8, marginBottom: 0 }}>
+                <p style={{ fontSize: 12, color: '#16a34a', marginTop: 8, marginBottom: 0 }}>
                   ✓ {complaints.length} complaints will be included in the print
                 </p>
               )}
@@ -1466,20 +1481,20 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
         </div>
 
         {error && (
-          <p style={{ color: '#E05A5A', fontSize: 13, marginBottom: 16 }}>{error}</p>
+          <p style={{ color: '#B91C1C', fontSize: 13, marginBottom: 16 }}>{error}</p>
         )}
 
         {loading && (
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading complaint data...</p>
+          <p style={{ color: '#64748b', fontSize: 13 }}>Loading complaint data...</p>
         )}
 
         {/* Print preview label */}
         {!loading && !error && (
-          <div style={{ background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.15)', borderRadius: 10, padding: '10px 16px', marginBottom: 20 }}>
-            <p style={{ margin: 0, fontSize: 13, color: '#E8A020', fontWeight: 500 }}>
+          <div style={{ background: '#FFF8E8', border: '1px solid #F5DEB3', borderRadius: 10, padding: '10px 16px', marginBottom: 20 }}>
+            <p style={{ margin: 0, fontSize: 13, color: '#A8762C', fontWeight: 500 }}>
               📄 Print preview below — looks exactly like the printed output
             </p>
-            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748b' }}>
               Click "Print now" above or use Ctrl+P / ⌘+P to print
             </p>
           </div>
@@ -1535,11 +1550,11 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
       <div className="no-print" style={{ display: 'flex', gap: 16, justifyContent: 'center', padding: '20px 0 100px' }}>
         <button
           onClick={() => window.history.back()}
-          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+          style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
         >
           ← Back
         </button>
-        <Link to="/" style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>🏠 Exit to Home</Link>
+        <Link to="/" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Exit to Home</Link>
       </div>
 
       <GrievanceNav />
