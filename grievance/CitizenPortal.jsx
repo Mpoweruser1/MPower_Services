@@ -10,11 +10,13 @@
 // not something a citizen picks from a dropdown.
 
 import { useNavigate, Link } from 'react-router-dom';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCitizenAuth } from './useCitizenAuth';
 import { useGrievanceTranslations } from './useGrievanceTranslations';
 import EvidenceGallery from './EvidenceGallery';
 import { FeedbackWidget } from '../shared/FeedbackWidget';
+import { useProblemLocation, ProblemLocationFields } from './ProblemLocationFields';
+import { MicButton, listenOnce, appendText } from './VoiceInput';
 import {
   fetchAppIdBySlug, fetchAppSettings, fetchConstituencies, fetchMandals, fetchVillages, fetchSachivalayams,
   createMandal, createVillage,
@@ -463,7 +465,14 @@ function ProfileRegistration({ appId, appSettings, auth, t }) {
           <input id="citizen-father-husband-name" name="citizen-father-husband-name" value={fatherHusbandName} onChange={(e) => setFatherHusbandName(e.target.value)} style={inputStyle} />
         </Field>
         <Field label={t('field_full_address', 'Full Address')}>
-          <input id="citizen-address" name="citizen-address" value={address} onChange={(e) => setAddress(e.target.value)} style={inputStyle} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input id="citizen-address" name="citizen-address" value={address} onChange={(e) => setAddress(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+            <MicButton onClick={() => listenOnce({
+              language: appSettings?.default_language,
+              onText: (txt) => setAddress((prev) => appendText(prev, txt)),
+              onUnsupported: () => setSaveError('Voice input needs Chrome or Edge — not supported in this browser.'),
+            })} />
+          </div>
         </Field>
         <Field label={t('field_ward_no', 'Ward No.')}>
           <input id="citizen-ward-no" name="citizen-ward-no" value={wardNo} onChange={(e) => setWardNo(e.target.value)} style={inputStyle} />
@@ -604,6 +613,7 @@ function ComplaintWorkspace({ appId, appSettings, citizen, language, t }) {
         <ComplaintDetail
           complaint={activeComplaint}
           citizenId={citizen.id}
+          language={language}
           onClose={() => setActiveComplaint(null)}
           onReopened={(message) => { setNotice(message); setActiveComplaint(null); loadComplaints(); }}
         />
@@ -640,11 +650,17 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
   const [error, setError] = useState(null);
   const [usedVoice, setUsedVoice] = useState(false);
   const [stagedFiles, setStagedFiles] = useState([]); // evidence attached before the complaint exists yet
+  // Free the temporary photo previews if the form is closed with photos still attached.
+  const stagedRef = useRef([]);
+  stagedRef.current = stagedFiles;
+  useEffect(() => () => { stagedRef.current.forEach(releasePreview); }, []);
   const [uploadStatus, setUploadStatus] = useState('');
   // Same reasoning as the profile registration review step — this
   // becomes the actual printed letter to an MLA/MP later, so it's
   // worth one real chance to check everything before it's saved.
   const [showReview, setShowReview] = useState(false);
+  // "Where is the problem?" -- the problem's own place, separate from where the citizen lives.
+  const loc = useProblemLocation({ citizen, appSettings, t });
 
   useEffect(() => {
     Promise.all([
@@ -693,19 +709,42 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
     recognition.start();
   }
 
+  // Each staged file carries its own optional caption ("what does this photo show?").
+  // previewUrl is a temporary local link so the citizen can SEE what they picked.
   function handleFileStaged(e) {
     const files = Array.from(e.target.files || []);
-    setStagedFiles((prev) => [...prev, ...files]);
+    const items = files.map((f) => ({
+      file: f,
+      caption: '',
+      previewUrl: f.type && f.type.startsWith('image') && typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(f) : null,
+    }));
+    setStagedFiles((prev) => [...prev, ...items]);
     e.target.value = '';
   }
 
+  function releasePreview(item) {
+    if (item && item.previewUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) URL.revokeObjectURL(item.previewUrl);
+  }
+
   function removeStagedFile(index) {
-    setStagedFiles((prev) => prev.filter((_, i) => i !== index));
+    setStagedFiles((prev) => {
+      releasePreview(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  function setStagedCaption(index, text) {
+    setStagedFiles((prev) => prev.map((it, i) => (i === index ? { ...it, caption: text.slice(0, 300) } : it)));
   }
 
   function handleContinue(e) {
     e.preventDefault();
     if (!title.trim() || !description.trim() || !activeCategory) return;
+    if (!loc.validate()) {
+      setError(t('pl_need_village', 'Please choose the village where the problem is.'));
+      return;
+    }
+    setError(null);
     setShowReview(true);
   }
 
@@ -738,13 +777,19 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
         issueKeys: selectedIssues,
         otherDetail: otherDetail.trim(),
         byName: citizen.full_name,
+        ...loc.payload(),
       });
 
       if (stagedFiles.length > 0) {
         setUploadStatus(`Uploading evidence (0/${stagedFiles.length})…`);
         for (let i = 0; i < stagedFiles.length; i++) {
           try {
-            await uploadEvidence({ complaintId: complaint.id, file: stagedFiles[i], uploadedByCitizenId: citizen.id });
+            await uploadEvidence({
+              complaintId: complaint.id,
+              file: stagedFiles[i].file,
+              caption: stagedFiles[i].caption.trim() || undefined,
+              uploadedByCitizenId: citizen.id,
+            });
           } catch (uploadErr) {
             // Don't let a failed photo block the complaint that's already saved
             setError(`Complaint saved, but one file failed to upload: ${uploadErr.message}`);
@@ -759,8 +804,10 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
       setSuggestedSolution('');
       setSelectedIssues([]);
       setOtherDetail('');
+      stagedFiles.forEach(releasePreview);
       setStagedFiles([]);
       setUsedVoice(false);
+      loc.reset();
       setShowReview(false);
       onSubmitted(complaint);
     } catch (err) {
@@ -771,6 +818,7 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
   }
 
   if (showReview) {
+    const placeSummary = loc.summary();
     const issueLabels = activeCategory?.complaint_subissues
       ?.filter((i) => selectedIssues.includes(i.subissue_key))
       .map((i) => i.label_en) || [];
@@ -799,6 +847,16 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
             <div style={{ fontSize: 14, color: '#1a1a2e' }}>{priority === 'Urgent' ? '🚨 Urgent' : '📅 Normal'}</div>
           </div>
           <div>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{t('pl_review_label', 'Where is the problem')}</div>
+            <div style={{ fontSize: 14, color: '#1a1a2e' }}>
+              {placeSummary.isDifferent
+                ? [placeSummary.villageName, placeSummary.mandalName].filter(Boolean).join(', ') + (placeSummary.wardName ? ` — ${placeSummary.wardName}` : '')
+                : `${t('pl_same_home', 'Same as my home area')}${[placeSummary.homeVillageName, placeSummary.homeMandalName].filter(Boolean).length ? ` (${[placeSummary.homeVillageName, placeSummary.homeMandalName].filter(Boolean).join(', ')})` : ''}`}
+              {placeSummary.landmark ? ` — ${placeSummary.landmark}` : ''}
+              {placeSummary.hasGps ? ' · 🎯 GPS' : ''}
+            </div>
+          </div>
+          <div>
             <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Description</div>
             <div style={{ fontSize: 14, color: '#1a1a2e' }}>{description}</div>
           </div>
@@ -812,6 +870,11 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
             <div>
               <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Evidence attached</div>
               <div style={{ fontSize: 14, color: '#1a1a2e' }}>{stagedFiles.length} file(s)</div>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 12.5, color: '#475569' }}>
+                {stagedFiles.map((it, i) => (
+                  <li key={i}>{it.file.name}{it.caption.trim() ? ` — ${it.caption.trim()}` : ''}</li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
@@ -871,7 +934,10 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
             </label>
           ))}
           {selectedIssues.includes('other') && (
-            <input id="citizen-other-detail" name="citizen-other-detail" value={otherDetail} onChange={(e) => setOtherDetail(e.target.value)} placeholder="Please specify" style={inputStyle} />
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input id="citizen-other-detail" name="citizen-other-detail" value={otherDetail} onChange={(e) => setOtherDetail(e.target.value)} placeholder="Please specify" style={{ ...inputStyle, flex: 1 }} />
+              <MicButton onClick={() => speakInto(setOtherDetail)} />
+            </div>
           )}
         </div>
       )}
@@ -916,8 +982,13 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
         {usedVoice && <p style={{ fontSize: 11, color: '#3E5C45', marginTop: 4 }}>🎤 Voice input used for this complaint</p>}
       </Field>
 
+      <ProblemLocationFields loc={loc} t={t} landmarkMic={<MicButton onClick={() => speakInto(loc.setLandmark)} />} />
+
       <Field label={t('section4_title', 'Suggested Solution (Optional)')}>
-        <textarea id="citizen-suggested-solution" name="citizen-suggested-solution" value={suggestedSolution} onChange={(e) => setSuggestedSolution(e.target.value)} rows={2} style={inputStyle} />
+        <div style={{ display: 'flex', gap: 6 }}>
+          <textarea id="citizen-suggested-solution" name="citizen-suggested-solution" value={suggestedSolution} onChange={(e) => setSuggestedSolution(e.target.value)} rows={2} style={{ ...inputStyle, flex: 1 }} />
+          <MicButton onClick={() => speakInto(setSuggestedSolution)} />
+        </div>
       </Field>
 
       <Field label="📷 Evidence — Photo or Video (Optional)">
@@ -930,11 +1001,30 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
           <input type="file" accept="image/*,video/*" onChange={handleFileStaged} style={{ display: 'none' }} />
         </label>
         {stagedFiles.length > 0 && (
-          <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
-            {stagedFiles.map((f, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, background: '#f8fafc', padding: '6px 10px', borderRadius: 6 }}>
-                <span>{f.type.startsWith('video') ? '🎥' : '🖼️'} {f.name}</span>
-                <button type="button" onClick={() => removeStagedFile(i)} aria-label={`Remove ${f.name}`} style={{ border: 'none', background: 'none', color: '#9B3C2E', fontWeight: 700 }}>✕</button>
+          <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
+            {stagedFiles.map((it, i) => (
+              <div key={i} style={{ display: 'grid', gap: 6, background: '#f8fafc', padding: '8px 10px', borderRadius: 8 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {it.previewUrl ? (
+                    <img src={it.previewUrl} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+                  ) : (
+                    <span style={{ fontSize: 28, width: 56, textAlign: 'center', flexShrink: 0 }}>{it.file.type.startsWith('video') ? '🎥' : '🖼️'}</span>
+                  )}
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, overflowWrap: 'anywhere' }}>{it.file.name}</span>
+                  <button type="button" onClick={() => removeStagedFile(i)} aria-label={`Remove ${it.file.name}`} style={{ border: 'none', background: 'none', color: '#9B3C2E', fontWeight: 700, fontSize: 16 }}>✕</button>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    id={`citizen-evidence-caption-${i}`} name={`citizen-evidence-caption-${i}`}
+                    value={it.caption}
+                    onChange={(e) => setStagedCaption(i, e.target.value)}
+                    maxLength={300}
+                    aria-label={t('ev_caption_label', 'What does this photo show? (optional)')}
+                    placeholder={t('ev_caption_label', 'What does this photo show? (optional)')}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <MicButton onClick={() => speakInto((updater) => setStagedFiles((prev) => prev.map((x, k) => (k === i ? { ...x, caption: (typeof updater === 'function' ? updater(x.caption) : updater).slice(0, 300) } : x))))} />
+                </div>
               </div>
             ))}
           </div>
@@ -960,23 +1050,6 @@ function ComplaintForm({ appId, appSettings, citizen, language, t, onCancel, onS
   );
 }
 
-function MicButton({ onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title="Speak instead of typing"
-      aria-label="Speak instead of typing"
-      style={{
-        flexShrink: 0, width: 42, border: '1px solid #e2e8f0', borderRadius: 6,
-        background: '#f8fafc', fontSize: 18, cursor: 'pointer',
-      }}
-    >
-      🎤
-    </button>
-  );
-}
-
 /* ---------------------------------------------------------------------
  * "Was it really solved?" -- shown on a Resolved complaint (12-10-2026)
  * Yes  -> a 1-5 rating and an optional comment.
@@ -992,7 +1065,7 @@ function Stars({ value }) {
   );
 }
 
-function ResolutionFeedback({ complaint, onReopened }) {
+function ResolutionFeedback({ complaint, onReopened, language }) {
   const [rows, setRows] = useState(null); // null = still loading
   const [mode, setMode] = useState(null); // null | 'yes' | 'no'
   const [rating, setRating] = useState(0);
@@ -1050,13 +1123,26 @@ function ResolutionFeedback({ complaint, onReopened }) {
       ? "This complaint was resolved more than 30 days ago, so it can't be reopened. If the problem is still there, please file a new complaint."
       : '';
 
+  // Voice into the reopen reason / rating comment (browser speech recognition, as on the
+  // complaint form). Both boxes stop at 500 characters, same as typing.
+  function speakFeedback(setter) {
+    listenOnce({
+      language,
+      onText: (txt) => setter((prev) => appendText(prev, txt).slice(0, 500)),
+      onUnsupported: () => setError('Voice input needs Chrome or Edge — not supported in this browser.'),
+    });
+  }
+
   const reopenForm = (
     <div style={{ display: 'grid', gap: 8 }}>
       {elig.ok ? (
         <>
           <label htmlFor="citizen-reopen-reason" style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>What is still not solved?</label>
-          <textarea id="citizen-reopen-reason" name="citizen-reopen-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={3}
-            placeholder="Please describe briefly" style={{ ...inputStyle }} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <textarea id="citizen-reopen-reason" name="citizen-reopen-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={3}
+              placeholder="Please describe briefly" style={{ ...inputStyle, flex: 1 }} />
+            <MicButton onClick={() => speakFeedback(setReason)} />
+          </div>
           <p style={{ fontSize: 11.5, color: '#64748b', margin: 0 }}>Your complaint will go back to the office for another look.</p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" onClick={sendReopen} disabled={busy} style={{ ...buttonStyle, flex: 1 }}>{busy ? 'Reopening…' : 'Reopen my complaint'}</button>
@@ -1098,7 +1184,10 @@ function ResolutionFeedback({ complaint, onReopened }) {
             ))}
           </div>
           <label htmlFor="citizen-rating-comment" style={{ fontSize: 12, color: '#64748b' }}>Anything you would like to add? (optional)</label>
-          <textarea id="citizen-rating-comment" name="citizen-rating-comment" value={comment} onChange={(e) => setComment(e.target.value)} maxLength={500} rows={2} style={{ ...inputStyle }} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <textarea id="citizen-rating-comment" name="citizen-rating-comment" value={comment} onChange={(e) => setComment(e.target.value)} maxLength={500} rows={2} style={{ ...inputStyle, flex: 1 }} />
+            <MicButton onClick={() => speakFeedback(setComment)} />
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" onClick={sendRating} disabled={busy} style={{ ...buttonStyle, flex: 1 }}>{busy ? 'Sending…' : 'Send my rating'}</button>
             <button type="button" onClick={() => { setMode(null); setError(''); }} disabled={busy} style={ghost}>Back</button>
@@ -1120,7 +1209,7 @@ function ResolutionFeedback({ complaint, onReopened }) {
   );
 }
 
-function ComplaintDetail({ complaint, citizenId, onClose, onReopened }) {
+function ComplaintDetail({ complaint, citizenId, language, onClose, onReopened }) {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
 
@@ -1141,7 +1230,7 @@ function ComplaintDetail({ complaint, citizenId, onClose, onReopened }) {
           <p style={{ fontSize: 12, margin: '0 0 10px', color: citizenTimeline(complaint).late ? '#A8762C' : '#64748b' }}>{citizenTimeline(complaint).text}</p>
         )}
 
-        {complaint.stage === 'Resolved' && <ResolutionFeedback complaint={complaint} onReopened={onReopened} />}
+        {complaint.stage === 'Resolved' && <ResolutionFeedback complaint={complaint} onReopened={onReopened} language={language} />}
 
         <button
           onClick={() => navigate(`/grievance/print?case=${encodeURIComponent(complaint.case_no)}`)}
@@ -1166,7 +1255,7 @@ function ComplaintDetail({ complaint, citizenId, onClose, onReopened }) {
             {h.note && <div style={{ fontSize: 12.5, marginTop: 3 }}>{h.note}</div>}
           </div>
         ))}
-        <EvidenceGallery complaintId={complaint.id} uploaderCitizenId={citizenId} canUpload />
+        <EvidenceGallery complaintId={complaint.id} uploaderCitizenId={citizenId} language={language} canUpload />
       </div>
     </div>
   );

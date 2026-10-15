@@ -5,7 +5,8 @@ import { useTenant } from '../context/TenantContext';
 import EvidenceGallery from './EvidenceGallery';
 import { CATEGORY_EMOJI, StageBadge } from './CitizenPortal';
 import { FeedbackWidget } from '../shared/FeedbackWidget';
-import { fetchStaffQueue, fetchOverdueCount, slaInfo, fetchComplaintHistory, fetchComplaintFeedback, advanceComplaint, updateAssignedDepartment, fetchCategories, fetchConstituencies, fetchMandals, fetchVillages, uploadStaffPhoto, updateStaffProfile } from './grievanceApi';
+import { fetchStaffQueue, fetchOverdueCount, slaInfo, fetchComplaintHistory, fetchComplaintFeedback, advanceComplaint, updateAssignedDepartment, fetchCategories, fetchConstituencies, fetchMandals, fetchVillages, uploadStaffPhoto, updateStaffProfile, resolveComplaintPlaces, fetchComplaintPlaces } from './grievanceApi';
+import { placeName, homeName, gpsText, mapUrl, placeListLine } from './complaintPlace';
 import GrievanceNav from './GrievanceNav';
 
 const TERMINAL_STAGES = ['Resolved', 'Sanctioned', 'Declined'];
@@ -111,6 +112,23 @@ export default function StaffDashboard() {
   useEffect(() => {
     if (tenant?.appId) fetchCategories(tenant.appId).then(setCategories).catch(() => {});
   }, [tenant?.appId]);
+
+  // Where each listed complaint's problem is (14-10-2026). Names are looked up in a few batched
+  // requests for the rows on screen; a complaint already looked up is not asked for again. If it
+  // fails, the lists simply show no place line -- nothing else on the screen depends on it.
+  const [places, setPlaces] = useState({});
+  const placesRef = useRef({});
+  placesRef.current = places;
+  useEffect(() => {
+    // The phone list and the desktop grid hold the same complaints; ask for each only once.
+    const missing = [...new Map([...listData, ...gridData].filter((r) => r && !placesRef.current[r.id]).map((r) => [r.id, r])).values()];
+    if (missing.length === 0) return undefined;
+    let live = true;
+    resolveComplaintPlaces(missing)
+      .then((m) => { if (live) setPlaces((prev) => ({ ...prev, ...m })); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [listData, gridData]);
 
   useEffect(() => {
     if (tenant?.appId) fetchConstituencies(tenant.appId).then(setConstituencyOptions).catch(() => {});
@@ -287,7 +305,7 @@ export default function StaffDashboard() {
                   style={{ flex: 1, padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit' }} />
               </div>
 
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#5B6473', letterSpacing: 0.5, margin: '0 0 6px' }}>LOCATION</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#5B6473', letterSpacing: 0.5, margin: '0 0 6px' }}>PLACE OF THE PROBLEM</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <select id="staff-dash-constituency-filter" name="staff-dash-constituency-filter" value={constituencyFilter} onChange={(e) => setConstituencyFilter(e.target.value)}
                   style={{ flex: '1 1 140px', padding: '7px 10px', border: '1px solid #D9D5C8', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit', background: '#fff' }}>
@@ -333,6 +351,7 @@ export default function StaffDashboard() {
                 <ComplaintCard
                   key={c.id}
                   complaint={c}
+                  place={places[c.id]}
                   role={tenant.role}
                   actorName={tenant.fullName}
                   onOpen={() => setActiveComplaint(c)}
@@ -347,6 +366,7 @@ export default function StaffDashboard() {
                   <span style={{ fontSize: 20 }}>{CATEGORY_EMOJI[c.category] || '📄'}</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{c.title}</div>
+                    <PlaceLine place={places[c.id]} />
                     <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}><StageBadge stage={c.stage} /><ReopenBadge complaint={c} /></div>
                   </div>
                 </button>
@@ -407,7 +427,10 @@ export default function StaffDashboard() {
                     style={{ cursor: 'pointer', borderBottom: '1px solid #EFEDE6' }}
                   >
                     <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 11.5, color: '#5B6473' }}>{c.case_no}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{CATEGORY_EMOJI[c.category] || '📄'} {c.title}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>
+                      {CATEGORY_EMOJI[c.category] || '📄'} {c.title}
+                      <PlaceLine place={places[c.id]} />
+                    </td>
                     <td style={{ padding: '10px 14px', color: '#5B6473' }}>{c.category}</td>
                     <td style={{ padding: '10px 14px' }}>{c.priority === 'Urgent' ? <span style={{ color: '#9B3C2E', fontWeight: 700 }}>🚨 Urgent</span> : 'Normal'}</td>
                     <td style={{ padding: '10px 14px' }}><StageBadge stage={c.stage} /> <ReopenBadge complaint={c} /></td>
@@ -624,6 +647,53 @@ function FeedbackSummary({ rows, resolved }) {
   );
 }
 
+// One line under a complaint in the lists: where the problem is. Nothing is drawn until the place
+// is known, or when there is nothing to say.
+function PlaceLine({ place }) {
+  const line = placeListLine(place);
+  if (!line) return null;
+  return <div style={{ fontSize: 12, fontWeight: 400, color: '#3A4250', marginTop: 4, overflowWrap: 'anywhere' }}>{line}</div>;
+}
+
+// "Where is the problem" in the detail drawer. Read-only: the citizen's choice is final.
+// 📍 = the citizen chose the place; 🏠 = nothing separate was chosen (or an older complaint), so
+// the problem is taken to be in the citizen's own area.
+function PlaceBlock({ place }) {
+  if (!place) return null;
+  const where = placeName(place, true);
+  const home = homeName(place);
+  const gps = gpsText(place);
+  const link = mapUrl(place);
+  return (
+    <div style={{ background: '#F7F6F2', border: '1px solid #D9D5C8', borderRadius: 8, padding: '8px 10px', margin: '8px 0' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#5B6473', marginBottom: 4 }}>WHERE IS THE PROBLEM</div>
+      {place.basis === 'problem' ? (
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1A2E', overflowWrap: 'anywhere' }}>📍 {where || 'Place chosen by the citizen'}</div>
+      ) : (
+        <div style={{ fontSize: 12.5, color: '#1A1A2E', overflowWrap: 'anywhere' }}>
+          🏠 Same as the citizen's home area{where ? ` — ${where}` : ''}
+        </div>
+      )}
+      {place.basis === 'problem' && place.differs && home && (
+        <div style={{ fontSize: 12, color: '#5B6473', marginTop: 2 }}>Citizen's home area: {home}</div>
+      )}
+      {place.landmark && (
+        <div style={{ fontSize: 12.5, color: '#3A4250', marginTop: 4, overflowWrap: 'anywhere' }}><strong>Landmark:</strong> {place.landmark}</div>
+      )}
+      {gps && (
+        <div style={{ fontSize: 12.5, color: '#3A4250', marginTop: 4, overflowWrap: 'anywhere' }}>
+          📌 GPS {gps}
+          {link && (
+            <div style={{ marginTop: 2 }}>
+              <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: '#15213A', fontWeight: 600 }}>Open in Google Maps ↗</a>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function roleLabel(role) {
   if (role === 'representative') return 'Representative Queue';
   if (role === 'authority') return 'Authority Decisions';
@@ -634,7 +704,7 @@ function CenteredNote({ children }) {
   return <div style={{ padding: 30, textAlign: 'center', color: '#5B6473', fontSize: 13.5 }}>{children}</div>;
 }
 
-function ComplaintCard({ complaint, role, actorName, onOpen, onAction }) {
+function ComplaintCard({ complaint, place, role, actorName, onOpen, onAction }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [warn, setWarn] = useState(false);
@@ -674,6 +744,7 @@ function ComplaintCard({ complaint, role, actorName, onOpen, onAction }) {
           <div style={{ fontSize: 11, color: '#5B6473', fontFamily: 'monospace' }}>{complaint.case_no}</div>
           <div style={{ fontSize: 14.5, fontWeight: 600 }}>{complaint.title}</div>
           <div style={{ fontSize: 12, color: '#5B6473', marginTop: 3 }}>{complaint.description}</div>
+          <PlaceLine place={place} />
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
             <StageBadge stage={complaint.stage} />
             <ReopenBadge complaint={complaint} />
@@ -739,9 +810,19 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
   const [err, setErr] = useState('');
   const [feedback, setFeedback] = useState([]);
   const [deptError, setDeptError] = useState('');
+  const [place, setPlace] = useState(null);
 
   useEffect(() => {
     fetchComplaintHistory(complaint.id).then(setHistory);
+  }, [complaint.id]);
+
+  // Where the problem is (14-10-2026). Looked up here by id so it works the same whichever screen
+  // opened this drawer (Queue, grid, Reports). If it cannot be read, the block is simply left out.
+  useEffect(() => {
+    let live = true;
+    setPlace(null);
+    fetchComplaintPlaces([complaint.id]).then((m) => { if (live) setPlace(m[complaint.id] || null); }).catch(() => {});
+    return () => { live = false; };
   }, [complaint.id]);
 
   // The citizen's ratings for this complaint (empty if none, or if the table
@@ -796,7 +877,7 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end', zIndex: 100 }} onClick={onClose}>
       <div style={{ width: 400, background: '#fff', height: '100%', padding: 20, overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} aria-label="Close" style={{ float: 'right', border: 'none', background: 'none' }}>✕</button>
         <div style={{ fontSize: 11, color: '#5B6473', fontFamily: 'monospace' }}>{complaint.case_no}</div>
@@ -816,6 +897,7 @@ export function ComplaintDetailDrawer({ complaint, role, staffUserId, actorName,
         )}
         <FeedbackSummary rows={feedback} resolved={complaint.stage === 'Resolved'} />
         <p style={{ fontSize: 13, color: '#3A4250', margin: '10px 0' }}>{complaint.description}</p>
+        <PlaceBlock place={place} />
         {complaint.suggested_solution && (
           <p style={{ fontSize: 12.5, color: '#5B6473', background: '#F7F6F2', padding: 8, borderRadius: 6 }}>
             <strong>Citizen's suggested solution:</strong> {complaint.suggested_solution}

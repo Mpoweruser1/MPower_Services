@@ -9,6 +9,7 @@
 // same import used in TenantContext.jsx).
 
 import { supabase } from '../lib/supabaseClient';
+import { buildPlace } from './complaintPlace';
 
 /* ---------------------------------------------------------------------
  * Geography
@@ -357,6 +358,10 @@ export async function submitComplaint({
   citizenId, appId, constituencyId, mandalId, villageId, sachivalayamId,
   title, description, category, priority, suggestedSolution,
   inputMode, language, transcriptionSource, issueKeys, otherDetail, byName,
+  // Where the PROBLEM is, when that is not simply the citizen's home area (all optional;
+  // the database checks them -- same constituency, village inside mandal, ward inside village --
+  // and refuses any later change). The problem's mandal is worked out by the database.
+  problemVillageId, problemSachivalayamId, problemLandmark, problemLatitude, problemLongitude,
 }) {
   // branch_id (district) isn't stored on citizens — it's derived from the
   // constituency here, so callers never have to know or pass it themselves.
@@ -388,6 +393,12 @@ export async function submitComplaint({
       // chk_oral_has_provenance constraint needs SOME record of how it
       // was captured (transcription_source or recorded_by_user_id).
       transcription_source: inputMode === 'oral' ? (transcriptionSource || 'other') : null,
+      // Only sent when given, so a complaint with no separate problem place is filed exactly as before.
+      ...(problemVillageId ? { problem_village_id: problemVillageId } : {}),
+      ...(problemSachivalayamId ? { problem_sachivalayam_id: problemSachivalayamId } : {}),
+      ...(problemLandmark ? { problem_landmark: problemLandmark } : {}),
+      ...(problemLatitude != null && problemLongitude != null
+        ? { problem_latitude: problemLatitude, problem_longitude: problemLongitude } : {}),
     })
     .select()
     .single();
@@ -574,6 +585,21 @@ export function applyComplaintSearch(query, search) {
 // (the default) returns the active/pending queue; handled=true
 // returns the resolved/sanctioned/declined ones separately, so the
 // two lists can be paginated and searched independently.
+// Mandal / village filters follow the PROBLEM place when the citizen chose one, and the
+// citizen's home place otherwise -- the same rule the report views use, so a list filtered on
+// "Chinnapuram" shows the problems that are in Chinnapuram. (14-10-2026)
+// A village filter already pins the mandal, so when both are given only the village is applied.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function applyPlaceFilter(query, { mandalId = '', villageId = '' } = {}) {
+  if (!villageId && !mandalId) return query;
+  const value = villageId || mandalId;
+  // Filters can arrive from a web address; anything that is not an id matches nothing.
+  if (!UUID_RE.test(value)) return query.eq('id', '00000000-0000-0000-0000-000000000000');
+  return villageId
+    ? query.or(`problem_village_id.eq.${villageId},and(problem_village_id.is.null,village_id.eq.${villageId})`)
+    : query.or(`problem_mandal_id.eq.${mandalId},and(problem_village_id.is.null,mandal_id.eq.${mandalId})`);
+}
+
 export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', category = '', priority = '', handled = false, constituencyId = '', mandalId = '', villageId = '', dateFrom = '', dateTo = '', overdueOnly = false, oldestFirst = false } = {}) {
   let query = supabase.from('complaints').select('*', { count: 'exact' });
   query = handled ? query.in('stage', TERMINAL_STAGES) : query.not('stage', 'in', `(${TERMINAL_STAGES.join(',')})`);
@@ -581,8 +607,7 @@ export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', ca
   if (category) query = query.eq('category', category);
   if (priority) query = query.eq('priority', priority);
   if (constituencyId) query = query.eq('constituency_id', constituencyId);
-  if (mandalId) query = query.eq('mandal_id', mandalId);
-  if (villageId) query = query.eq('village_id', villageId);
+  query = applyPlaceFilter(query, { mandalId, villageId });
   if (dateFrom) query = query.gte('created_at', `${dateFrom}T00:00:00`);
   if (dateTo) query = query.lte('created_at', `${dateTo}T23:59:59`);
   // Overdue only makes sense for open complaints; ignored on the Handled list.
@@ -661,6 +686,36 @@ async function selectIn(table, columns, ids, column = 'id') {
     out.push(...(data || []));
   }
   return out;
+}
+
+// The place of each complaint, in words: { [complaintId]: place } (see complaintPlace.js).
+// rows must be complaints rows with the problem_* columns (select '*' has them). Names come from a
+// few batched look-ups, never one per row. If a look-up fails the place is still built, just
+// with blank names -- the screens then show what they can and carry on.
+export async function resolveComplaintPlaces(rows) {
+  const list = (rows || []).filter(Boolean);
+  if (list.length === 0) return {};
+  const uniq = (...keys) => [...new Set(list.flatMap((r) => keys.map((k) => r[k])).filter(Boolean))];
+  const settled = await Promise.allSettled([
+    selectIn('villages', 'id, name', uniq('village_id', 'problem_village_id')),
+    selectIn('mandals', 'id, name', uniq('mandal_id', 'problem_mandal_id')),
+    selectIn('sachivalayams', 'id, name', uniq('problem_sachivalayam_id')),
+  ]);
+  const toMap = (res) => (res.status === 'fulfilled' ? Object.fromEntries(res.value.map((x) => [x.id, x.name])) : {});
+  const maps = { village: toMap(settled[0]), mandal: toMap(settled[1]), sach: toMap(settled[2]) };
+  return Object.fromEntries(list.map((r) => [r.id, buildPlace(r, maps)]));
+}
+
+// Same, starting from complaint ids (used where only the id is at hand, e.g. the detail drawer).
+export async function fetchComplaintPlaces(ids) {
+  const wanted = [...new Set((ids || []).filter(Boolean))];
+  if (wanted.length === 0) return {};
+  const rows = await selectIn(
+    'complaints',
+    'id, village_id, mandal_id, problem_village_id, problem_mandal_id, problem_sachivalayam_id, problem_ward_no, problem_landmark, problem_latitude, problem_longitude',
+    wanted,
+  );
+  return resolveComplaintPlaces(rows);
 }
 
 // The one function every staff action (acknowledge, resolve, escalate,
@@ -885,7 +940,8 @@ export async function uploadEvidence({ complaintId, file, uploadedByCitizenId, u
       file_type: fileType,
       storage_path: path,
       file_size_bytes: body.size,
-      caption: caption || null,
+      caption: (caption || '').trim().slice(0, 300) || null,
+      file_name: (file.name || '').slice(0, 200) || null,
       uploaded_by_citizen_id: uploadedByCitizenId || null,
       uploaded_by_user_id: uploadedByUserId || null,
     })

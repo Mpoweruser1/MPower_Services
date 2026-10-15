@@ -7,7 +7,8 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
-import { fetchCategories, getStaffPhotoUrl, fetchConstituencies, fetchMandals, fetchVillages, fetchMyConstituencyId, applyComplaintSearch, applyOverdueFilter } from './grievanceApi';
+import { fetchCategories, getStaffPhotoUrl, fetchConstituencies, fetchMandals, fetchVillages, fetchMyConstituencyId, applyComplaintSearch, applyOverdueFilter, applyPlaceFilter, resolveComplaintPlaces } from './grievanceApi';
+import { placeName, homeName, gpsText, printPlace } from './complaintPlace';
 import GrievanceNav from './GrievanceNav';
 
 // ─── Shared print styles ───────────────────────────────────
@@ -136,6 +137,15 @@ function maskPhone(phone) {
 // PRINT TYPE 1 — Citizen Representation Letter to MLA / MP
 // ═══════════════════════════════════════════════════════════
 function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateName }) {
+  // Where the problem is (14-10-2026). The citizen's own village stays in "resident of ..." and the
+  // signature block; "our area" is only true while the problem is in the citizen's own village.
+  const pl = complaint.place;
+  const elsewhere = pl && pl.differs && pl.village
+    ? `${pl.village}${pl.mandal ? `, ${pl.mandal} Mandal` : ''}`
+    : null;
+  const locationText = pl
+    ? [placeName(pl, true), pl.landmark && `Landmark: ${pl.landmark}`, gpsText(pl) && `GPS: ${gpsText(pl)}`].filter(Boolean).join(' · ') || 'Not specified'
+    : ([complaint.villages?.name, complaint.mandals?.name].filter(Boolean).join(', ') || 'Not specified');
   return (
     <div className="print-page">
 
@@ -183,7 +193,7 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
         I, <strong>{toTitleCase(complaint.citizens?.full_name) || 'the undersigned'}</strong>, 
         {complaint.villages?.name ? ` resident of ${complaint.villages.name}, ` : ' '}
         {complaint.mandals?.name ? `${complaint.mandals.name} Mandal, ` : ''}
-        humbly submit this representation to bring to your kind attention the following grievance pertaining to our area.
+        humbly submit this representation to bring to your kind attention the following grievance pertaining to {elsewhere || 'our area'}.
       </p>
 
       {/* Problem statement box */}
@@ -195,7 +205,7 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
         <p style={{ margin: 0, fontSize: '10pt', color: '#444' }}>
           Category: {categoryLabel(complaint.category)} &nbsp;·&nbsp;
           Priority: {complaint.priority || 'Normal'} &nbsp;·&nbsp;
-          Location: {[complaint.villages?.name, complaint.mandals?.name].filter(Boolean).join(', ') || 'Not specified'}
+          Location: {locationText}
         </p>
       </div>
 
@@ -279,8 +289,19 @@ function SingleComplaintPrint({ complaint, constituency, stateName }) {
             ['Assigned Department / కేటాయించిన శాఖ', complaint.assigned_department || 'Not assigned yet'],
             ['Stage / దశ', stageLabel(complaint.stage)],
             ['Filed Date / దాఖలు తేదీ', new Date(complaint.created_at).toLocaleDateString('en-IN')],
-            ['Village / గ్రామం', complaint.villages?.name || '—'],
-            ['Mandal / మండలం', complaint.mandals?.name || '—'],
+            ...(complaint.place
+              ? [
+                  ['Place of the Problem / సమస్య ఉన్న ప్రదేశం', complaint.place.basis === 'problem'
+                    ? printPlace(complaint.place)
+                    : `Same as the citizen's home area${placeName(complaint.place, true) ? ` — ${placeName(complaint.place, true)}` : ''}`],
+                  ...(complaint.place.landmark ? [['Landmark / గుర్తు', complaint.place.landmark]] : []),
+                  ...(gpsText(complaint.place) ? [['GPS Location / GPS స్థానం', gpsText(complaint.place)]] : []),
+                  ...(complaint.place.basis === 'problem' && homeName(complaint.place) ? [['Citizen\u2019s Home Area / పౌరుడి నివాస ప్రాంతం', homeName(complaint.place)]] : []),
+                ]
+              : [
+                  ['Village / గ్రామం', complaint.villages?.name || '—'],
+                  ['Mandal / మండలం', complaint.mandals?.name || '—'],
+                ]),
             ['Constituency / నియోజకవర్గం', complaint.constituencies?.name || constituency || '—'],
             ['Citizen Name / పౌరుడి పేరు', toTitleCase(complaint.citizens?.full_name) || '—'],
             ['Phone / ఫోన్', complaint.citizens?.phone || '—'],
@@ -450,7 +471,7 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
         <div style={{ border: '2px solid #A32D2D', padding: '10px 14px', marginBottom: 16, background: '#fdf2f2' }}>
           <p style={{ margin: 0, fontSize: '11pt', fontWeight: 'bold', color: '#A32D2D' }}>
             ⚠ Oldest unresolved complaint: {daysPending(oldestPending)} days
-            — {categoryLabel(oldestPending.category)}, {oldestPending.villages?.name || oldestPending.mandals?.name || '—'} ({oldestPending.case_no})
+            — {categoryLabel(oldestPending.category)}, {oldestPending.place?.village || oldestPending.place?.mandal || oldestPending.villages?.name || oldestPending.mandals?.name || '—'} ({oldestPending.case_no})
           </p>
         </div>
       )}
@@ -501,7 +522,7 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
                 <th style={{ width: '8%' }}>Case No.</th>
                 <th style={{ width: '14%' }}>Complaint / ఫిర్యాదు</th>
                 <th style={{ width: '13%' }}>Citizen Contact</th>
-                <th style={{ width: '11%' }}>Village/Mandal</th>
+                <th style={{ width: '11%' }}>Problem Place / ప్రదేశం</th>
                 <th style={{ width: '8%' }}>Days Pending</th>
                 <th style={{ width: '7%' }}>Priority</th>
                 <th style={{ width: '13%' }}>Status / స్థితి</th>
@@ -521,7 +542,9 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
                     {c.citizens?.full_name || '—'}{c.citizens?.phone ? ` · ${c.citizens.phone}` : ''}
                   </td>
                   <td style={{ fontSize: '9pt' }}>
-                    {[c.villages?.name, c.mandals?.name].filter(Boolean).join(', ') || '—'}
+                    {(c.place ? placeName(c.place, true) : [c.villages?.name, c.mandals?.name].filter(Boolean).join(', ')) || '—'}
+                    {c.place?.landmark && <div style={{ fontSize: '8pt', color: '#444' }}>{c.place.landmark}</div>}
+                    {gpsText(c.place) && <div style={{ fontSize: '8pt', color: '#444' }}>GPS {gpsText(c.place)}</div>}
                   </td>
                   <td style={{ fontSize: '9pt', fontWeight: overdue ? 'bold' : 'normal', color: overdue ? '#A32D2D' : '#000' }}>
                     {days} {days === 1 ? 'day' : 'days'}
@@ -715,7 +738,7 @@ function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole,
                 <th style={{ width: '13%' }}>Complaint / ఫిర్యాదు</th>
                 <th style={{ width: '10%' }}>Category</th>
                 <th style={{ width: '13%' }}>Citizen Contact</th>
-                <th style={{ width: '10%' }}>Village/Mandal</th>
+                <th style={{ width: '10%' }}>Problem Place / ప్రదేశం</th>
                 <th style={{ width: '8%' }}>Days Pending</th>
                 <th style={{ width: '7%' }}>Priority</th>
                 <th style={{ width: '13%' }}>Status / స్థితి</th>
@@ -735,7 +758,9 @@ function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole,
                     {c.citizens?.full_name || '—'}{c.citizens?.phone ? ` · ${c.citizens.phone}` : ''}
                   </td>
                   <td style={{ fontSize: '9pt' }}>
-                    {[c.villages?.name, c.mandals?.name].filter(Boolean).join(', ') || '—'}
+                    {(c.place ? placeName(c.place, true) : [c.villages?.name, c.mandals?.name].filter(Boolean).join(', ')) || '—'}
+                    {c.place?.landmark && <div style={{ fontSize: '8pt', color: '#444' }}>{c.place.landmark}</div>}
+                    {gpsText(c.place) && <div style={{ fontSize: '8pt', color: '#444' }}>GPS {gpsText(c.place)}</div>}
                   </td>
                   <td style={{ fontSize: '9pt', fontWeight: overdue ? 'bold' : 'normal', color: overdue ? '#A32D2D' : '#000' }}>
                     {days} {days === 1 ? 'day' : 'days'}
@@ -1044,6 +1069,10 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     data.citizen_id ? supabase.from('citizens').select('full_name, phone, address, father_husband_name').eq('id', data.citizen_id).single() : { data: null },
     supabase.from('complaint_history').select('*').eq('complaint_id', data.id).order('created_at'),
   ]);
+  // Where the problem is. If the look-up fails the letter and detail page still print, with the
+  // citizen's own village as before.
+  let place = null;
+  try { place = (await resolveComplaintPlaces([data]))[data.id] || null; } catch { place = null; }
   setComplaint({
     ...data,
     constituencies: constData.data,
@@ -1051,6 +1080,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     villages: villageData.data,
     citizens: citizenData.data,
     history: historyData.data || [],
+    place,
   });
 
   setConstituency(constData.data?.name || '');
@@ -1103,8 +1133,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     }
     if (filterPriority) query = query.eq('priority', filterPriority);
     if (filterConstituencyId) query = query.eq('constituency_id', filterConstituencyId);
-    if (filterMandalId) query = query.eq('mandal_id', filterMandalId);
-    if (filterVillageId) query = query.eq('village_id', filterVillageId);
+    query = applyPlaceFilter(query, { mandalId: filterMandalId, villageId: filterVillageId });
     if (dateFrom) query = query.gte('created_at', dateFrom);
     if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59');
     const { data, error: err } = await query;
@@ -1128,11 +1157,13 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     const villageMap = Object.fromEntries((villageRes.data || []).map((v) => [v.id, v.name]));
     const citizenMap = Object.fromEntries((citizenRes.data || []).map((c) => [c.id, c]));
 
+    const placeMap = await resolveComplaintPlaces(rows).catch(() => ({}));
     let enriched = rows.map((r) => ({
       ...r,
       mandals: r.mandal_id ? { name: mandalMap[r.mandal_id] } : null,
       villages: r.village_id ? { name: villageMap[r.village_id] } : null,
       citizens: r.citizen_id ? citizenMap[r.citizen_id] : null,
+      place: placeMap[r.id] || null,
     }));
 
     setComplaints(enriched);
@@ -1182,8 +1213,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     }
     if (filterPriority) query = query.eq('priority', filterPriority);
     if (filterConstituencyId) query = query.eq('constituency_id', filterConstituencyId);
-    if (filterMandalId) query = query.eq('mandal_id', filterMandalId);
-    if (filterVillageId) query = query.eq('village_id', filterVillageId);
+    query = applyPlaceFilter(query, { mandalId: filterMandalId, villageId: filterVillageId });
     if (dateFrom) query = query.gte('created_at', dateFrom);
     if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59');
     const { data, error: err } = await query;
@@ -1206,12 +1236,14 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     const villageMap = Object.fromEntries((villageRes.data || []).map((v) => [v.id, v.name]));
     const citizenMap = Object.fromEntries((citizenRes.data || []).map((c) => [c.id, c]));
 
+    const placeMap = await resolveComplaintPlaces(rows).catch(() => ({}));
     let enriched = rows.map((r) => ({
       ...r,
       constituencies: r.constituency_id ? { name: constMap[r.constituency_id] } : null,
       mandals: r.mandal_id ? { name: mandalMap[r.mandal_id] } : null,
       villages: r.village_id ? { name: villageMap[r.village_id] } : null,
       citizens: r.citizen_id ? citizenMap[r.citizen_id] : null,
+      place: placeMap[r.id] || null,
     }));
 
     setComplaints(enriched);

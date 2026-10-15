@@ -137,10 +137,6 @@ function TrackComplaintWrapper() {
   return <TrackComplaint stateSlug={stateSlug} />;
 }
 
-function RequestStaffAccessWrapper() {
-  const { stateSlug } = useParams();
-  return <RequestStaffAccess stateSlug={stateSlug} />;
-}
 const SCREEN_NAMES = {
   '/school/dashboard': 'Dashboard', '/school/admission': 'Student admission',
   '/school/attendance': 'Attendance', '/school/fee-collection': 'Fee collection',
