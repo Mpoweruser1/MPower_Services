@@ -1,5 +1,8 @@
 // hospital/HospitalBilling.jsx — FINAL
-import React, { useState, useEffect } from 'react';
+// Deposit: for the chosen admission the deposit in hand is shown (DepositBox) and can be used on the bill;
+// the bill keeps its full amount, the deposit is the part already paid. Needs fix_hospital_deposits.sql;
+// without it no deposit is shown and bills are made as before.
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
@@ -11,6 +14,10 @@ import HospitalNav from '../shared/HospitalNav';
 import NextActions from '../shared/NextActions';
 import BugReporter from '../shared/BugReporter';
 import UpiQrCode from '../shared/UpiQrCode';
+import InvoicePrint from './InvoicePrint';
+import BillList from './BillList';
+import DepositBox from './DepositBox';
+import { istToday } from './hospitalUtils';
 
 // 'Online' (Razorpay) is deliberately not offered: hospital online payments are
 // switched off until the money destination is settled, and the database now
@@ -18,6 +25,7 @@ import UpiQrCode from '../shared/UpiQrCode';
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Insurance', 'Aarogyasri', 'PMJAY'];
 const SERVICE_TYPES = ['Consultation', 'Lab test', 'Medicines', 'Procedure', 'Bed charges', 'Nursing', 'X-Ray / Scan', 'Other'];
 const GST_RATES     = [0, 5, 12, 18];
+const SCHEME_MODES  = ['Insurance', 'Aarogyasri', 'PMJAY'];
 
 // Price list (set up on the Price list screen) → the service type shown on a bill line.
 const CATEGORY_TO_SERVICE = { room: 'Bed charges', daily_extra: 'Other', consultation: 'Consultation', lab: 'Lab test', procedure: 'Procedure', other: 'Other' };
@@ -35,13 +43,6 @@ function fmtDate(d) { return d ? new Date(`${d}T00:00:00`).toLocaleDateString('e
 function lineBase(item) { return (Number(item.quantity) || 0) * (Number(item.unit_price) || 0); }
 function lineGst(item)  { return lineBase(item) * (Number(item.gst_rate) || 0) / 100; }
 function round2(n) { return Math.round(n * 100) / 100; }
-
-function generateInvoiceNo(orgName) {
-  const prefix = (orgName || 'HOS').slice(0, 3).toUpperCase();
-  const year   = new Date().getFullYear();
-  const seq    = Math.floor(10000 + Math.random() * 90000);
-  return `${prefix}/INV/${year}/${seq}`;
-}
 
 function validateItem(item) {
   const errors = {};
@@ -76,6 +77,7 @@ export default function HospitalBilling() {
   // Price list + admission room charges
   const [priceList, setPriceList]     = useState([]);
   const [wardIdByName, setWardIdByName] = useState({});
+  const [priceListLoaded, setPriceListLoaded] = useState(false);
   const [admissions, setAdmissions]   = useState([]);
   const [admissionId, setAdmissionId] = useState('');
   const [billedIds, setBilledIds]     = useState([]);
@@ -86,12 +88,47 @@ export default function HospitalBilling() {
   // data, not session data), so it's fetched here on mount.
   const [branchUpiId, setBranchUpiId] = useState('');
   const [discountAmt, setDiscountAmt] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [invoiceDate, setInvoiceDate] = useState(istToday());
+  // deposit of the chosen admission: what DepositBox last reported, whether it is used on this bill
+  // (null = not chosen yet: used when there is some in hand), and a typed amount ('' = as much as fits)
+  const [depSummary, setDepSummary] = useState(null);
+  const [useDeposit, setUseDeposit] = useState(null);
+  const [depositAmt, setDepositAmt] = useState('');
+  const [depKey, setDepKey]         = useState(0);
+  const [depositLeft, setDepositLeft] = useState(0);
   const [saving, setSaving]     = useState(false);
   const [invoice, setInvoice]   = useState(null);
   const [submitError, setSubmitError] = useState('');
+  // 'new' = make a bill, 'bills' = find / reprint / cancel earlier bills.
+  const [tab, setTab]           = useState(location.state?.tab === 'bills' ? 'bills' : 'new');
+  const [printJob, setPrintJob] = useState(null);
+  // Lab tests ordered on the Lab screen can arrive here ("Bill these tests"): added once as lines, priced from the Price list
+  const labPrefilled = useRef(false);
+  const [labNote, setLabNote] = useState('');
 
   useEffect(() => { setSelectedPatient(activePatient); }, [activePatient]);
+
+  useEffect(() => {
+    const tests = location.state?.labTests;
+    if (labPrefilled.current || !Array.isArray(tests) || tests.length === 0 || !tenant?.appId || !priceListLoaded) return;
+    labPrefilled.current = true;
+    let unpriced = 0;
+    const lines = tests.map((t) => {
+      const p = priceList.find((x) => x.category === 'lab' && String(x.name).trim().toLowerCase() === String(t.name).trim().toLowerCase());
+      const rate = p ? p.rate : (Number(t.price) > 0 ? Number(t.price) : null);
+      if (rate === null) unpriced += 1;
+      return { description: t.name, service_type: 'Lab test', quantity: '1', unit_price: rate === null ? '' : String(rate), gst_rate: String(p ? p.gst_rate : 0), covered: false, price_id: p ? p.id : undefined };
+    });
+    setAllItems(lines);
+    setLabNote(`${lines.length} lab test${lines.length === 1 ? '' : 's'} added from the Lab screen.${unpriced > 0 ? ` ${unpriced} ${unpriced === 1 ? 'has' : 'have'} no price on the Price list — enter the price.` : ''}`);
+  }, [priceListLoaded, priceList, tenant?.appId]);
+
+  // Reprint of an earlier bill from the Bills tab.
+  useEffect(() => {
+    if (!printJob) return undefined;
+    const t = setTimeout(() => window.print(), 150);
+    return () => clearTimeout(t);
+  }, [printJob]);
 
   useEffect(() => {
     if (!tenant?.branchId) return;
@@ -106,14 +143,20 @@ export default function HospitalBilling() {
   useEffect(() => {
     if (!tenant?.appId) return;
     (async () => {
-      const [plRes, wardRes] = await Promise.all([
-        supabase.from('hospital_price_list').select('id, category, name, rate, gst_rate, ward_id')
+      let [plRes, wardRes] = await Promise.all([
+        supabase.from('hospital_price_list').select('id, category, name, rate, gst_rate, ward_id, is_sample')
           .eq('app_id', tenant.appId).eq('active', true).order('sort_order').order('name'),
         supabase.from('wards').select('id, ward_type').eq('app_id', tenant.appId),
       ]);
+      // 42703 = the "sample" mark does not exist yet (older database): read the list without it
+      if (plRes.error && plRes.error.code === '42703') {
+        plRes = await supabase.from('hospital_price_list').select('id, category, name, rate, gst_rate, ward_id')
+          .eq('app_id', tenant.appId).eq('active', true).order('sort_order').order('name');
+      }
       if (plRes.error) console.error('Loading price list failed:', plRes.error);
       if (wardRes.error) console.error('Loading wards failed:', wardRes.error);
       setPriceList(plRes.data || []);
+      setPriceListLoaded(true);
       const map = {};
       (wardRes.data || []).forEach((w) => { map[w.ward_type] = w.id; });
       setWardIdByName(map);
@@ -137,7 +180,17 @@ export default function HospitalBilling() {
       const list = data || [];
       setAdmissions(list);
       const fromIpd = location.state?.admissionId;
-      const pick = list.find((a) => a.id === fromIpd) || list.find((a) => !a.discharge_date) || null;
+      let pick = list.find((a) => a.id === fromIpd) || list.find((a) => !a.discharge_date) || null;
+      // A patient who has gone home but still has deposit in hand: the final bill is usually made now,
+      // so that admission is chosen (its deposit has to be used or refunded).
+      if (!pick && list.length > 0) {
+        const { data: ds, error: dsErr } = await supabase.rpc('ipd_deposit_summary', { p_admissions: list.map((a) => a.id) });
+        if (cancelled) return;
+        if (!dsErr) {
+          const withMoney = new Set((ds || []).filter((d) => Number(d.in_hand) > 0).map((d) => d.admission_id));
+          pick = list.find((a) => withMoney.has(a.id)) || null;
+        }
+      }
       setAdmissionId(pick ? pick.id : '');
     })();
     return () => { cancelled = true; };
@@ -147,12 +200,17 @@ export default function HospitalBilling() {
   useEffect(() => {
     if (admissions.length === 0) { setBilledIds([]); return; }
     (async () => {
+      // A cancelled bill no longer counts as billed, so its room charges can be billed again.
       const { data, error } = await supabase.from('billing_invoices').select('admission_id')
-        .in('admission_id', admissions.map((a) => a.id));
+        .in('admission_id', admissions.map((a) => a.id))
+        .neq('status', 'cancelled');
       if (error) { console.error('Checking billed admissions failed:', error); return; }
       setBilledIds((data || []).map((r) => r.admission_id));
     })();
   }, [admissions, invoice]);
+
+  // another admission: the deposit choices start again
+  useEffect(() => { setDepSummary(null); setUseDeposit(null); setDepositAmt(''); }, [admissionId]);
 
   // Days and room charges for the chosen admission, worked out in the database.
   useEffect(() => {
@@ -191,7 +249,7 @@ export default function HospitalBilling() {
       return {
         description: `Room charges — ${r.ward_name} Ward, bed ${r.bed_no} (${fmtDate(r.from_date)} to ${fmtDate(r.to_date)})`,
         service_type: 'Bed charges', quantity: String(r.days), unit_price: String(r.rate),
-        gst_rate: String(priced ? priced.gst_rate : 0), covered: false, source: 'room',
+        gst_rate: String(priced ? priced.gst_rate : 0), covered: false, source: 'room', price_id: priced ? priced.id : undefined,
       };
     });
     if (lines.length === 0) return;
@@ -213,7 +271,7 @@ export default function HospitalBilling() {
     if (!p) return;
     setItems((prev) => {
       const copy = [...prev];
-      copy[idx] = { ...copy[idx], description: p.name, service_type: CATEGORY_TO_SERVICE[p.category] || 'Other', unit_price: String(p.rate), gst_rate: String(p.gst_rate), quantity: copy[idx].quantity || '1' };
+      copy[idx] = { ...copy[idx], description: p.name, service_type: CATEGORY_TO_SERVICE[p.category] || 'Other', unit_price: String(p.rate), gst_rate: String(p.gst_rate), quantity: copy[idx].quantity || '1', price_id: p.id };
       return copy;
     });
     setItemErrors((prev) => { const c = [...prev]; c[idx] = {}; return c; });
@@ -261,6 +319,17 @@ export default function HospitalBilling() {
   const discount     = Math.max(0, Number(discountAmt) || 0);
   const totalAmount  = Math.max(0, round2(patientGross - discount));
 
+  // The deposit used on this bill. The bill keeps its full amount; the deposit is the part already paid.
+  const depositInHand = admissionId && depSummary ? Number(depSummary.in_hand) || 0 : 0;
+  const depositWanted = useDeposit === null ? true : useDeposit;
+  const depositTyped  = depositAmt !== '';
+  const depositUse    = depositWanted && depositInHand > 0
+    ? round2(depositTyped ? (Number(depositAmt) || 0) : Math.min(depositInHand, totalAmount))
+    : 0;
+  const payNow        = Math.max(0, round2(totalAmount - depositUse));
+  const isOwner       = ['principal', 'doctor'].includes(tenant?.role);
+  const pickedAdmission = admissions.find((a) => a.id === admissionId);
+
   async function generateBill() {
     setSubmitError('');
 
@@ -282,6 +351,29 @@ export default function HospitalBilling() {
       return;
     }
 
+    if (depositWanted && depositInHand > 0 && depositTyped && !(Number(depositAmt) > 0)) { setSubmitError('Enter the deposit amount to use, or untick "Use the deposit".'); return; }
+    if (depositUse > depositInHand) { setSubmitError(`Only ${money(depositInHand)} is in the deposit.`); return; }
+    if (depositUse > totalAmount) { setSubmitError('The deposit used cannot be more than the bill amount.'); return; }
+
+    if (!invoiceDate) { setSubmitError('Select the invoice date.'); return; }
+    if (invoiceDate > istToday()) { setSubmitError('The invoice date cannot be in the future.'); return; }
+
+    // A scheme / insurance payment mode with nothing marked as covered would be saved as a
+    // bill the patient paid in full — usually a forgotten tick.
+    if (SCHEME_MODES.includes(paymentMode) && coveredAmount <= 0) {
+      if (!window.confirm(`The payment mode is ${paymentMode}, but no item is marked "Covered by scheme / insurance". The whole amount will be recorded as paid by the patient and no claim will be tracked. Continue anyway?`)) return;
+    }
+
+    // Rates the system pre-loaded and the hospital has not yet confirmed (Price list → "sample"): ask before billing with them
+    const sampleNames = [...new Set(items.filter((i) => {
+      const p = i.price_id ? priceList.find((x) => x.id === i.price_id) : null;
+      return p && p.is_sample && Number(i.unit_price) === Number(p.rate);
+    }).map((i) => i.description.split(' — ')[0]))];
+    if (sampleNames.length > 0) {
+      const shown = sampleNames.slice(0, 4).join(', ') + (sampleNames.length > 4 ? ` and ${sampleNames.length - 4} more` : '');
+      if (!window.confirm(`These rates are still pre-loaded samples and have not been confirmed on the Price list: ${shown}. Check they are correct before billing. Continue with this bill?`)) return;
+    }
+
     if (alreadyBilled && items.some((i) => i.source === 'room')) {
       if (!window.confirm('Room charges for this admission were already billed on an earlier invoice. Billing them again will charge the patient twice. Continue anyway?')) return;
     }
@@ -291,15 +383,16 @@ export default function HospitalBilling() {
 
   async function createInvoiceRecord() {
     setSaving(true);
-    const invoiceNo = generateInvoiceNo(tenant.orgName);
 
+    // The invoice number is given by the database (one running series per hospital per
+    // financial year), so it is not sent from here.
     const { data: inv, error: invErr } = await supabase
       .from('billing_invoices')
       .insert({
         app_id:       tenant.appId,
         branch_id:    tenant.branchId || null,
         patient_id:   selectedPatient.id,
-        invoice_no:   invoiceNo,
+        invoice_date: invoiceDate,
         line_items:   items,
         gst_amount:   totalGst,
         total_amount: totalAmount,
@@ -309,6 +402,10 @@ export default function HospitalBilling() {
         admission_id: items.some((i) => i.source === 'room') ? admissionId : null,
         payment_mode: paymentMode,
         status:       'paid',
+        // The part covered by a scheme / insurer is money still to be received.
+        claim_status: coveredAmount > 0 ? 'pending' : null,
+        // The part already paid as deposit (the database checks it against the deposit in hand).
+        ...(depositUse > 0 ? { deposit_applied: depositUse, deposit_admission_id: admissionId } : {}),
       })
       .select()
       .single();
@@ -316,22 +413,23 @@ export default function HospitalBilling() {
     if (invErr) {
       console.error('Invoice generation failed:', invErr);
       setSubmitError(invErr.message || 'Failed to generate invoice. Please try again.');
+      setDepKey((k) => k + 1); // the deposit may have changed meanwhile: show the real figure
       setSaving(false);
       return;
     }
 
     if (selectedPatient.phone) {
       await supabase.functions.invoke('send-whatsapp', {
-        body: { type: 'hospital_receipt', patientId: selectedPatient.id, invoiceNo, amount: totalAmount },
+        body: { type: 'hospital_receipt', patientId: selectedPatient.id, invoiceNo: inv.invoice_no, amount: totalAmount },
       });
     }
 
-    // billing_invoices has no subtotal/discount/invoice_date columns —
-    // merging in the values already computed client-side so the
-    // print view (built earlier) still shows them correctly right
-    // after creating this invoice. A later re-fetch of an OLD invoice
-    // from the database won't have these, only a freshly-created one.
-    setInvoice({ ...inv, patient: selectedPatient, subtotal, discount, covered_amount: coveredAmount, invoice_date: invoiceDate });
+    // billing_invoices has no subtotal / discount columns — they are merged in from the
+    // values worked out above for the printout. (The Bills tab works them out again from
+    // the saved lines, GST and amounts.)
+    setInvoice({ ...inv, patient: selectedPatient, subtotal, discount, covered_amount: coveredAmount, invoice_date: invoiceDate, deposit_applied: depositUse });
+    setDepositLeft(round2(depositInHand - depositUse));
+    setDepKey((k) => k + 1);
     setSaving(false);
   }
 
@@ -340,7 +438,11 @@ export default function HospitalBilling() {
     setItems([{ ...EMPTY_ITEM }]);
     setItemErrors([{}]);
     setDiscountAmt('');
+    setInvoiceDate(istToday());
     setSubmitError('');
+    setUseDeposit(null);
+    setDepositAmt('');
+    setDepositLeft(0);
   }
 
   return (
@@ -369,7 +471,18 @@ export default function HospitalBilling() {
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Hospital Billing</h1>
         </div>
 
-        {!invoice ? (
+        <div role="tablist" aria-label="Billing" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {[['new', 'New bill'], ['bills', 'Bills']].map(([k, label]) => (
+            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+              style={{ padding: '8px 18px', fontSize: 13, borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', border: tab === k ? 'none' : '1px solid rgba(255,255,255,0.12)', background: tab === k ? '#E8A020' : 'transparent', color: tab === k ? '#111113' : 'rgba(255,255,255,0.55)', fontWeight: tab === k ? 600 : 400 }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'bills' ? (
+          <BillList onPrint={(inv) => setPrintJob({ inv, n: Date.now() })} initialFilter={location.state?.filter} />
+        ) : !invoice ? (
           <>
             <div style={{ ...S.card, marginBottom: 16 }}>
               <PatientSelector
@@ -445,7 +558,16 @@ export default function HospitalBilling() {
               </div>
             )}
 
+            {/* Deposit of the chosen admission: see it, take more, refund (owner) */}
+            {selectedPatient && admissionId && (
+              <div style={S.card}>
+                <DepositBox key={`${admissionId}-${depKey}`} admissionId={admissionId} admissionOpen={!!pickedAdmission && !pickedAdmission.discharge_date}
+                  required={null} canRefund={isOwner} onChanged={setDepSummary} patientName={selectedPatient?.full_name} />
+              </div>
+            )}
+
             {/* Billing items */}
+            {labNote && <div role="status" style={{ background: 'rgba(90,154,223,0.08)', border: '1px solid rgba(90,154,223,0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: '#5A9ADF' }}>🔬 {labNote}</div>}
             <div style={S.card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0 }}>Billing items</p>
@@ -545,12 +667,12 @@ export default function HospitalBilling() {
                   {/* Counter QR — only for UPI mode, and only when the
                       branch has actually configured a UPI ID in
                       Business Details. */}
-                  {paymentMode === 'UPI' && branchUpiId && totalAmount > 0 && (
+                  {paymentMode === 'UPI' && branchUpiId && payNow > 0 && (
                     <div style={{ marginTop: 14 }}>
                       <UpiQrCode
                         upiId={branchUpiId}
                         payeeName={tenant?.orgName}
-                        amount={totalAmount}
+                        amount={payNow}
                         note={`Hospital bill${selectedPatient?.full_name ? ` - ${selectedPatient.full_name}` : ''}`}
                         size={180}
                       />
@@ -584,10 +706,29 @@ export default function HospitalBilling() {
               <div>
                 <label htmlFor="billing-invoice-date" style={S.label}>Invoice date</label>
                 <input id="billing-invoice-date" name="billing-invoice-date" type="date" value={invoiceDate}
-                  max={new Date().toISOString().slice(0, 10)}
+                  max={istToday()}
                   onChange={(e) => setInvoiceDate(e.target.value)}
                   style={{ ...S.input(false), width: 'auto' }} />
               </div>
+
+              {depositInHand > 0 && (
+                <div style={{ marginTop: 14, padding: '10px 12px', background: '#111113', borderRadius: 8 }}>
+                  <label htmlFor="billing-use-deposit" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: depositWanted ? '#6AAA90' : 'rgba(255,255,255,0.55)', cursor: 'pointer' }}>
+                    <input id="billing-use-deposit" name="billing-use-deposit" type="checkbox" checked={depositWanted} onChange={(e) => setUseDeposit(e.target.checked)} />
+                    Use the deposit for this bill ({money(depositInHand)} in hand)
+                  </label>
+                  {depositWanted && (
+                    <div style={{ marginTop: 8 }}>
+                      <label htmlFor="billing-deposit-use" style={S.label}>Deposit to use (₹)</label>
+                      <input id="billing-deposit-use" name="billing-deposit-use" inputMode="decimal" value={depositAmt}
+                        placeholder={String(Math.min(depositInHand, totalAmount))}
+                        onChange={(e) => setDepositAmt(sanitize.amount(e.target.value))}
+                        style={{ ...S.input(depositUse > depositInHand || depositUse > totalAmount), maxWidth: 200 }} />
+                      <p style={{ margin: '4px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Leave empty to use as much as the bill needs.</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Totals */}
               <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
@@ -608,6 +749,21 @@ export default function HospitalBilling() {
                   </span>
                 </div>
               </div>
+              {depositUse > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6AAA90', marginBottom: 4 }}>
+                    <span>Less: deposit already paid</span><span>−{money(depositUse)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, color: '#E8A020' }}>
+                    <span>Balance to pay now</span><span>{money(payNow)}</span>
+                  </div>
+                </div>
+              )}
+              {coveredAmount > 0 && (
+                <p style={{ margin: '10px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                  The covered amount ({money(coveredAmount)}) is saved as a claim to be received from the scheme / insurer. You can mark it received later in the Bills tab.
+                </p>
+              )}
             </div>
 
             {submitError && (
@@ -622,6 +778,12 @@ export default function HospitalBilling() {
             </button>
           </>
         ) : (
+          <>
+          {depositLeft > 0 && (
+            <div role="status" style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#E8A020' }}>
+              {money(depositLeft)} of the patient's deposit is still in hand. Use it on the next bill, or — when the patient goes home — the owner can refund it (select the patient under New bill, then Refund in the Deposit box).
+            </div>
+          )}
           <NextActions
             title="Invoice done — what next?"
             actions={[]}
@@ -631,85 +793,13 @@ export default function HospitalBilling() {
               { icon: '🏠', label: 'Dashboard', href: '/hospital/dashboard' },
             ]}
           />
+          </>
         )}
       </div>
 
-      {/* Print-only invoice — hidden on screen, shown only when printing.
-          This didn't exist at all before — the invoice's actual content
-          (patient, line items, GST, total) was never displayed or
-          printed anywhere; only a small "what's next" nav card was. */}
-      {invoice && (
-        <div className="print-only" style={{ background: '#fff', color: '#000', padding: '32px 40px', fontFamily: 'serif', maxWidth: 680, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 24, borderBottom: '2px solid #000', paddingBottom: 16 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>{tenant?.orgName || 'Hospital'}</h2>
-            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '10px 0 0', textTransform: 'uppercase', letterSpacing: 2 }}>Invoice</h3>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 20 }}>
-            <span>Invoice No: <strong>{invoice.invoice_no}</strong></span>
-            <span>Date: <strong>{new Date(invoice.invoice_date).toLocaleDateString('en-IN')}</strong></span>
-          </div>
-
-          <div style={{ marginBottom: 20, fontSize: 13, lineHeight: 1.8 }}>
-            <div>Patient: <strong>{invoice.patient?.full_name}</strong></div>
-            {invoice.patient?.patient_uid && <div>Patient ID: <strong>{invoice.patient.patient_uid}</strong></div>}
-          </div>
-
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 16 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #000' }}>Description</th>
-                <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #000' }}>Type</th>
-                <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #000' }}>Qty</th>
-                <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #000' }}>Unit Price</th>
-                <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #000' }}>GST</th>
-                <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #000' }}>Line Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(invoice.line_items || []).map((item, i) => {
-                const lineBase = Number(item.quantity) * Number(item.unit_price);
-                const lineGst = lineBase * Number(item.gst_rate) / 100;
-                return (
-                  <tr key={i}>
-                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.description}{item.covered ? ' (covered by scheme)' : ''}</td>
-                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.service_type}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.quantity}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>₹{Number(item.unit_price).toLocaleString('en-IN')}</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>{item.gst_rate}%</td>
-                    <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>₹{(lineBase + lineGst).toLocaleString('en-IN')}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 13, marginBottom: 30, gap: 4 }}>
-            <div>Subtotal: ₹{Number(invoice.subtotal).toLocaleString('en-IN')}</div>
-            <div>GST: ₹{Number(invoice.gst_amount).toLocaleString('en-IN')}</div>
-            {Number(invoice.covered_amount) > 0 && <div>Covered by scheme / insurance: -₹{Number(invoice.covered_amount).toLocaleString('en-IN')}</div>}
-            {Number(invoice.discount) > 0 && <div>Discount: -₹{Number(invoice.discount).toLocaleString('en-IN')}</div>}
-            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>{Number(invoice.covered_amount) > 0 ? 'Payable by patient' : 'Total'}: ₹{Number(invoice.total_amount).toLocaleString('en-IN')}</div>
-          </div>
-
-          <div style={{ fontSize: 13, marginBottom: 40 }}>
-            Payment mode: <strong>{invoice.payment_mode}</strong> · Status: <strong>{invoice.status}</strong>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ borderTop: '1px solid #000', paddingTop: 8, width: 180 }}>
-                Authorised Signatory<br />
-                <span style={{ fontSize: 11, color: '#555' }}>{tenant?.orgName || 'Hospital'}</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 20, padding: '6px 10px', background: '#f5f5f5', borderRadius: 4, fontSize: 10, color: '#888', fontFamily: 'monospace' }}>
-            Invoice No: {invoice.invoice_no} · Generated: {new Date().toLocaleString('en-IN')} · MPower
-          </div>
-        </div>
-      )}
+      {/* Print-only invoice — hidden on screen, shown only when printing. On the Bills tab it
+          is the bill being reprinted; otherwise the bill just made. */}
+      <InvoicePrint invoice={tab === 'bills' ? printJob?.inv : invoice} orgName={tenant?.orgName} />
 
       {/* Wrapped so the fixed menu bar and bug-report button can never
           take up space in a printout, whatever their own styles do. */}

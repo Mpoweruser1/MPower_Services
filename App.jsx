@@ -108,6 +108,7 @@ import RequireModule, { RedirectIfSignedIn } from './shared/RequireModule';
 import CorrectionApprovalQueue from './shared/CorrectionApprovalQueue';
 import BusinessDetails from './shared/BusinessDetails';
 import HospitalNav from './shared/HospitalNav';
+import { rolesFor } from './shared/hospitalAccess';
 import SchoolNav from './shared/SchoolNav';
 
 // ─────────────────────────────────────────────────────────────
@@ -135,6 +136,12 @@ function CitizenPortalWrapper() {
 function TrackComplaintWrapper() {
   const { stateSlug } = useParams();
   return <TrackComplaint stateSlug={stateSlug} />;
+}
+
+// Hospital screens limited to some roles (shared/hospitalAccess.js — the menu uses the same list)
+function HospitalOnly({ path, children }) {
+  const roles = rolesFor(path);
+  return roles ? <RequireRole roles={roles}>{children}</RequireRole> : children;
 }
 
 const SCREEN_NAMES = {
@@ -425,7 +432,7 @@ function AppRoutes() {
       <Route path="/hospital/ipd"
         element={<RequireAuth><VisitProvider><IPDManagement /></VisitProvider></RequireAuth>} />
       <Route path="/hospital/business-details"
-        element={<RequireAuth><BusinessDetails NavComponent={HospitalNav} /></RequireAuth>} />
+        element={<RequireAuth><HospitalOnly path="/hospital/business-details"><BusinessDetails NavComponent={HospitalNav} /></HospitalOnly></RequireAuth>} />
       {/* These 9 routes were completely missing — every one of them is a real,
           working screen (linked from HospitalNav's "More" menu), but with no
           <Route> registered they fell through to the catch-all "*" route and
@@ -434,23 +441,23 @@ function AppRoutes() {
       <Route path="/hospital/patients/find"
         element={<RequireAuth><PatientDetail /></RequireAuth>} />
       <Route path="/hospital/wards"
-        element={<RequireAuth><ManageWards /></RequireAuth>} />
+        element={<RequireAuth><HospitalOnly path="/hospital/wards"><ManageWards /></HospitalOnly></RequireAuth>} />
       <Route path="/hospital/doctors"
-        element={<RequireAuth><ManageDoctors /></RequireAuth>} />
+        element={<RequireAuth><HospitalOnly path="/hospital/doctors"><ManageDoctors /></HospitalOnly></RequireAuth>} />
       <Route path="/hospital/staff"
-        element={<RequireAuth><ManageHospitalStaff /></RequireAuth>} />
+        element={<RequireAuth><HospitalOnly path="/hospital/staff"><ManageHospitalStaff /></HospitalOnly></RequireAuth>} />
       <Route path="/hospital/billing-analytics"
-        element={<RequireAuth><BillingAnalytics /></RequireAuth>} />
+        element={<RequireAuth><HospitalOnly path="/hospital/billing-analytics"><BillingAnalytics /></HospitalOnly></RequireAuth>} />
       <Route path="/hospital/appointment-analytics"
-        element={<RequireAuth><AppointmentAnalytics /></RequireAuth>} />
+        element={<RequireAuth><HospitalOnly path="/hospital/appointment-analytics"><AppointmentAnalytics /></HospitalOnly></RequireAuth>} />
       <Route path="/hospital/lab-tests"
-        element={<RequireAuth><ManageLabTests /></RequireAuth>} />
+        element={<RequireAuth><HospitalOnly path="/hospital/lab-tests"><ManageLabTests /></HospitalOnly></RequireAuth>} />
       <Route path="/hospital/price-list"
-        element={<RequireAuth><PriceList /></RequireAuth>} />
+        element={<RequireAuth><HospitalOnly path="/hospital/price-list"><PriceList /></HospitalOnly></RequireAuth>} />
       <Route path="/hospital/appointments"
         element={<RequireAuth><VisitProvider><OpdAppointments /></VisitProvider></RequireAuth>} />
       <Route path="/hospital/reports"
-        element={<RequireAuth><HospitalReports userTier={tenant?.tier} /></RequireAuth>} />
+        element={<RequireAuth><HospitalOnly path="/hospital/reports"><HospitalReports userTier={tenant?.tier} /></HospitalOnly></RequireAuth>} />
       </Route>
 
       {/* ── Grievance — staff (auth required) — only CTS / government logins (RequireModule, 9-10-2026) ── */}

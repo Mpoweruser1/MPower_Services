@@ -26,6 +26,11 @@ export default function OpdAppointmentBooking() {
     if (dayId) load();
   }, [dayId]);
 
+  // the browser tab says whose appointment page this is
+  useEffect(() => {
+    if (day?.hospital_name) document.title = `${day.hospital_name} — OPD appointment`;
+  }, [day?.hospital_name]);
+
   // The page is public (patients are not logged in), so it never reads the
   // tables directly. Two checked database functions do it instead:
   //   opd_public_day  — doctor, date and OPEN times only
@@ -70,16 +75,20 @@ export default function OpdAppointmentBooking() {
   if (!day) return <div style={S.page}><div style={S.inner}><p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>This appointment link isn't valid or has expired.</p></div></div>;
 
   const doctorLabel = `${day.doctor_name || 'Doctor'}${day.designation ? ` — ${day.designation}` : ''}`;
+  // The hospital's name comes with newer versions of the database function (fix_opd_public_booking.sql); without it the page works as before
+  const hospital = day.hospital_name || '';
+  const when = (t) => new Date(t).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
 
   return (
     <div style={S.page}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');`}</style>
       <div style={S.inner}>
         <div style={{ marginBottom: 24, textAlign: 'center' }}>
+          {hospital && <p style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: '#E8A020' }}>{hospital}</p>}
           <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 1, textTransform: 'uppercase' }}>OPD Appointment</p>
           <h1 style={{ margin: '6px 0 0', fontSize: 20, fontWeight: 600 }}>{doctorLabel}</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-            {new Date(day.appointment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {new Date(`${String(day.appointment_date).slice(0, 10)}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
 
@@ -88,7 +97,7 @@ export default function OpdAppointmentBooking() {
             <p style={{ fontSize: 32, marginBottom: 10 }}>✅</p>
             <p style={{ fontSize: 15, fontWeight: 600, color: '#6AAA90', margin: 0 }}>Appointment booked!</p>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>
-              {new Date(booked.slot_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {doctorLabel}
+              {when(booked.slot_time)} · {doctorLabel}{hospital ? ` · ${hospital}` : ''}
             </p>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 8 }}>
               Please arrive 10 minutes early. Bring any previous prescriptions or reports.
@@ -104,7 +113,7 @@ export default function OpdAppointmentBooking() {
                 {slots.map((slot) => (
                   <button key={slot.id} onClick={() => setSelectedSlot(slot)}
                     style={{ padding: 12, border: '1px solid rgba(232,160,32,0.3)', borderRadius: 8, background: 'rgba(232,160,32,0.08)', color: '#E8A020', cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: 'inherit' }}>
-                    {new Date(slot.slot_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                    {when(slot.slot_time)}
                   </button>
                 ))}
               </div>
@@ -114,7 +123,7 @@ export default function OpdAppointmentBooking() {
           <div style={S.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#E8A020' }}>
-                {new Date(selectedSlot.slot_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                {when(selectedSlot.slot_time)}
               </p>
               <button onClick={() => setSelectedSlot(null)} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'rgba(255,255,255,0.5)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Change time</button>
             </div>

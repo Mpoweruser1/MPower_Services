@@ -14,21 +14,24 @@ import HospitalNav from '../shared/HospitalNav';
 import NextActions from '../shared/NextActions';
 import VitalsEntry from '../shared/VitalsEntry';
 import BugReporter from '../shared/BugReporter';
+import { istToday, addDays } from './hospitalUtils';
 
 const VISIT_TYPES = ['New patient', 'Follow-up', 'Emergency', 'Review'];
 
 const RULES = {
   chief_complaint: [validators.required, validators.minLength(5)],
   diagnosis:       [validators.required, validators.minLength(3)],
-  visit_date:      [validators.required, validators.notFutureDate],
+  // the date is checked against the Indian date when saving (the shared "not in the future" rule goes by UTC and refuses today's date in the early morning)
+  visit_date:      [validators.required],
 };
 
-const EMPTY_FORM = {
+// A fresh form each time, with today's INDIAN date (UTC would give yesterday between midnight and 5:30 am)
+const emptyForm = (doctorId = '') => ({
   visit_type: 'New patient',
-  visit_date: new Date().toISOString().slice(0, 10),
+  visit_date: istToday(),
   chief_complaint: '', history: '', examination: '',
-  diagnosis: '', doctor_id: '', follow_up_date: '', follow_up_notes: '',
-};
+  diagnosis: '', doctor_id: doctorId, follow_up_date: '', follow_up_notes: '',
+});
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -41,12 +44,65 @@ const S = {
   fieldErr: { fontSize: 11, color: '#E05A5A', marginTop: 4 },
 };
 
+function ageText(dob) {
+  if (!dob) return '';
+  const b = String(dob).slice(0, 10), t = istToday();
+  let years = Number(t.slice(0, 4)) - Number(b.slice(0, 4));
+  if (t.slice(5) < b.slice(5)) years -= 1;
+  return years >= 0 && years < 130 ? `${years} yrs` : '';
+}
+
+// The printed prescription: hidden on screen, shown only when printing (the hospital's heading comes from PrintHeader).
+function PrescriptionPrint({ saved, doctor }) {
+  const { patient, form, prescription } = saved;
+  const dr = doctor?.users?.full_name;
+  const visitDate = new Date(`${form.visit_date}T00:00:00`).toLocaleDateString('en-IN');
+  const meta = [patient.patient_uid && `ID: ${patient.patient_uid}`, patient.gender, ageText(patient.dob)].filter(Boolean).join(' · ');
+  return (
+    <div className="rx-print-only" style={{ fontFamily: 'serif' }}>
+      <h2 style={{ textAlign: 'center', fontSize: 15, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: 2 }}>Prescription</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13, marginBottom: 10 }}>
+        <div>Patient: <strong>{patient.full_name}</strong>{meta ? <div style={{ fontSize: 12 }}>{meta}</div> : null}</div>
+        <div style={{ textAlign: 'right' }}>Date: <strong>{visitDate}</strong><div style={{ fontSize: 12 }}>{form.visit_type}</div></div>
+      </div>
+      {form.chief_complaint && <p style={{ fontSize: 13, margin: '0 0 4px' }}><strong>Complaint:</strong> {form.chief_complaint}</p>}
+      {form.diagnosis && <p style={{ fontSize: 13, margin: '0 0 10px' }}><strong>Diagnosis:</strong> {form.diagnosis}</p>}
+      <p style={{ fontSize: 20, fontWeight: 700, margin: '6px 0' }}>℞</p>
+      {prescription.length > 0 ? (
+        <table>
+          <thead><tr><th>#</th><th>Medicine</th><th>Dosage</th><th>Duration</th><th>Instructions</th></tr></thead>
+          <tbody>
+            {prescription.map((m, i) => (
+              <tr key={i}><td>{i + 1}</td><td><strong>{m.medicine}</strong></td><td>{m.dosage}</td><td>{m.duration}</td><td>{m.instructions}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      ) : <p style={{ fontSize: 12 }}>No medicines prescribed.</p>}
+      {(form.follow_up_date || form.follow_up_notes) && (
+        <p style={{ fontSize: 13, margin: '12px 0 0' }}>
+          <strong>Follow-up:</strong> {form.follow_up_date ? new Date(`${form.follow_up_date}T00:00:00`).toLocaleDateString('en-IN') : ''}{form.follow_up_notes ? ` — ${form.follow_up_notes}` : ''}
+        </p>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 48 }}>
+        <div style={{ textAlign: 'center', minWidth: 220 }}>
+          <div style={{ borderTop: '1px solid #000', paddingTop: 4, fontSize: 13 }}>
+            <strong>{dr ? `Dr. ${String(dr).replace(/^dr\.?\s+/i, '')}` : 'Doctor'}</strong>
+            {doctor?.designation ? <div style={{ fontSize: 12 }}>{doctor.designation}</div> : null}
+            {doctor?.registration_no ? <div style={{ fontSize: 12 }}>Reg. No: {doctor.registration_no}</div> : null}
+          </div>
+        </div>
+      </div>
+      <p style={{ fontSize: 10, color: '#555', textAlign: 'center', margin: '16px 0 0' }}>Computer generated prescription. Not valid without the doctor's signature.</p>
+    </div>
+  );
+}
+
 export default function OpdVisit() {
   const { tenant }                                       = useTenant();
   const { activePatient, setActivePatient, clearPatient } = useVisit();
   const [selectedPatient, setSelectedPatient]            = useState(activePatient);
   const [doctors, setDoctors]                            = useState([]);
-  const [form, setForm]                                  = useState(EMPTY_FORM);
+  const [form, setForm]                                  = useState(emptyForm);
   const [prescription, setPrescription]                  = useState([{ medicine: '', dosage: '', duration: '', instructions: '' }]);
   const [medErrors, setMedErrors]                        = useState([{}]);
   const [saving, setSaving]                              = useState(false);
@@ -66,11 +122,15 @@ export default function OpdVisit() {
   useEffect(() => { setSelectedPatient(activePatient); }, [activePatient]);
 
   async function loadDoctors() {
-    const { data } = await supabase.from('doctors')
-      .select('id, designation, users(full_name)')
+    let { data, error } = await supabase.from('doctors')
+      .select('id, designation, registration_no, users(full_name)')
       .eq('app_id', tenant.appId);
+    // 42703 = no registration number column in this database: read without it (the prescription then prints without one)
+    if (error && error.code === '42703') {
+      ({ data } = await supabase.from('doctors').select('id, designation, users(full_name)').eq('app_id', tenant.appId));
+    }
     setDoctors(data || []);
-    if (data?.length) setForm((f) => ({ ...f, doctor_id: data[0].id }));
+    if (data?.length) setForm((f) => ({ ...f, doctor_id: f.doctor_id || data[0].id }));
   }
 
   function update(field, value) {
@@ -82,7 +142,7 @@ export default function OpdVisit() {
   // patient checked in via one — otherwise that stated reason for
   // visit is captured at booking and then just disappears.
   async function pullAppointmentReason(patient) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = istToday();
     const { data } = await supabase
       .from('opd_appointment_slots')
       .select('reason, opd_appointment_days(appointment_date)')
@@ -133,14 +193,12 @@ export default function OpdVisit() {
     setSubmitError('');
     if (!selectedPatient) { setSubmitError('Please select a patient first.'); return; }
     if (!validate(form))  { setSubmitError('Please fix the errors below.'); return; }
+    if (form.visit_date > istToday()) { setSubmitError('The visit date cannot be in the future.'); return; }
 
-    // Validate follow-up date is in future if provided
-    if (form.follow_up_date) {
-      const followUp = new Date(form.follow_up_date);
-      if (followUp <= new Date()) {
-        setSubmitError('Follow-up date must be a future date.');
-        return;
-      }
+    // Follow-up date must be after today (Indian date)
+    if (form.follow_up_date && form.follow_up_date <= istToday()) {
+      setSubmitError('Follow-up date must be a future date.');
+      return;
     }
 
     const validMeds = prescription.filter((m) => m.medicine.trim());
@@ -198,7 +256,7 @@ export default function OpdVisit() {
 
   function startNewVisit() {
     setSaved(null);
-    setForm(EMPTY_FORM);
+    setForm(emptyForm(doctors[0]?.id || ''));
     setPrescription([{ medicine: '', dosage: '', duration: '', instructions: '' }]);
     setMedErrors([{}]);
     setSubmitError('');
@@ -206,10 +264,19 @@ export default function OpdVisit() {
   }
 
   return (
-    <div style={S.page}>
+    <div className="opd-page" style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @media print { .no-print { display: none !important; } }
+        .rx-print-only { display: none; }
+        @media print {
+          .no-print { display: none !important; }
+          .rx-print-only { display: block !important; color: #000; background: #fff; }
+          html, body { background: #fff !important; }
+          .opd-page { background: #fff !important; min-height: 0 !important; padding-bottom: 0 !important; color: #000 !important; }
+          .opd-page table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          .opd-page th, .opd-page td { border-bottom: 1px solid #bbb; padding: 5px 6px; text-align: left; vertical-align: top; }
+          .opd-page tr { break-inside: avoid; page-break-inside: avoid; }
+        }
       `}</style>
       <PrintHeader documentTitle="OPD Prescription" />
 
@@ -251,7 +318,7 @@ export default function OpdVisit() {
                     <div>
                       <label htmlFor="opd-visit-date" style={S.label}>Visit date <span style={{ color: '#E05A5A' }}>*</span></label>
                       <input id="opd-visit-date" name="opd-visit-date" type="date" value={form.visit_date}
-                        max={new Date().toISOString().slice(0, 10)}
+                        max={istToday()}
                         onChange={(e) => update('visit_date', e.target.value)}
                         onBlur={() => touch('visit_date', form.visit_date)}
                         style={S.input(touched.visit_date && errors.visit_date)} />
@@ -351,7 +418,7 @@ export default function OpdVisit() {
                     <div>
                       <label htmlFor="opd-followup-date" style={S.label}>Follow-up date</label>
                       <input id="opd-followup-date" name="opd-followup-date" type="date" value={form.follow_up_date}
-                        min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                        min={addDays(istToday(), 1)}
                         onChange={(e) => update('follow_up_date', e.target.value)}
                         style={S.input(false)} />
                       <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>Must be a future date</p>
@@ -385,6 +452,7 @@ export default function OpdVisit() {
           </>
         ) : (
           <>
+            <div className="no-print">
             <VitalsEntry patientId={saved.patient.id} contextType="opd" contextId={saved.visitRow.id} />
             <NextActions
               title="OPD visit saved — what next?"
@@ -393,17 +461,22 @@ export default function OpdVisit() {
                 { icon: '💳', label: 'Generate bill', href: '/hospital/billing', color: '#6AAA90' },
               ]}
               secondaryActions={[
+                { icon: '🖨️', label: 'Print prescription', onClick: () => window.print() },
                 { icon: '🛏️', label: 'Admit to IPD', href: '/hospital/ipd' },
                 { icon: '👤', label: 'New OPD visit', onClick: startNewVisit },
                 { icon: '🏠', label: 'Dashboard', href: '/hospital/dashboard' },
               ]}
             />
+            </div>
+            <PrescriptionPrint saved={saved} doctor={doctors.find((d) => d.id === saved.form.doctor_id)} />
           </>
         )}
       </div>
 
-      <HospitalNav />
-      <BugReporter screenName="opd_visit" />
+      <div className="no-print">
+        <HospitalNav />
+        <BugReporter screenName="opd_visit" />
+      </div>
     </div>
   );
 }

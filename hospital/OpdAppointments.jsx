@@ -6,6 +6,7 @@ import { useTenant } from '../context/TenantContext';
 import HospitalNav from '../shared/HospitalNav';
 import PatientSelector from '../shared/PatientSelector';
 import BugReporter from '../shared/BugReporter';
+import { istToday } from './hospitalUtils';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -30,7 +31,7 @@ export default function OpdAppointments() {
   const [checkInPatient, setCheckInPatient] = useState(null);
 
   const [form, setForm] = useState({
-    doctor_id: '', appointment_date: new Date().toISOString().slice(0, 10),
+    doctor_id: '', appointment_date: istToday(),
     start_time: '09:00', slot_minutes: '15', slot_count: '16',
   });
 
@@ -70,8 +71,13 @@ export default function OpdAppointments() {
     if (!form.doctor_id) { setMessage('Select a doctor first.'); return; }
     const count = parseInt(form.slot_count);
     const duration = parseInt(form.slot_minutes);
-    if (isNaN(count) || count < 1 || isNaN(duration) || duration < 1) {
-      setMessage('Enter valid slot count and duration.');
+    if (isNaN(count) || count < 1 || count > 100 || isNaN(duration) || duration < 1 || duration > 240) {
+      setMessage('Enter a slot count between 1 and 100 and minutes per slot between 1 and 240.');
+      return;
+    }
+    if (!form.appointment_date || form.appointment_date < istToday()) { setMessage('Choose today or a later date.'); return; }
+    if (days.some((d) => d.doctor_id === form.doctor_id && String(d.appointment_date).slice(0, 10) === form.appointment_date)) {
+      setMessage('This doctor already has a clinic day on that date. Open it below, or choose another date.');
       return;
     }
 
@@ -87,8 +93,8 @@ export default function OpdAppointments() {
     const [h, m] = form.start_time.split(':').map(Number);
     const rows = Array.from({ length: count }, (_, i) => {
       const totalMinutes = h * 60 + m + i * duration;
-      const slotDate = new Date(`${form.appointment_date}T00:00:00`);
-      slotDate.setMinutes(totalMinutes);
+      // the clinic runs on Indian time whatever the computer's own clock says
+      const slotDate = new Date(new Date(`${form.appointment_date}T00:00:00+05:30`).getTime() + totalMinutes * 60000);
       return { appointment_day_id: day.id, slot_time: slotDate.toISOString(), status: 'open' };
     });
     // Previously unchecked — showed "created with N slots" even if
@@ -120,6 +126,40 @@ export default function OpdAppointments() {
     setCheckInPatient(null);
     setMessage(`✅ Checked in — linked to ${checkInPatient.full_name}`);
     loadSlots(dayId);
+  }
+
+  // Cancel a booking: the time becomes open again so someone else can take it. The patient has to be told —
+  // the phone number is shown in the message (the booking page does not send anything by itself).
+  async function cancelBooking(dayId, slot) {
+    if (!window.confirm(`Cancel the booking of ${slot.booked_name} (${slot.booked_phone})? The time will become open again. You will need to tell the patient.`)) return;
+    const { error: cancelErr } = await supabase.from('opd_appointment_slots')
+      .update({ status: 'open', booked_name: null, booked_phone: null, reason: null, patient_id: null })
+      .eq('id', slot.id).eq('status', 'booked');
+    if (cancelErr) {
+      console.error('Cancelling the booking failed:', cancelErr);
+      setMessage(`Could not cancel the booking: ${cancelErr.message || 'please try again.'}`);
+      return;
+    }
+    setCheckingInSlot(null);
+    setMessage(`✅ Booking cancelled — the time is open again. Please tell ${slot.booked_name} on ${slot.booked_phone}.`);
+    loadSlots(dayId);
+  }
+
+  // Delete a clinic day. Only a day with no booking and no check-in can be deleted (a day with bookings: cancel them first).
+  async function deleteDay(day) {
+    const { data: rows, error: readErr } = await supabase.from('opd_appointment_slots').select('id, status').eq('appointment_day_id', day.id);
+    if (readErr) { setMessage(`Could not check the day: ${readErr.message || 'please try again.'}`); return; }
+    const used = (rows || []).filter((r) => r.status !== 'open').length;
+    if (used > 0) { setMessage(`This day has ${used} booked or checked-in time${used === 1 ? '' : 's'}. Cancel the bookings first; a day with check-ins cannot be deleted.`); return; }
+    if (!window.confirm('Delete this clinic day and all its open times? The booking link for it will stop working.')) return;
+    const { error: slotsDelErr } = await supabase.from('opd_appointment_slots').delete().eq('appointment_day_id', day.id);
+    if (slotsDelErr) { console.error('Deleting the times failed:', slotsDelErr); setMessage(`Could not delete the day: ${slotsDelErr.message || 'please try again.'}`); return; }
+    const { error: dayDelErr } = await supabase.from('opd_appointment_days').delete().eq('id', day.id);
+    if (dayDelErr) { console.error('Deleting the clinic day failed:', dayDelErr); setMessage(`Could not delete the day: ${dayDelErr.message || 'please try again.'}`); return; }
+    setExpandedId(null);
+    setSlots((prev) => { const n = { ...prev }; delete n[day.id]; return n; });
+    setMessage('✅ Clinic day deleted.');
+    loadDays();
   }
 
   async function shareLink(day) {
@@ -176,7 +216,7 @@ export default function OpdAppointments() {
             </div>
             <div style={{ marginBottom: 10 }}>
               <label htmlFor="opd-appt-appointment-date" style={S.label}>Date</label>
-              <input id="opd-appt-appointment-date" name="opd-appt-appointment-date" type="date" value={form.appointment_date} onChange={(e) => setForm((f) => ({ ...f, appointment_date: e.target.value }))} style={S.input} />
+              <input id="opd-appt-appointment-date" name="opd-appt-appointment-date" type="date" value={form.appointment_date} min={istToday()} onChange={(e) => setForm((f) => ({ ...f, appointment_date: e.target.value }))} style={S.input} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div>
@@ -223,7 +263,7 @@ export default function OpdAppointments() {
                   <div>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#fff' }}>{doctorName(day.doctors || {})}</p>
                     <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-                      {new Date(day.appointment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(`${String(day.appointment_date).slice(0, 10)}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       {isExpanded && ` · ${bookedCount}/${daySlots.length} booked`}
                     </p>
                   </div>
@@ -236,10 +276,14 @@ export default function OpdAppointments() {
                       style={{ width: '100%', padding: 10, marginBottom: 12, border: '1px solid rgba(106,170,144,0.3)', borderRadius: 8, background: 'rgba(106,170,144,0.08)', color: '#6AAA90', cursor: sending ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>
                       🔗 Copy booking link to share
                     </button>
+                    <button onClick={() => deleteDay(day)}
+                      style={{ width: '100%', padding: 8, marginBottom: 12, border: '1px solid rgba(224,90,90,0.25)', borderRadius: 8, background: 'transparent', color: '#E05A5A', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+                      🗑 Delete this clinic day (only when nothing is booked)
+                    </button>
                     {daySlots.map((slot) => (
                       <div key={slot.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 12 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ color: 'rgba(255,255,255,0.5)' }}>{new Date(slot.slot_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span style={{ color: 'rgba(255,255,255,0.5)' }}>{new Date(slot.slot_time).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}</span>
                           {slot.status === 'open' && <span style={{ color: 'rgba(255,255,255,0.25)' }}>Open</span>}
                           {slot.status === 'completed' && <span style={{ color: '#6AAA90' }}>✓ Checked in</span>}
                           {slot.status === 'booked' && (
@@ -248,6 +292,10 @@ export default function OpdAppointments() {
                               <button onClick={() => { setCheckingInSlot(checkingInSlot === slot.id ? null : slot.id); setCheckInPatient(null); }}
                                 style={{ padding: '4px 10px', border: '1px solid rgba(90,154,223,0.3)', borderRadius: 6, background: 'rgba(90,154,223,0.08)', color: '#5A9ADF', cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }}>
                                 Check in
+                              </button>
+                              <button onClick={() => cancelBooking(day.id, slot)}
+                                style={{ padding: '4px 10px', border: '1px solid rgba(224,90,90,0.3)', borderRadius: 6, background: 'transparent', color: '#E05A5A', cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }}>
+                                Cancel
                               </button>
                             </div>
                           )}

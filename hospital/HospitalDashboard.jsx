@@ -1,4 +1,6 @@
 // hospital/HospitalDashboard.jsx — FINAL (Supabase wired)
+// Beds on hold (reserved / out of service) are no longer counted as free: "available" = beds − occupied − on hold,
+// the same figure the Admissions screen and the Bed occupancy report show.
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -6,6 +8,8 @@ import { useTenant } from '../context/TenantContext';
 import HospitalNav from '../shared/HospitalNav';
 import { FeedbackWidget } from '../shared/FeedbackWidget';
 import BugReporter from '../shared/BugReporter';
+import { istToday, addDays, istDayStart, fetchAllRows } from './hospitalUtils';
+import { isHoldActive } from '../shared/bedLogic';
 
 const S = {
   page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff', paddingBottom: 100 },
@@ -28,6 +32,9 @@ function StatCard({ value, label, labelTe, color = '#fff', alert = false, loadin
   );
 }
 
+// Who sees the scheme-claims reminder (the same people who can record a received claim).
+const CLAIM_ROLES = ['principal', 'doctor', 'billing_clerk'];
+
 const QUICK_ACTIONS = [
   { to: '/hospital/patients/new', icon: '👤', en: 'Register Patient',  te: 'రోగి నమోదు' },
   { to: '/hospital/opd',          icon: '🩺', en: 'OPD Visit',         te: 'OPD విజిట్' },
@@ -43,6 +50,8 @@ export default function HospitalDashboard() {
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('');
   const [setupSteps, setSetupSteps] = useState(null);
+  // true when any figure below could not be loaded (it is then shown as —, not as 0).
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     const h = new Date().getHours();
@@ -89,99 +98,132 @@ export default function HospitalDashboard() {
 
   async function loadStats() {
     setLoading(true);
-    const today      = new Date().toISOString().slice(0, 10);
-    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+    setLoadFailed(false);
+    const appId = tenant.appId;
+    // Indian calendar day: from 00:00 today to 00:00 tomorrow IST.
+    const today      = istToday();
+    const dayStart   = istDayStart(today);
+    const dayEnd     = istDayStart(addDays(today, 1));
+    const seesClaims = CLAIM_ROLES.includes(tenant?.role);
 
-    // .in() needs an actual array of ids, not an unresolved query builder —
-    // resolve the two id lists these stats depend on before the parallel
-    // batch below.
-    const [patientIdsRes, wardIdsRes] = await Promise.allSettled([
-      supabase.from('patients').select('id').eq('app_id', tenant.appId),
-      supabase.from('wards').select('id').eq('app_id', tenant.appId),
-    ]);
-    const patientIds = patientIdsRes.status === 'fulfilled' ? (patientIdsRes.value.data || []).map((p) => p.id) : [];
-    const wardIds    = wardIdsRes.status === 'fulfilled'    ? (wardIdsRes.value.data || []).map((w) => w.id)    : [];
+    // Records are tied to the hospital through their patient (patients!inner) or their own
+    // app_id — not through a long list of patient ids, which stopped working beyond a few
+    // hundred patients.
+    const wardsRes = await supabase.from('wards').select('id, total_beds').eq('app_id', appId);
+    const wardList = wardsRes.error ? null : (wardsRes.data || []);
+    if (wardsRes.error) console.error('Dashboard: loading wards failed:', wardsRes.error);
 
-    const [
-      opdRes, revenueRes, pendingRes,
-      abhaRes, totalPatientsRes,
-      bedsRes, admissionsRes,
-      labRes,
-    ] = await Promise.allSettled([
-
-      // OPD visits today
+    const results = await Promise.allSettled([
+      // 0 OPD visits today
       supabase.from('opd_visits')
-        .select('id', { count: 'exact', head: true })
-        .eq('visit_date', today)
-        .in('patient_id', patientIds),
+        .select('id, patients!inner(app_id)', { count: 'exact', head: true })
+        .eq('patients.app_id', appId)
+        .eq('visit_date', today),
 
-      // Revenue today
-      supabase.from('billing_invoices')
-        .select('total_amount')
-        .gte('created_at', today)
-        .lt('created_at', new Date(new Date(today).getTime() + 86400000).toISOString().slice(0, 10))
+      // 1 Revenue today (what patients paid on bills made today; cancelled bills are not counted)
+      fetchAllRows(() => supabase.from('billing_invoices')
+        .select('id, total_amount')
+        .eq('app_id', appId)
         .eq('status', 'paid')
-        .in('patient_id', patientIds),
+        .gte('created_at', dayStart)
+        .lt('created_at', dayEnd)
+        .order('id')),
 
-      // New registrations today — replaces a broken "pending
-      // payments" query that filtered on a status value
-      // (billing_invoices.status = 'pending') confirmed this session
-      // to never actually exist; invoices are only ever created
-      // already marked 'paid'. That stat was silently showing 0
-      // always. This is real, working data instead.
+      // 2 New registrations today
       supabase.from('patients')
         .select('id', { count: 'exact', head: true })
-        .eq('app_id', tenant.appId)
-        .gte('created_at', today)
-        .lt('created_at', new Date(new Date(today).getTime() + 86400000).toISOString().slice(0, 10)),
+        .eq('app_id', appId)
+        .gte('created_at', dayStart)
+        .lt('created_at', dayEnd),
 
-      // ABHA linked patients
+      // 3 ABHA linked patients
       supabase.from('patients')
         .select('id', { count: 'exact', head: true })
-        .eq('app_id', tenant.appId)
+        .eq('app_id', appId)
         .eq('abha_linked', true),
 
-      // Total patients
+      // 4 Total patients
       supabase.from('patients')
         .select('id', { count: 'exact', head: true })
-        .eq('app_id', tenant.appId),
+        .eq('app_id', appId),
 
-      // Total beds
-      supabase.from('wards')
-        .select('total_beds')
-        .eq('app_id', tenant.appId),
+      // 5 Current admissions
+      wardList && wardList.length > 0
+        ? supabase.from('ipd_admissions')
+            .select('id', { count: 'exact', head: true })
+            .is('discharge_date', null)
+            .in('ward_id', wardList.map((w) => w.id))
+        : Promise.resolve({ count: 0, error: wardList ? null : { message: 'wards not loaded' } }),
 
-      // Current admissions
-      supabase.from('ipd_admissions')
-        .select('id', { count: 'exact', head: true })
-        .is('discharge_date', null)
-        .in('ward_id', wardIds),
-
-      // Pending lab results
+      // 6 Pending lab results
       supabase.from('lab_tests')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending')
-        .in('patient_id', patientIds),
+        .eq('app_id', appId)
+        .eq('status', 'pending'),
+
+      // 7 Scheme / insurance claims still to be received (owner and billing roles only)
+      seesClaims
+        ? fetchAllRows(() => supabase.from('billing_invoices')
+            .select('id, covered_amount')
+            .eq('app_id', appId)
+            .eq('claim_status', 'pending')
+            .neq('status', 'cancelled')
+            .order('id'))
+        : Promise.resolve([]),
     ]);
 
-    const opdCount       = opdRes.status === 'fulfilled'          ? (opdRes.value.count || 0) : 0;
-    const revenue        = revenueRes.status === 'fulfilled'      ? (revenueRes.value.data || []).reduce((s, r) => s + Number(r.total_amount || 0), 0) : 0;
-    const newRegistrations = pendingRes.status === 'fulfilled'    ? (pendingRes.value.count || 0) : 0;
-    const abhaCount      = abhaRes.status === 'fulfilled'         ? (abhaRes.value.count || 0) : 0;
-    const totalPatients  = totalPatientsRes.status === 'fulfilled'? (totalPatientsRes.value.count || 0) : 0;
-    const totalBeds      = bedsRes.status === 'fulfilled'         ? (bedsRes.value.data || []).reduce((s, w) => s + (w.total_beds || 0), 0) : 0;
-    const admitted       = admissionsRes.status === 'fulfilled'   ? (admissionsRes.value.count || 0) : 0;
-    const labPending     = labRes.status === 'fulfilled'          ? (labRes.value.count || 0) : 0;
+    // Beds on hold today and not occupied. Without the bed-hold script there are no holds (0, not a failure).
+    let held = 0;
+    let heldFailed = false;
+    try {
+      const holdRows = await fetchAllRows(() => supabase.from('ward_beds')
+        .select('id, ward_id, label, hold_kind, hold_until')
+        .eq('app_id', appId).not('hold_kind', 'is', null).order('id'));
+      const inForce = holdRows.filter((b) => isHoldActive(b.hold_kind, b.hold_until, today));
+      if (inForce.length > 0) {
+        const active = await fetchAllRows(() => supabase.from('ipd_admissions')
+          .select('id, ward_id, bed_no').is('discharge_date', null)
+          .in('ward_id', [...new Set(inForce.map((b) => b.ward_id))]).order('id'));
+        const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+        held = inForce.filter((b) => !active.some((a) => a.ward_id === b.ward_id && same(a.bed_no, b.label))).length;
+      }
+    } catch (e) {
+      if (!['42703', '42P01', 'PGRST205'].includes(e?.code)) { console.error('Dashboard: loading bed holds failed:', e); heldFailed = true; }
+    }
 
-    const occupancyPct   = totalBeds > 0 ? Math.round((admitted / totalBeds) * 100) : 0;
-    const abhaPct        = totalPatients > 0 ? Math.round((abhaCount / totalPatients) * 100) : 0;
+    // A failed query gives null (shown as —) instead of a silent 0.
+    let failed = !wardList || heldFailed;
+    const read = (res, pick) => {
+      if (res.status !== 'fulfilled') { console.error('Dashboard query failed:', res.reason); failed = true; return null; }
+      const v = res.value;
+      if (v && !Array.isArray(v) && v.error) { console.error('Dashboard query failed:', v.error); failed = true; return null; }
+      return pick(v);
+    };
+    const opdCount         = read(results[0], (v) => v.count || 0);
+    const revenue          = read(results[1], (rows) => rows.reduce((s, r) => s + Number(r.total_amount || 0), 0));
+    const newRegistrations = read(results[2], (v) => v.count || 0);
+    const abhaCount        = read(results[3], (v) => v.count || 0);
+    const totalPatients    = read(results[4], (v) => v.count || 0);
+    const admitted         = read(results[5], (v) => v.count || 0);
+    const labPending       = read(results[6], (v) => v.count || 0);
+    const claimRows        = read(results[7], (rows) => rows);
+    const totalBeds        = wardList ? wardList.reduce((s, w) => s + (w.total_beds || 0), 0) : null;
+
+    const occupancyPct = totalBeds != null && admitted != null && totalBeds > 0 ? Math.round((admitted / totalBeds) * 100) : null;
+    // beds that cannot be given to a patient: occupied + on hold
+    const availableBeds = totalBeds != null && admitted != null ? Math.max(0, totalBeds - admitted - held) : null;
+    const busyPct = totalBeds != null && admitted != null && totalBeds > 0 ? Math.round(((admitted + held) / totalBeds) * 100) : null;
+    const abhaPct      = totalPatients != null && abhaCount != null ? (totalPatients > 0 ? Math.round((abhaCount / totalPatients) * 100) : 0) : null;
 
     setStats({
       opdCount, revenue, newRegistrations,
       abhaPct, totalPatients,
-      totalBeds, admitted, occupancyPct,
+      totalBeds, admitted, occupancyPct, held, availableBeds, busyPct,
       labPending,
+      claimsCount: seesClaims && claimRows ? claimRows.length : 0,
+      claimsAmount: seesClaims && claimRows ? claimRows.reduce((s, r) => s + Number(r.covered_amount || 0), 0) : 0,
     });
+    setLoadFailed(failed);
     setLoading(false);
   }
 
@@ -233,7 +275,7 @@ export default function HospitalDashboard() {
             color="#5A9ADF" loading={loading}
           />
           <StatCard
-            value={stats ? `₹${stats.revenue.toLocaleString('en-IN')}` : '—'}
+            value={stats?.revenue != null ? `₹${stats.revenue.toLocaleString('en-IN')}` : '—'}
             label="Revenue today" labelTe="నేటి ఆదాయం"
             color="#6AAA90" loading={loading}
           />
@@ -246,10 +288,10 @@ export default function HospitalDashboard() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 20 }}>
           <StatCard
-            value={stats ? `${stats.admitted}/${stats.totalBeds}` : '—'}
-            label="Beds occupied" labelTe="బెడ్లు ఆక్రమించబడ్డాయి"
-            color={stats?.occupancyPct > 85 ? '#E05A5A' : '#E8A020'}
-            alert={stats?.occupancyPct > 85} loading={loading}
+            value={stats && stats.admitted != null && stats.totalBeds != null ? `${stats.admitted}/${stats.totalBeds}` : '—'}
+            label={stats?.held > 0 ? `Beds occupied · ${stats.held} on hold` : 'Beds occupied'} labelTe="బెడ్లు ఆక్రమించబడ్డాయి"
+            color={stats?.busyPct > 85 ? '#E05A5A' : '#E8A020'}
+            alert={stats?.busyPct > 85} loading={loading}
           />
           <StatCard
             value={stats?.labPending ?? '—'}
@@ -257,20 +299,40 @@ export default function HospitalDashboard() {
             color="#E8A020" alert={stats?.labPending > 0} loading={loading}
           />
           <StatCard
-            value={stats ? `${stats.abhaPct}%` : '—'}
+            value={stats?.abhaPct != null ? `${stats.abhaPct}%` : '—'}
             label="ABHA linked" labelTe="ABHA లింక్"
             color="#6AAA90" loading={loading}
           />
         </div>
 
         {/* Alerts */}
+        {!loading && loadFailed && (
+          <div role="alert" style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
+            <p style={{ margin: 0, fontSize: 13, color: '#E05A5A', fontWeight: 500 }}>
+              ⚠️ Some figures could not be loaded and are shown as —.
+            </p>
+            <button onClick={loadStats} style={{ marginTop: 6, padding: 0, background: 'none', border: 'none', fontSize: 12, color: '#E05A5A', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
+              Try again
+            </button>
+          </div>
+        )}
         {!loading && stats && (
           <>
-            {stats.occupancyPct > 85 && (
+            {stats.busyPct > 85 && (
               <div style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
                 <p style={{ margin: 0, fontSize: 13, color: '#E05A5A', fontWeight: 500 }}>
-                  🛏️ Bed occupancy critical — {stats.occupancyPct}% · only {stats.totalBeds - stats.admitted} beds available
+                  🛏️ Bed occupancy critical — {stats.busyPct}%{stats.held > 0 ? ` (${stats.held} on hold)` : ''} · only {stats.availableBeds} beds available
                 </p>
+              </div>
+            )}
+            {stats.claimsCount > 0 && (
+              <div style={{ background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.15)', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
+                <p style={{ margin: 0, fontSize: 13, color: '#E8A020', fontWeight: 500 }}>
+                  💳 {stats.claimsCount} scheme / insurance claim{stats.claimsCount > 1 ? 's' : ''} still to be received · ₹{stats.claimsAmount.toLocaleString('en-IN')}
+                </p>
+                <Link to="/hospital/billing" state={{ tab: 'bills', filter: 'claims' }} style={{ fontSize: 12, color: '#E8A020', textDecoration: 'none', fontWeight: 500 }}>
+                  View claims →
+                </Link>
               </div>
             )}
             {stats.labPending > 0 && (
@@ -306,14 +368,16 @@ export default function HospitalDashboard() {
         </div>
 
         {/* Total patients summary */}
-        {!loading && stats && (
+        {!loading && stats && stats.totalPatients != null && (
           <div style={{ background: '#161618', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '14px 16px' }}>
             <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 500, color: '#fff' }}>
               Total registered patients: {stats.totalPatients.toLocaleString('en-IN')}
             </p>
-            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
-              {stats.abhaPct}% linked with ABHA Health ID
-            </p>
+            {stats.abhaPct != null && (
+              <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
+                {stats.abhaPct}% linked with ABHA Health ID
+              </p>
+            )}
           </div>
         )}
 

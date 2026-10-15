@@ -1,5 +1,6 @@
 // hospital/LabReports.jsx — FINAL
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import { useVisit } from '../context/VisitContext';
@@ -42,6 +43,12 @@ export default function LabReports() {
   const [resultValueError, setResultValueError] = useState('');
   const [resultNotes, setResultNotes]   = useState('');
   const [submitError, setSubmitError]   = useState('');
+  const [doneTests, setDoneTests]       = useState([]);
+  const [doneLoading, setDoneLoading]   = useState(false);
+  const [doneError, setDoneError]       = useState('');
+  const [printIds, setPrintIds]         = useState([]);
+  const [orderedForBill, setOrderedForBill] = useState([]);   // just ordered: can go straight to a bill
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (tenant?.appId) loadMasterTests();
@@ -51,6 +58,7 @@ export default function LabReports() {
 
   useEffect(() => {
     if (selectedPatient && tab === 'results') loadPendingTests();
+    if (tab === 'done') loadDoneTests();
   }, [selectedPatient, tab]);
 
   async function loadMasterTests() {
@@ -77,6 +85,27 @@ export default function LabReports() {
     });
     setPendingTests(enriched);
   }
+
+  // Finished tests of the patient, newest first: tick the ones to put on the printed report.
+  async function loadDoneTests() {
+    setDoneError(''); setPrintIds([]);
+    if (!selectedPatient) { setDoneTests([]); return; }
+    setDoneLoading(true);
+    const { data, error } = await supabase
+      .from('lab_tests').select('*')
+      .eq('patient_id', selectedPatient.id).eq('status', 'completed')
+      .order('result_ready_at', { ascending: false }).limit(60);
+    setDoneLoading(false);
+    if (error) { console.error('Loading completed lab tests failed:', error); setDoneError(error.message || 'Could not load the results.'); setDoneTests([]); return; }
+    setDoneTests((data || []).map((t) => {
+      const master = masterTests.find((m) => m.test_name === t.test_name);
+      return { ...t, normal_range: master?.normal_range || null, unit: master?.unit || null };
+    }));
+  }
+
+  function togglePrint(id) { setPrintIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])); }
+  const printTests = doneTests.filter((t) => printIds.includes(t.id));
+  function fmtDT(ts) { return ts ? new Date(ts).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
 
   function toggleTest(test) {
     setSelectedTests((prev) =>
@@ -108,9 +137,9 @@ export default function LabReports() {
       return;
     }
 
+    setOrderedForBill(selectedTests.map((t) => ({ name: t.test_name, price: Number(t.price) > 0 ? Number(t.price) : null })));
     setSelectedTests([]);
     setSaved(true);
-    setTimeout(() => { setSaved(false); setTab('results'); loadPendingTests(); }, 1500);
     setSaving(false);
   }
 
@@ -160,10 +189,19 @@ export default function LabReports() {
   }
 
   return (
-    <div style={S.page}>
+    <div className="lab-page" style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        @media print { .no-print { display: none !important; } }
+        .lab-print-only { display: none; }
+        @media print {
+          .no-print { display: none !important; }
+          .lab-print-only { display: block !important; color: #000; background: #fff; }
+          html, body { background: #fff !important; }
+          .lab-page { background: #fff !important; min-height: 0 !important; padding-bottom: 0 !important; color: #000 !important; }
+          .lab-page table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          .lab-page th, .lab-page td { border-bottom: 1px solid #bbb; padding: 5px 6px; text-align: left; vertical-align: top; }
+          .lab-page tr { break-inside: avoid; page-break-inside: avoid; }
+        }
       `}</style>
       <PrintHeader documentTitle="Lab Report" />
 
@@ -173,7 +211,7 @@ export default function LabReports() {
           <h1 style={{ fontSize: 22, fontWeight: 600, color: '#fff', margin: 0 }}>Laboratory</h1>
         </div>
 
-        <div style={{ ...S.card, marginBottom: 16 }}>
+        <div className="no-print" style={{ ...S.card, marginBottom: 16 }}>
           <PatientSelector
             selectedPatient={selectedPatient}
             onSelect={(p) => { setSelectedPatient(p); setActivePatient(p); }}
@@ -186,6 +224,7 @@ export default function LabReports() {
           {[
             { k: 'order',   l: 'Order tests' },
             { k: 'results', l: `Enter results${pendingTests.length > 0 ? ` (${pendingTests.length})` : ''}` },
+            { k: 'done',    l: 'Print report' },
           ].map((t) => (
             <button key={t.k} onClick={() => { setTab(t.k); if (t.k === 'results') loadPendingTests(); }}
               style={{ padding: '8px 18px', fontSize: 13, borderRadius: 20, cursor: 'pointer', border: tab === t.k ? 'none' : '1px solid rgba(255,255,255,0.1)', background: tab === t.k ? '#E8A020' : 'transparent', color: tab === t.k ? '#111113' : 'rgba(255,255,255,0.5)', fontFamily: 'inherit', fontWeight: tab === t.k ? 600 : 400 }}>
@@ -194,6 +233,7 @@ export default function LabReports() {
           ))}
         </div>
 
+        <div className="no-print">
         {tab === 'order' && (
           <>
             {masterTests.length === 0 ? (
@@ -254,6 +294,12 @@ export default function LabReports() {
                 {saved && (
                   <div style={{ padding: 12, background: 'rgba(106,170,144,0.1)', borderRadius: 8, textAlign: 'center', marginBottom: 12 }}>
                     <p style={{ margin: 0, fontSize: 14, color: '#6AAA90', fontWeight: 500 }}>✓ Tests ordered successfully</p>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => navigate('/hospital/billing', { state: { labTests: orderedForBill } })}
+                        style={{ padding: '8px 14px', border: 'none', borderRadius: 8, background: '#6AAA90', color: '#111113', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>💳 Bill these tests</button>
+                      <button type="button" onClick={() => { setSaved(false); setTab('results'); loadPendingTests(); }}
+                        style={{ padding: '8px 14px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, background: 'transparent', color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Enter results →</button>
+                    </div>
                   </div>
                 )}
 
@@ -335,10 +381,80 @@ export default function LabReports() {
             })
           )
         )}
+
+        {tab === 'done' && (
+          !selectedPatient ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}><p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>Select a patient to print a lab report.</p></div>
+          ) : doneLoading ? (
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: 24 }}>Loading…</p>
+          ) : doneError ? (
+            <div role="alert" style={{ background: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.2)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#E05A5A' }}>⚠️ {doneError}</div>
+          ) : doneTests.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}><p style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>No completed lab results for this patient yet.</p></div>
+          ) : (
+            <>
+              <div style={S.card}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <p style={{ ...S.label, margin: 0 }}>Tick the results to print</p>
+                  <button type="button" onClick={() => setPrintIds(printIds.length === doneTests.length ? [] : doneTests.map((t) => t.id))}
+                    style={{ background: 'none', border: 'none', color: '#5A9ADF', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {printIds.length === doneTests.length ? 'Clear all' : 'Select all'}
+                  </button>
+                </div>
+                {doneTests.map((t) => (
+                  <label key={t.id} htmlFor={`lab-print-${t.id}`} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
+                    <input id={`lab-print-${t.id}`} name={`lab-print-${t.id}`} type="checkbox" checked={printIds.includes(t.id)} onChange={() => togglePrint(t.id)} style={{ marginTop: 3 }} />
+                    <span style={{ fontSize: 13, color: '#fff' }}>
+                      {t.test_name}: <strong>{t.result_value}</strong> {t.unit || ''}
+                      <br /><span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{fmtDT(t.result_ready_at)}{t.normal_range ? ` · Normal: ${t.normal_range}` : ''}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <button type="button" disabled={printTests.length === 0} onClick={() => window.print()}
+                style={{ width: '100%', padding: 13, background: printTests.length === 0 ? 'rgba(255,255,255,0.08)' : '#E8A020', color: '#111113', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: printTests.length === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                🖨 Print {printTests.length > 0 ? `${printTests.length} result${printTests.length === 1 ? '' : 's'}` : 'report'}
+              </button>
+            </>
+          )
+        )}
+        </div>
+
+        {/* Printed lab report: hidden on screen, shown only when printing */}
+        {tab === 'done' && selectedPatient && printTests.length > 0 && (
+          <div className="lab-print-only">
+            <h2 style={{ textAlign: 'center', fontSize: 15, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: 2 }}>Laboratory report</h2>
+            <p style={{ fontSize: 13, lineHeight: 1.7, margin: '0 0 12px' }}>
+              Patient: <strong>{selectedPatient.full_name}</strong>
+              {selectedPatient.patient_uid ? <> · ID: <strong>{selectedPatient.patient_uid}</strong></> : null}
+              {selectedPatient.gender ? <> · {selectedPatient.gender}</> : null}
+              {selectedPatient.dob ? <> · DOB: {new Date(`${String(selectedPatient.dob).slice(0, 10)}T00:00:00`).toLocaleDateString('en-IN')}</> : null}
+            </p>
+            <table>
+              <thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Normal range</th><th>Reported on</th></tr></thead>
+              <tbody>
+                {printTests.map((t) => (
+                  <React.Fragment key={t.id}>
+                    <tr>
+                      <td>{t.test_name}</td><td><strong>{t.result_value}</strong></td><td>{t.unit || ''}</td><td>{t.normal_range || ''}</td><td>{fmtDT(t.result_ready_at)}</td>
+                    </tr>
+                    {t.result_notes && <tr><td colSpan={5} style={{ fontSize: 11, color: '#333' }}>Remarks: {t.result_notes}</td></tr>}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+            <p style={{ fontSize: 11, color: '#444', margin: '12px 0 0' }}>This report is computer generated from the results entered by the laboratory. Please correlate clinically.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 40 }}>
+              <div style={{ borderTop: '1px solid #000', paddingTop: 4, width: 200, textAlign: 'center', fontSize: 12 }}>Lab technician / Pathologist</div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <HospitalNav />
-      <BugReporter screenName="lab_reports" />
+      <div className="no-print">
+        <HospitalNav />
+        <BugReporter screenName="lab_reports" />
+      </div>
     </div>
   );
 }

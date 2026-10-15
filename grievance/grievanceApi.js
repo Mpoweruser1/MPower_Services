@@ -10,6 +10,7 @@
 
 import { supabase } from '../lib/supabaseClient';
 import { buildPlace } from './complaintPlace';
+import { istToday, istDayStart, istDayEnd } from './istDates';
 
 /* ---------------------------------------------------------------------
  * Geography
@@ -338,14 +339,14 @@ export async function updateCitizenProfile(citizenId, patch) {
 // the database now enforces the same limit (India date) for every caller, and
 // its message reaches the citizen if this check is ever passed.
 export async function checkDailyComplaintLimit(citizenId) {
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  // "Today" is the Indian day, whatever time zone the device is set to.
+  const startOfToday = istDayStart(istToday());
 
   const { count, error } = await supabase
     .from('complaints')
     .select('id', { count: 'exact', head: true })
     .eq('citizen_id', citizenId)
-    .gte('created_at', startOfToday.toISOString());
+    .gte('created_at', startOfToday);
   if (error) throw error;
 
   return { count: count || 0, limitReached: (count || 0) >= 3 };
@@ -600,6 +601,16 @@ export function applyPlaceFilter(query, { mandalId = '', villageId = '' } = {}) 
     : query.or(`problem_mandal_id.eq.${mandalId},and(problem_village_id.is.null,mandal_id.eq.${mandalId})`);
 }
 
+// Created-date range of a list, in Indian days: from the first moment of the "from" day
+// to the last moment of the "to" day (15-10-2026). A bare 'YYYY-MM-DD' would be read as
+// UTC, i.e. 5:30 am Indian time, which dropped the first 5½ hours of the "from" day and
+// ran the "to" day into the next morning.
+export function applyDateRange(query, dateFrom, dateTo) {
+  if (dateFrom) query = query.gte('created_at', istDayStart(dateFrom));
+  if (dateTo) query = query.lte('created_at', istDayEnd(dateTo));
+  return query;
+}
+
 export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', category = '', priority = '', handled = false, constituencyId = '', mandalId = '', villageId = '', dateFrom = '', dateTo = '', overdueOnly = false, oldestFirst = false } = {}) {
   let query = supabase.from('complaints').select('*', { count: 'exact' });
   query = handled ? query.in('stage', TERMINAL_STAGES) : query.not('stage', 'in', `(${TERMINAL_STAGES.join(',')})`);
@@ -608,8 +619,7 @@ export async function fetchStaffQueue({ page = 0, pageSize = 25, search = '', ca
   if (priority) query = query.eq('priority', priority);
   if (constituencyId) query = query.eq('constituency_id', constituencyId);
   query = applyPlaceFilter(query, { mandalId, villageId });
-  if (dateFrom) query = query.gte('created_at', `${dateFrom}T00:00:00`);
-  if (dateTo) query = query.lte('created_at', `${dateTo}T23:59:59`);
+  query = applyDateRange(query, dateFrom, dateTo);
   // Overdue only makes sense for open complaints; ignored on the Handled list.
   if (overdueOnly && !handled) query = applyOverdueFilter(query);
   // Ordered by the deadline clock start, so a reopened complaint is listed by
@@ -636,9 +646,16 @@ export async function fetchEnrichedComplaints(appId) {
     .eq('app_id', appId)
     .order('created_at', { ascending: false })
     .order('id', { ascending: true }));
+  return enrichComplaints(rows);
+}
 
-  const mandalIds = [...new Set(rows.map((r) => r.mandal_id).filter(Boolean))];
-  const villageIds = [...new Set(rows.map((r) => r.village_id).filter(Boolean))];
+// Adds names (village, mandal, citizen, constituency, problem place) to complaint rows, with a few
+// batched look-ups. Shared by every loader below.
+async function enrichComplaints(rows) {
+  // The citizen's home place AND the place of the problem (when the citizen chose a separate one):
+  // the report views group by the problem place, so the lists behind them must too.
+  const mandalIds = [...new Set(rows.flatMap((r) => [r.mandal_id, r.problem_mandal_id]).filter(Boolean))];
+  const villageIds = [...new Set(rows.flatMap((r) => [r.village_id, r.problem_village_id]).filter(Boolean))];
   const citizenIds = [...new Set(rows.map((r) => r.citizen_id).filter(Boolean))];
   const constituencyIds = [...new Set(rows.map((r) => r.constituency_id).filter(Boolean))];
 
@@ -653,18 +670,70 @@ export async function fetchEnrichedComplaints(appId) {
   const citizenMap = Object.fromEntries(citizenRes.map((c) => [c.id, c]));
   const constMap = Object.fromEntries(constRes.map((c) => [c.id, c.name]));
 
-  return rows.map((r) => ({
-    ...r,
-    mandals: r.mandal_id ? { name: mandalMap[r.mandal_id] } : null,
-    villages: r.village_id ? { name: villageMap[r.village_id] } : null,
-    citizens: r.citizen_id ? citizenMap[r.citizen_id] : null,
-    constituencies: r.constituency_id ? { name: constMap[r.constituency_id] } : null,
-  }));
+  return rows.map((r) => {
+    // Where the problem is: the place the citizen chose, otherwise the citizen's own area.
+    const placeVillageId = r.problem_village_id || r.village_id;
+    const placeMandalId = r.problem_village_id ? (r.problem_mandal_id || r.mandal_id) : r.mandal_id;
+    return {
+      ...r,
+      mandals: r.mandal_id ? { name: mandalMap[r.mandal_id] } : null,
+      villages: r.village_id ? { name: villageMap[r.village_id] } : null,
+      citizens: r.citizen_id ? citizenMap[r.citizen_id] : null,
+      constituencies: r.constituency_id ? { name: constMap[r.constituency_id] } : null,
+      place_village_name: placeVillageId ? villageMap[placeVillageId] || null : null,
+      place_mandal_name: placeMandalId ? mandalMap[placeMandalId] || null : null,
+    };
+  });
+}
+
+// ---- Reports screen loaders (15-10-2026) -------------------------------------------------------
+// The Reports screen used to read EVERY complaint on page load. It now reads only what is needed,
+// when it is needed:
+//   fetchOpenComplaintsEnriched -- the still-open complaints, for Patterns (opened on request)
+//   fetchRowComplaints          -- the complaints behind ONE summary row (opened on request)
+function openComplaintsQuery(appId) {
+  return supabase.from('complaints').select('*').eq('app_id', appId)
+    .not('stage', 'in', `(${TERMINAL_STAGES.join(',')})`)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true });
+}
+export async function fetchOpenComplaintsEnriched(appId) {
+  return enrichComplaints(await fetchAllPages(() => openComplaintsQuery(appId)));
+}
+
+// level: 'village' | 'mandal' | 'category' | 'constituency'; row: a line of the report view.
+// Villages and mandals are found by the name shown on the row (the view's own ids are not relied on),
+// then matched on the problem place exactly like the Queue filter; a village row is then narrowed
+// to its mandal, because two mandals can have a village of the same name.
+export async function fetchRowComplaints(appId, level, row) {
+  const ordered = (q) => q.order('created_at', { ascending: false }).order('id', { ascending: true });
+  const base = () => supabase.from('complaints').select('*').eq('app_id', appId);
+  let rows = [];
+  if (level === 'category') {
+    rows = await fetchAllPages(() => ordered(base().eq('category', row.category)));
+  } else if (level === 'constituency') {
+    const ids = (await selectIn('constituencies', 'id', [row.constituency_name].filter(Boolean), 'name')).map((x) => x.id);
+    if (ids.length) rows = await fetchAllPages(() => ordered(base().in('constituency_id', ids)));
+  } else if (level === 'village' || level === 'mandal') {
+    const table = level === 'village' ? 'villages' : 'mandals';
+    const name = level === 'village' ? row.village_name : row.mandal_name;
+    const ids = (await selectIn(table, 'id', [name].filter(Boolean), 'name')).map((x) => x.id);
+    const seen = new Map();
+    for (const id of ids) {
+      const part = await fetchAllPages(() => ordered(applyPlaceFilter(base(), level === 'village' ? { villageId: id } : { mandalId: id })));
+      part.forEach((r) => seen.set(r.id, r));
+    }
+    rows = [...seen.values()];
+  }
+  const enriched = await enrichComplaints(rows);
+  return level === 'village' && row.mandal_name
+    ? enriched.filter((c) => c.place_mandal_name === row.mandal_name)
+    : enriched;
 }
 
 // Reads every page of a query. `build` must return a FRESH query each call
 // (a query can only be used once) and should carry a stable order.
-async function fetchAllPages(build, pageSize = 1000) {
+export async function fetchAllPages(build, pageSize = 1000) {
   const all = [];
   for (let from = 0; from < 200 * pageSize; from += pageSize) {
     const { data, error } = await build().range(from, from + pageSize - 1);
@@ -678,7 +747,7 @@ async function fetchAllPages(build, pageSize = 1000) {
 
 // `.in('id', [...])` puts every id in the web address, which breaks once the
 // list is long; so the ids are sent in groups of 150.
-async function selectIn(table, columns, ids, column = 'id') {
+export async function selectIn(table, columns, ids, column = 'id') {
   const out = [];
   for (let i = 0; i < ids.length; i += 150) {
     const { data, error } = await supabase.from(table).select(columns).in(column, ids.slice(i, i + 150));
@@ -991,9 +1060,13 @@ const REPORT_VIEWS = {
 export async function fetchReportRollup(level) {
   const view = REPORT_VIEWS[level];
   if (!view) throw new Error(`Unknown report level: ${level}`);
-  const { data, error } = await supabase.from(view).select('*');
-  if (error) throw error;
-  return data;
+  // Every page, in a fixed order (a view with more than 1,000 lines -- villages -- used to stop at
+  // the first 1,000 without saying so). Ordered by the name shown on the line so pages never overlap.
+  const orderBy = { village: ['village_name', 'mandal_name'], mandal: ['mandal_name'], category: ['category'], constituency: ['constituency_name'] }[level] || [];
+  return fetchAllPages(() => orderBy.reduce(
+    (q, col) => q.order(col, { ascending: true }),
+    supabase.from(view).select('*'),
+  ));
 }
 
 // Fire-and-forget log entry, matching the platform's existing
@@ -1082,10 +1155,19 @@ export async function fetchExpectedAuthorities(appId) {
 //    within 24 hours — almost always an accidental double-submit, not
 //    a new insight, just noise worth catching.
 export function detectPatterns(complaints) {
+  // Hotspots and family patterns are advice to ACT ("worth escalating as one group"), so they use
+  // only complaints still open. Finished ones (Resolved, Sanctioned, Declined) are history. Possible
+  // duplicates below keep using every complaint, because a double filing is worth knowing about
+  // even after it is closed. (Before 15-10-2026 finished complaints made old hotspots look current.)
+  const open = complaints.filter((c) => !TERMINAL_STAGES.includes(c.stage));
   const hotspotGroups = {};
-  complaints.forEach((c) => {
-    if (!c.village_id || !c.category) return;
-    const key = `${c.village_id}|${c.category}`;
+  open.forEach((c) => {
+    // Group by the village the PROBLEM is in (the same place the Reports rows use), falling back
+    // to the citizen's home village when no separate problem place was chosen. Before 15-10-2026
+    // this always used the home village, so a hotspot could name a different village from the rows.
+    const placeId = c.problem_village_id || c.village_id;
+    if (!placeId || !c.category) return;
+    const key = `${placeId}|${c.category}`;
     (hotspotGroups[key] = hotspotGroups[key] || []).push(c);
   });
   const hotspots = Object.values(hotspotGroups)
@@ -1093,7 +1175,7 @@ export function detectPatterns(complaints) {
     .sort((a, b) => b.length - a.length);
 
   const familyGroups = {};
-  complaints.forEach((c) => {
+  open.forEach((c) => {
     const name = c.citizens?.father_husband_name?.trim().toLowerCase();
     if (!name || !c.village_id) return;
     const key = `${name}|${c.village_id}`;
