@@ -6,6 +6,7 @@ import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
 import { FeedbackWidget } from '../shared/FeedbackWidget';
 import BugReporter from '../shared/BugReporter';
+import { fetchAllPages, fetchAllIn, istToday, addDays, istDayStart, istDayEnd, academicYearFor } from '../shared/schoolDates';
 
 // ─────────────────────────────────────────────────────────────
 // Shared UI components
@@ -40,122 +41,130 @@ function SimpleBarChart({ data }) {
 // ─────────────────────────────────────────────────────────────
 // Data fetchers
 // ─────────────────────────────────────────────────────────────
+// The database returns at most 1,000 rows per request and says nothing about the
+// rest, so lists that can pass 1,000 rows (students, attendance, fees) are read
+// page by page (fetchAllPages) and, for "rows of these students", in groups of
+// student ids (fetchAllIn). "Today" is the date in India, not the UTC date.
+
+// Ids of every active student of the school.
+async function fetchActiveStudentIds(appId) {
+  const rows = await fetchAllPages((from, to) => supabase
+    .from('students').select('id').eq('app_id', appId).eq('status', 'active')
+    .order('id').range(from, to));
+  return rows.map((s) => s.id);
+}
+
 async function fetchTodayAttendance(appId) {
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: students } = await supabase
-    .from('students').select('id').eq('app_id', appId).eq('status', 'active');
-  const ids = (students || []).map((s) => s.id);
-  if (ids.length === 0) return { pct: 0, present: 0, total: 0 };
-  const { data: marks } = await supabase
-    .from('attendance').select('status').eq('date', today).in('student_id', ids);
-  const present = (marks || []).filter((m) => m.status === 'P' || m.status === 'L').length;
-  return { pct: ids.length > 0 ? Math.round((present / ids.length) * 100) : 0, present, total: ids.length };
+  try {
+    const today = istToday();
+    const ids = await fetchActiveStudentIds(appId);
+    if (ids.length === 0) return { pct: 0, present: 0, total: 0 };
+    const marks = await fetchAllIn(ids, (chunk, from, to) => supabase
+      .from('attendance').select('status').eq('date', today).in('student_id', chunk)
+      .order('id').range(from, to));
+    const present = marks.filter((m) => m.status === 'P' || m.status === 'L').length;
+    return { pct: Math.round((present / ids.length) * 100), present, total: ids.length };
+  } catch (e) {
+    console.error('Loading today\'s attendance failed:', e);
+    return { pct: 0, present: 0, total: 0 };
+  }
 }
 
 async function fetchFeeCollectedToday(appId) {
-  const today = new Date().toISOString().slice(0, 10);
-  const { data } = await supabase
-    .from('fee_payments')
-    .select('amount, fee_dues(student_id, students(app_id))')
-    .gte('paid_at', today + 'T00:00:00')
-    .lte('paid_at', today + 'T23:59:59');
-  return (data || [])
-    .filter((p) => p.fee_dues?.students?.app_id === appId)
-    .reduce((s, p) => s + Number(p.amount || 0), 0);
+  try {
+    // Every payment carries its school, and "today" runs from midnight to
+    // midnight in India (a payment at 1 AM IST is still today's).
+    const today = istToday();
+    const rows = await fetchAllPages((from, to) => supabase
+      .from('fee_payments').select('id, amount')
+      .eq('app_id', appId)
+      .gte('paid_at', istDayStart(today)).lte('paid_at', istDayEnd(today))
+      .order('id').range(from, to));
+    return rows.reduce((s, p) => s + Number(p.amount || 0), 0);
+  } catch (e) {
+    console.error('Loading fee collected today failed:', e);
+    return 0;
+  }
 }
 
 async function fetchFeeDefaultersCount(appId) {
-  const today = new Date().toISOString().slice(0, 10);
-  // Previously read fee_dues.amount_paid directly — but that column
-  // is never actually updated anywhere. FeeCollection.jsx only ever
-  // inserts into fee_payments when a payment is recorded; nothing in
-  // the whole app writes back to fee_dues.amount_paid. That made this
-  // count permanently frozen at whatever it was when each due was
-  // created — exactly the reported bug: "9 students due, 2 pay,
-  // still shows 9." Now sums the real fee_payments rows per due,
-  // matching the already-correct approach in FeeStructureReport.jsx.
-  // Also now correctly excludes students who are no longer active
-  // (graduated, TC issued, etc.) — the original had no such filter.
-  //
-  // Second bug, found separately: this counted unpaid DUE ROWS, not
-  // distinct STUDENTS — a student with two separate unpaid fees (say,
-  // Tuition and Transport) was counted twice. "X students due" should
-  // mean X real students, not X due line-items. Now counts unique
-  // student ids instead of raw row count.
-  const { data } = await supabase
-    .from('fee_dues')
-    .select('id, amount_due, student_id, students(app_id, status), fee_payments(amount)')
-    .lt('due_date', today);
-  const defaultingStudentIds = new Set();
-  (data || []).forEach((d) => {
-    if (d.students?.app_id !== appId || d.students?.status !== 'active') return;
-    const paid = (d.fee_payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
-    if (paid < Number(d.amount_due)) defaultingStudentIds.add(d.student_id);
-  });
-  return defaultingStudentIds.size;
+  // A defaulter is an ACTIVE student with at least one fee past its due date
+  // that is not fully paid. Counted as students, not as fee lines (a student
+  // owing Tuition and Transport is one defaulter). The paid amount is the real
+  // sum of payments on each fee.
+  try {
+    const today = istToday();
+    const rows = await fetchAllPages((from, to) => supabase
+      .from('fee_dues')
+      .select('id, amount_due, student_id, fee_payments(amount), students!inner(app_id, status)')
+      .eq('students.app_id', appId).eq('students.status', 'active')
+      .lt('due_date', today)
+      .in('status', ['pending', 'partial'])
+      .order('id').range(from, to));
+    const defaulting = new Set();
+    rows.forEach((d) => {
+      const paid = (d.fee_payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+      if (paid < Number(d.amount_due)) defaulting.add(d.student_id);
+    });
+    return defaulting.size;
+  } catch (e) {
+    console.error('Loading fee defaulters failed:', e);
+    return 0;
+  }
 }
 
-
-// With this simpler version:
-async function fetchLowAttendanceCount(appId) {
+// Students below 75% attendance this school year, once at least 10 days are recorded.
+async function fetchLowAttendanceCount(appId, yc) {
   try {
-    const { data: students } = await supabase
-      .from('students')
-      .select('id')
-      .eq('app_id', appId)
-      .eq('status', 'active')
-      .limit(200);
-
-    if (!students || students.length === 0) return 0;
-
-    const yearStart = `${new Date().getFullYear()}-06-01`;
-    const ids = students.map((s) => s.id);
-
-    // Get all attendance in one query
-    const { data: allAtt } = await supabase
-      .from('attendance')
-      .select('student_id, status')
-      .in('student_id', ids)
-      .gte('date', yearStart);
-
-    if (!allAtt || allAtt.length === 0) return 0;
-
-    // Group by student
+    const yearStart = academicYearFor(istToday(), yc?.month || 6, yc?.day || 1).start;
+    const ids = await fetchActiveStudentIds(appId);
+    if (ids.length === 0) return 0;
+    const allAtt = await fetchAllIn(ids, (chunk, from, to) => supabase
+      .from('attendance').select('student_id, status')
+      .in('student_id', chunk).gte('date', yearStart)
+      .order('id').range(from, to));
     const map = {};
     allAtt.forEach((a) => {
       if (!map[a.student_id]) map[a.student_id] = { total: 0, present: 0 };
       map[a.student_id].total++;
       if (a.status === 'P') map[a.student_id].present++;
     });
-
-    // Count students below 75%
     return Object.values(map).filter((s) =>
       s.total > 10 && Math.round((s.present / s.total) * 100) < 75
     ).length;
-  } catch {
+  } catch (e) {
+    console.error('Loading low attendance failed:', e);
     return 0;
   }
 }
+
 async function fetchWeeklyAttendanceTrend(appId) {
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const results = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    if (d.getDay() === 0) continue;
-    const dateStr = d.toISOString().slice(0, 10);
-    const { data: students } = await supabase.from('students').select('id').eq('app_id', appId).eq('status', 'active');
-    const ids = (students || []).map((s) => s.id);
-    if (ids.length === 0) continue;
-    const { data: marks } = await supabase.from('attendance').select('status').eq('date', dateStr).in('student_id', ids);
-    const present = (marks || []).filter((m) => m.status === 'P').length;
-    const pct = ids.length > 0 ? Math.round((present / ids.length) * 100) : 0;
-    results.push({ day: days[d.getDay() - 1] || dateStr.slice(5), pct });
+  try {
+    const names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const today = istToday();
+    // The last 6 calendar days (Sundays left out), oldest first.
+    const days = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = addDays(today, -i);
+      const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
+      if (dow !== 0) days.push({ date, label: names[dow] });
+    }
+    const ids = await fetchActiveStudentIds(appId); // read once, not once per day
+    if (ids.length === 0) return [];
+    const marks = await fetchAllIn(ids, (chunk, from, to) => supabase
+      .from('attendance').select('date, status')
+      .in('student_id', chunk).gte('date', days[0].date).lte('date', today)
+      .order('id').range(from, to));
+    const presentByDate = {};
+    marks.forEach((m) => { if (m.status === 'P') presentByDate[m.date] = (presentByDate[m.date] || 0) + 1; });
+    return days.map((d) => ({ day: d.label, pct: Math.round(((presentByDate[d.date] || 0) / ids.length) * 100) }));
+  } catch (e) {
+    console.error('Loading attendance trend failed:', e);
+    return [];
   }
-  return results;
 }
 
-async function fetchStudentParentData(studentId) {
+async function fetchStudentParentData(studentId, yc) {
   if (!studentId) return null;
   // Previously read amount_paid directly from fee_dues — same
   // never-actually-updated column found and fixed elsewhere (the
@@ -168,7 +177,7 @@ async function fetchStudentParentData(studentId) {
     .select('full_name, classes(class_name), section, fee_dues(amount_due, due_date, fee_payments(amount)), marks(percentage, exams(exam_name))')
     .eq('id', studentId).single();
   if (!s) return null;
-  const yearStart = `${new Date().getFullYear()}-06-01`;
+  const yearStart = academicYearFor(istToday(), yc?.month || 6, yc?.day || 1).start;
   const { count: total }   = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', studentId).gte('date', yearStart);
   const { count: present } = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', studentId).eq('status', 'P').gte('date', yearStart);
   const due = (s.fee_dues || []).reduce((sum, d) => {
@@ -191,7 +200,7 @@ async function fetchStudentParentData(studentId) {
 // ─────────────────────────────────────────────────────────────
 // Dashboard variants
 // ─────────────────────────────────────────────────────────────
-function PrincipalDashboard({ appId, branchId, tier }) {
+function PrincipalDashboard({ appId, branchId, tier, yearCfg }) {
   const [stats, setStats] = useState(null);
   const [trend, setTrend] = useState([]);
   const [noClasses, setNoClasses] = useState(false);
@@ -204,7 +213,7 @@ function PrincipalDashboard({ appId, branchId, tier }) {
         fetchTodayAttendance(appId),
         fetchFeeCollectedToday(appId),
         fetchFeeDefaultersCount(appId),
-        fetchLowAttendanceCount(appId),
+        fetchLowAttendanceCount(appId, yearCfg),
       ]);
       setStats({ attendance, feeToday, defaulters, lowAtt });
 
@@ -270,11 +279,13 @@ function TeacherDashboard({ appId, classId, sectionId }) {
 
   useEffect(() => {
     async function load() {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = istToday();
       const { data: students } = await supabase.from('students').select('id')
         .eq('app_id', appId).eq('class_id', classId).eq('status', 'active');
       const ids = (students || []).map((s) => s.id);
-      const { data: marks } = await supabase.from('attendance').select('status').eq('date', today).in('student_id', ids);
+      const { data: marks } = ids.length
+        ? await supabase.from('attendance').select('status').eq('date', today).in('student_id', ids)
+        : { data: [] };
       const present = (marks || []).filter((m) => m.status === 'P' || m.status === 'L').length;
       setPct(ids.length > 0 ? Math.round((present / ids.length) * 100) : null);
       setLoading(false);
@@ -317,13 +328,13 @@ function ClerkDashboard({ appId }) {
   );
 }
 
-function ParentPortal({ studentId }) {
+function ParentPortal({ studentId, yearCfg }) {
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const d = await fetchStudentParentData(studentId);
+      const d = await fetchStudentParentData(studentId, yearCfg);
       setData(d);
       setLoading(false);
     }
@@ -446,12 +457,28 @@ export default function Dashboard({ classId, sectionId, studentId }) {
           </button>
         </div>
 
+        {/* Principal: school address and phone not filled in yet */}
+        {role === 'principal' && !tenant.address && (
+          <div style={{ background: 'rgba(232,160,32,0.08)', border: '1px solid rgba(232,160,32,0.25)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+            <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#E8A020' }}>
+              ⚠️ Finish your school setup
+            </p>
+            <p style={{ margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+              Add your school's address and phone — they appear on receipts, certificates and transfer certificates.
+            </p>
+            <Link to="/school/business-details" style={{ fontSize: 13, color: '#E8A020', textDecoration: 'none', fontWeight: 600 }}>
+              Open Business Details →
+            </Link>
+          </div>
+        )}
+
         {/* Role based dashboard */}
         {role === 'principal' && (
           <PrincipalDashboard
             appId={tenant.appId}
             branchId={tenant.branchId}
             tier={tenant.tier}
+            yearCfg={{ month: tenant.academicYearStartMonth, day: tenant.academicYearStartDay }}
           />
         )}
         {role === 'teacher' && (
@@ -465,7 +492,7 @@ export default function Dashboard({ classId, sectionId, studentId }) {
           <ClerkDashboard appId={tenant.appId} />
         )}
         {role === 'parent' && (
-          <ParentPortal studentId={studentId} />
+          <ParentPortal studentId={studentId} yearCfg={{ month: tenant.academicYearStartMonth, day: tenant.academicYearStartDay }} />
         )}
 
         {/* Quick actions */}
@@ -508,4 +535,4 @@ export default function Dashboard({ classId, sectionId, studentId }) {
       <BugReporter screenName="school_dashboard" />
     </div>
   );
-}
+}

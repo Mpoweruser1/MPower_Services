@@ -7,7 +7,9 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
-import { fetchCategories, getStaffPhotoUrl, fetchConstituencies, fetchMandals, fetchVillages, fetchMyConstituencyId, applyComplaintSearch, applyOverdueFilter, applyPlaceFilter, resolveComplaintPlaces } from './grievanceApi';
+import { fetchCategories, getStaffPhotoUrl, fetchConstituencies, fetchMandals, fetchVillages, fetchMyConstituencyId, applyComplaintSearch, applyOverdueFilter, applyPlaceFilter, applyDateRange, fetchAllPages, selectIn, resolveComplaintPlaces } from './grievanceApi';
+import { presetRange, fmtIstDate, fmtIstDateTime } from './istDates';
+import { signOutAndRelease } from '../lib/signOutAndRelease';
 import { placeName, homeName, gpsText, printPlace } from './complaintPlace';
 import GrievanceNav from './GrievanceNav';
 
@@ -29,6 +31,12 @@ const PRINT_STYLES = `
       font-family: 'Times New Roman', serif;
     }
     .print-page:last-child { page-break-after: avoid; }
+    /* Citizen Representation Letter only (16-10-2026): slightly tighter line and paragraph spacing so a
+       normal-length complaint stays on ONE page (before this, a description of about 130 words pushed the
+       last two lines onto a second page). The closing and signature stay together, so a very long
+       complaint never leaves the signature alone on page two. Other documents are unchanged. */
+    .print-page.rep-letter p { line-height: 1.4; margin-bottom: 4px; }
+    .print-page.rep-letter .rep-sign { break-inside: avoid; page-break-inside: avoid; }
   }
   
   @media screen {
@@ -61,7 +69,7 @@ const PRINT_STYLES = `
 // ─── Helpers ───────────────────────────────────────────────
 function todayFormatted(lang = 'en') {
   return new Date().toLocaleDateString(lang === 'te' ? 'te-IN' : 'en-IN', {
-    day: '2-digit', month: 'long', year: 'numeric',
+    day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata',
   });
 }
 
@@ -146,13 +154,17 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
   const locationText = pl
     ? [placeName(pl, true), pl.landmark && `Landmark: ${pl.landmark}`, gpsText(pl) && `GPS: ${gpsText(pl)}`].filter(Boolean).join(' · ') || 'Not specified'
     : ([complaint.villages?.name, complaint.mandals?.name].filter(Boolean).join(', ') || 'Not specified');
+  // A long description is printed a little smaller (never below 10.5pt) so most still fit on one page;
+  // an extra-long one simply continues on a second page, with the closing and signature kept together.
+  const descLen = (complaint.description || '').length;
+  const descStyle = descLen > 1100 ? { fontSize: '10.5pt', lineHeight: 1.35 } : descLen > 800 ? { fontSize: '11pt', lineHeight: 1.4 } : { lineHeight: 1.5 };
   return (
-    <div className="print-page">
+    <div className="print-page rep-letter">
 
       {/* Official letterhead top -- now shows state/place alongside the
           app name, matching BatchComplaintList's branding instead of
           just "MPower Grievance Tracking System" with no place info. */}
-      <div style={{ textAlign: 'center', marginBottom: 14, borderBottom: '2px double #000', paddingBottom: 10 }}>
+      <div style={{ textAlign: 'center', marginBottom: 10, borderBottom: '2px double #000', paddingBottom: 8 }}>
         <p style={{ margin: 0, fontSize: '11pt', fontWeight: 'bold', letterSpacing: 1 }}>
           GRIEVANCE REPRESENTATION / ఫిర్యాదు విజ్ఞాపన పత్రం
         </p>
@@ -162,7 +174,7 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
       </div>
 
       {/* Addressee */}
-      <div style={{ marginBottom: 14 }}>
+      <div style={{ marginBottom: 10 }}>
         <p style={{ margin: 0, fontWeight: 'bold' }}>To,</p>
         <p style={{ margin: '4px 0 0' }}>
           The Honourable {complaint.addressee_type === 'mp' ? 'Member of Parliament' : 'Member of Legislative Assembly'},
@@ -176,12 +188,12 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
       </div>
 
       {/* Subject line */}
-      <div style={{ marginBottom: 14 }}>
+      <div style={{ marginBottom: 10 }}>
         <p style={{ margin: 0 }}>
           <strong>Sub:</strong> Representation regarding <strong>{categoryLabel(complaint.category)}</strong> — {complaint.title}
         </p>
         <p style={{ margin: '4px 0 0' }}>
-          <strong>Ref:</strong> Grievance Case No. <strong>{complaint.case_no}</strong> dated {new Date(complaint.created_at).toLocaleDateString('en-IN')}
+          <strong>Ref:</strong> Grievance Case No. <strong>{complaint.case_no}</strong> dated {fmtIstDate(complaint.created_at)}
         </p>
       </div>
 
@@ -197,11 +209,11 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
       </p>
 
       {/* Problem statement box */}
-      <div style={{ border: '1px solid #000', padding: '10px 14px', margin: '12px 0', background: '#fafafa' }}>
+      <div style={{ border: '1px solid #000', padding: '8px 14px', margin: '8px 0', background: '#fafafa' }}>
         <p style={{ margin: '0 0 8px', fontWeight: 'bold', fontSize: '11pt' }}>
           Nature of Grievance / ఫిర్యాదు వివరాలు:
         </p>
-        <p style={{ margin: '0 0 10px', lineHeight: 1.6 }}>{complaint.description}</p>
+        <p style={{ margin: '0 0 8px', ...descStyle }}>{complaint.description}</p>
         <p style={{ margin: 0, fontSize: '10pt', color: '#444' }}>
           Category: {categoryLabel(complaint.category)} &nbsp;·&nbsp;
           Priority: {complaint.priority || 'Normal'} &nbsp;·&nbsp;
@@ -211,7 +223,7 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
 
       {/* Current status */}
       <p>
-        This grievance was filed on <strong>{new Date(complaint.created_at).toLocaleDateString('en-IN')}</strong> and 
+        This grievance was filed on <strong>{fmtIstDate(complaint.created_at)}</strong> and 
         the current status is <strong>{stageLabel(complaint.stage)}</strong>.
         {complaint.stage === 'submitted' || complaint.stage === 'under_review'
           ? ' The matter is yet to be resolved and requires your kind intervention.'
@@ -225,12 +237,13 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
         Your kind intervention in this regard will be highly appreciated.
       </p>
 
-      {/* Closing */}
+      {/* Closing and signature stay together on one page */}
+      <div className="rep-sign">
       <p>Thanking you,</p>
       <p>Yours faithfully,</p>
 
       {/* Signature section */}
-      <div className="signature-line" style={{ marginTop: 26 }}>
+      <div className="signature-line" style={{ marginTop: 16 }}>
         <div>
           <p style={{ margin: 0 }}><strong>{toTitleCase(complaint.citizens?.full_name) || '________________________'}</strong></p>
           <p style={{ margin: '2px 0 0', fontSize: '10pt' }}>
@@ -248,14 +261,15 @@ function CitizenRepresentationLetter({ complaint, mlaName, constituency, stateNa
         </div>
       </div>
 
-      {/* System stamp */}
-      <div className="stamp-box" style={{ marginTop: 14 }}>
+      {/* System stamp (inside the kept-together closing block) */}
+      <div className="stamp-box" style={{ marginTop: 10, padding: 6 }}>
         <p style={{ margin: 0, fontSize: '9pt' }}>
           System Reference: Case No. {complaint.case_no} · 
-          Filed: {new Date(complaint.created_at).toLocaleString('en-IN')} · 
-          Generated: {new Date().toLocaleString('en-IN')} · 
+          Filed: {fmtIstDateTime(complaint.created_at)} · 
+          Generated: {fmtIstDateTime(new Date())} · 
           MPower Grievance Tracking System
         </p>
+      </div>
       </div>
     </div>
   );
@@ -288,7 +302,7 @@ function SingleComplaintPrint({ complaint, constituency, stateName }) {
             ['Priority / ప్రాధాన్యత', complaint.priority || 'Normal'],
             ['Assigned Department / కేటాయించిన శాఖ', complaint.assigned_department || 'Not assigned yet'],
             ['Stage / దశ', stageLabel(complaint.stage)],
-            ['Filed Date / దాఖలు తేదీ', new Date(complaint.created_at).toLocaleDateString('en-IN')],
+            ['Filed Date / దాఖలు తేదీ', fmtIstDate(complaint.created_at)],
             ...(complaint.place
               ? [
                   ['Place of the Problem / సమస్య ఉన్న ప్రదేశం', complaint.place.basis === 'problem'
@@ -337,7 +351,7 @@ function SingleComplaintPrint({ complaint, constituency, stateName }) {
             <tbody>
               {complaint.history.map((h, i) => (
                 <tr key={i}>
-                  <td>{new Date(h.created_at).toLocaleDateString('en-IN')}</td>
+                  <td>{fmtIstDate(h.created_at)}</td>
                   <td>{stageLabel(h.stage)}</td>
                   <td>{h.note || '—'}</td>
                   <td>{toTitleCase(h.by_name) || '—'}</td>
@@ -363,7 +377,7 @@ function SingleComplaintPrint({ complaint, constituency, stateName }) {
 
       <div className="stamp-box">
         <p style={{ margin: 0, fontSize: '9pt' }}>
-          Generated: {new Date().toLocaleString('en-IN')} · MPower Grievance Tracking System · {complaint.case_no}
+          Generated: {fmtIstDateTime(new Date())} · MPower Grievance Tracking System · {complaint.case_no}
         </p>
       </div>
     </div>
@@ -380,6 +394,35 @@ function daysPending(complaint) {
   return Math.max(0, Math.floor((end - filed) / (1000 * 60 * 60 * 24)));
 }
 
+// Where each complaint stands, counted honestly (15-10-2026). Resolved, Sanctioned and Declined are
+// three different outcomes and are never added together: a declined complaint is NOT "resolved", and a
+// letter signed by a representative must not say so. Pending = still open (any other stage).
+function stageCounts(items) {
+  const c = { resolved: 0, sanctioned: 0, declined: 0, pending: 0 };
+  items.forEach((x) => {
+    if (x.stage === 'Resolved') c.resolved += 1;
+    else if (x.stage === 'Sanctioned') c.sanctioned += 1;
+    else if (x.stage === 'Declined') c.declined += 1;
+    else c.pending += 1;
+  });
+  return c;
+}
+
+// "X have been resolved, S sanctioned and D declined, and P are pending resolution" (zero parts left out).
+function OutcomeSentence({ c }) {
+  const bits = [<><strong>{c.resolved}</strong> have been resolved</>];
+  if (c.sanctioned > 0) bits.push(<><strong>{c.sanctioned}</strong> sanctioned</>);
+  if (c.declined > 0) bits.push(<><strong>{c.declined}</strong> declined</>);
+  return (
+    <>
+      {bits.map((b, i) => (
+        <React.Fragment key={i}>{i === 0 ? '' : i === bits.length - 1 ? ' and ' : ', '}{b}</React.Fragment>
+      ))}
+      {bits.length > 1 ? ', and ' : ' and '}<strong>{c.pending}</strong> are pending resolution
+    </>
+  );
+}
+
 function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, addresseeRole, filters, mlaPhotoUrl, cmPhotoUrl, stateName }) {
   // Group by category, then sort each group oldest-pending-first —
   // previously just filing order, meaning an urgent complaint waiting
@@ -393,8 +436,7 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
   Object.values(grouped).forEach((items) => items.sort((a, b) => daysPending(b) - daysPending(a)));
 
   const totalCount = complaints.length;
-  const resolvedCount = complaints.filter((c) => ['Resolved', 'Sanctioned', 'Declined'].includes(c.stage)).length;
-  const pendingCount = totalCount - resolvedCount;
+  const counts = stageCounts(complaints);
 
   // The single oldest still-pending complaint, for an at-a-glance
   // callout — the Collector/Minister sees how bad the backlog really
@@ -462,8 +504,7 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
       <p style={{ textIndent: '2em' }}>
         I am enclosing herewith the consolidated list of <strong>{totalCount}</strong> grievances 
         received from citizens of <strong>{constituency}</strong> Constituency through the MPower 
-        Digital Grievance Tracking System. Of these, <strong>{resolvedCount}</strong> have been resolved 
-        and <strong>{pendingCount}</strong> are pending resolution. I request your kind attention and 
+        Digital Grievance Tracking System. Of these, <OutcomeSentence c={counts} />. I request your kind attention and 
         necessary action on the pending matters.
       </p>
 
@@ -485,26 +526,32 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
               <th>Category / వర్గం</th>
               <th style={{ textAlign: 'center' }}>Total</th>
               <th style={{ textAlign: 'center' }}>Resolved</th>
+              <th style={{ textAlign: 'center' }}>Sanctioned</th>
+              <th style={{ textAlign: 'center' }}>Declined</th>
               <th style={{ textAlign: 'center' }}>Pending</th>
             </tr>
           </thead>
           <tbody>
             {Object.entries(grouped).map(([cat, items]) => {
-              const resolved = items.filter((c) => ['Resolved', 'Sanctioned', 'Declined'].includes(c.stage)).length;
+              const k = stageCounts(items);
               return (
                 <tr key={cat}>
                   <td>{categoryLabel(cat)}</td>
                   <td style={{ textAlign: 'center' }}>{items.length}</td>
-                  <td style={{ textAlign: 'center', color: '#085041' }}>{resolved}</td>
-                  <td style={{ textAlign: 'center', color: '#A32D2D', fontWeight: 'bold' }}>{items.length - resolved}</td>
+                  <td style={{ textAlign: 'center', color: '#085041' }}>{k.resolved}</td>
+                  <td style={{ textAlign: 'center' }}>{k.sanctioned}</td>
+                  <td style={{ textAlign: 'center' }}>{k.declined}</td>
+                  <td style={{ textAlign: 'center', color: '#A32D2D', fontWeight: 'bold' }}>{k.pending}</td>
                 </tr>
               );
             })}
             <tr style={{ fontWeight: 'bold', background: '#f0f0f0' }}>
               <td>TOTAL</td>
               <td style={{ textAlign: 'center' }}>{totalCount}</td>
-              <td style={{ textAlign: 'center', color: '#085041' }}>{resolvedCount}</td>
-              <td style={{ textAlign: 'center', color: '#A32D2D' }}>{pendingCount}</td>
+              <td style={{ textAlign: 'center', color: '#085041' }}>{counts.resolved}</td>
+              <td style={{ textAlign: 'center' }}>{counts.sanctioned}</td>
+              <td style={{ textAlign: 'center' }}>{counts.declined}</td>
+              <td style={{ textAlign: 'center', color: '#A32D2D' }}>{counts.pending}</td>
             </tr>
           </tbody>
         </table>
@@ -582,7 +629,7 @@ function BatchComplaintList({ complaints, mlaName, constituency, addresseeName, 
 
       <div className="stamp-box">
         <p style={{ margin: 0, fontSize: '9pt' }}>
-          Generated: {new Date().toLocaleString('en-IN')} · 
+          Generated: {fmtIstDateTime(new Date())} · 
           MPower CTS · {totalCount} complaints · 
           {filters?.dateFrom ? `Period: ${filters.dateFrom} to ${filters.dateTo || 'today'}` : 'All time'}
           {filters?.filterStage === 'OVERDUE' ? ' · Overdue complaints only (open past the 15-day Normal / 7-day Urgent response deadline)' : ''}
@@ -618,8 +665,7 @@ function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole,
   Object.values(grouped).forEach((items) => items.sort((a, b) => daysPending(b) - daysPending(a)));
 
   const totalCount = complaints.length;
-  const resolvedCount = complaints.filter((c) => ['Resolved', 'Sanctioned', 'Declined'].includes(c.stage)).length;
-  const pendingCount = totalCount - resolvedCount;
+  const counts = stageCounts(complaints);
   const constituencyCount = Object.keys(grouped).length;
 
   const pending = complaints.filter((c) => !['Resolved', 'Sanctioned', 'Declined'].includes(c.stage));
@@ -676,8 +722,7 @@ function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole,
         I am enclosing herewith, on behalf of the {stateName} Grievance Administration, the consolidated
         list of <strong>{totalCount}</strong> grievances received from citizens across <strong>{constituencyCount}</strong> constituencies
         {districtName ? <> within <strong>{districtName}</strong> district</> : null}
-        through the MPower Digital Grievance Tracking System. Of these, <strong>{resolvedCount}</strong> have
-        been resolved and <strong>{pendingCount}</strong> are pending resolution. I request your kind attention
+        through the MPower Digital Grievance Tracking System. Of these, <OutcomeSentence c={counts} />. I request your kind attention
         and necessary action on the pending matters.
       </p>
 
@@ -700,26 +745,32 @@ function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole,
               <th>Constituency / నియోజకవర్గం</th>
               <th style={{ textAlign: 'center' }}>Total</th>
               <th style={{ textAlign: 'center' }}>Resolved</th>
+              <th style={{ textAlign: 'center' }}>Sanctioned</th>
+              <th style={{ textAlign: 'center' }}>Declined</th>
               <th style={{ textAlign: 'center' }}>Pending</th>
             </tr>
           </thead>
           <tbody>
             {Object.entries(grouped).map(([name, items]) => {
-              const resolved = items.filter((c) => ['Resolved', 'Sanctioned', 'Declined'].includes(c.stage)).length;
+              const k = stageCounts(items);
               return (
                 <tr key={name}>
                   <td>{name}</td>
                   <td style={{ textAlign: 'center' }}>{items.length}</td>
-                  <td style={{ textAlign: 'center', color: '#085041' }}>{resolved}</td>
-                  <td style={{ textAlign: 'center', color: '#A32D2D', fontWeight: 'bold' }}>{items.length - resolved}</td>
+                  <td style={{ textAlign: 'center', color: '#085041' }}>{k.resolved}</td>
+                  <td style={{ textAlign: 'center' }}>{k.sanctioned}</td>
+                  <td style={{ textAlign: 'center' }}>{k.declined}</td>
+                  <td style={{ textAlign: 'center', color: '#A32D2D', fontWeight: 'bold' }}>{k.pending}</td>
                 </tr>
               );
             })}
             <tr style={{ fontWeight: 'bold', background: '#f0f0f0' }}>
               <td>TOTAL</td>
               <td style={{ textAlign: 'center' }}>{totalCount}</td>
-              <td style={{ textAlign: 'center', color: '#085041' }}>{resolvedCount}</td>
-              <td style={{ textAlign: 'center', color: '#A32D2D' }}>{pendingCount}</td>
+              <td style={{ textAlign: 'center', color: '#085041' }}>{counts.resolved}</td>
+              <td style={{ textAlign: 'center' }}>{counts.sanctioned}</td>
+              <td style={{ textAlign: 'center' }}>{counts.declined}</td>
+              <td style={{ textAlign: 'center', color: '#A32D2D' }}>{counts.pending}</td>
             </tr>
           </tbody>
         </table>
@@ -798,7 +849,7 @@ function StatewideSummaryForMinister({ complaints, addresseeName, addresseeRole,
 
       <div className="stamp-box">
         <p style={{ margin: 0, fontSize: '9pt' }}>
-          Generated: {new Date().toLocaleString('en-IN')} · 
+          Generated: {fmtIstDateTime(new Date())} · 
           MPower CTS · {totalCount} complaints across {constituencyCount} constituencies · 
           {filters?.dateFrom ? `Period: ${filters.dateFrom} to ${filters.dateTo || 'today'}` : 'All time'}
           {filters?.filterStage === 'OVERDUE' ? ' · Overdue complaints only (open past the 15-day Normal / 7-day Urgent response deadline)' : ''}
@@ -1117,7 +1168,11 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     }
     setError('');
     setLoading(true);
-    let query = supabase.from('complaints').select('*').eq('app_id', appId).order('created_at', { ascending: false });
+    // A fresh query for every page: the database answers at most 1,000 rows per request, so every
+    // page is read (a letter that says "N grievances" must not stop silently at 1,000).
+    const buildQuery = () => {
+    let query = supabase.from('complaints').select('*').eq('app_id', appId)
+      .order('created_at', { ascending: false }).order('id', { ascending: true });
     if (filterCategory) query = query.eq('category', filterCategory);
     query = applyComplaintSearch(query, filterSearch);
     if (filterStage === 'PENDING_ONLY') {
@@ -1134,28 +1189,35 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     if (filterPriority) query = query.eq('priority', filterPriority);
     if (filterConstituencyId) query = query.eq('constituency_id', filterConstituencyId);
     query = applyPlaceFilter(query, { mandalId: filterMandalId, villageId: filterVillageId });
-    if (dateFrom) query = query.gte('created_at', dateFrom);
-    if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59');
-    const { data, error: err } = await query;
-    if (err) { console.error('Loading complaints failed:', err); setError(err.message || 'Failed to load complaints.'); setLoading(false); return; }
+    query = applyDateRange(query, dateFrom, dateTo);
+    return query;
+    };
 
     // The base query above has no joins at all — village/mandal names
     // were always blank in this report before. Resolve them here in
-    // two batched queries (not one per row) using the distinct ids
-    // actually present in this result set.
-    const rows = data || [];
-    const mandalIds = [...new Set(rows.map((r) => r.mandal_id).filter(Boolean))];
-    const villageIds = [...new Set(rows.map((r) => r.village_id).filter(Boolean))];
-    const citizenIds = [...new Set(rows.map((r) => r.citizen_id).filter(Boolean))];
-
-    const [mandalRes, villageRes, citizenRes] = await Promise.all([
-      mandalIds.length ? supabase.from('mandals').select('id, name').in('id', mandalIds) : { data: [] },
-      villageIds.length ? supabase.from('villages').select('id, name').in('id', villageIds) : { data: [] },
-      citizenIds.length ? supabase.from('citizens').select('id, full_name, phone').in('id', citizenIds) : { data: [] },
-    ]);
-    const mandalMap = Object.fromEntries((mandalRes.data || []).map((m) => [m.id, m.name]));
-    const villageMap = Object.fromEntries((villageRes.data || []).map((v) => [v.id, v.name]));
-    const citizenMap = Object.fromEntries((citizenRes.data || []).map((c) => [c.id, c]));
+    // batched queries (groups of 150 ids, not one per row and not one huge
+    // web address) using the distinct ids actually present in this result set.
+    let rows;
+    let mandalRes, villageRes, citizenRes;
+    try {
+      rows = await fetchAllPages(buildQuery);
+      const mandalIds = [...new Set(rows.map((r) => r.mandal_id).filter(Boolean))];
+      const villageIds = [...new Set(rows.map((r) => r.village_id).filter(Boolean))];
+      const citizenIds = [...new Set(rows.map((r) => r.citizen_id).filter(Boolean))];
+      [mandalRes, villageRes, citizenRes] = await Promise.all([
+        selectIn('mandals', 'id, name', mandalIds),
+        selectIn('villages', 'id, name', villageIds),
+        selectIn('citizens', 'id, full_name, phone', citizenIds),
+      ]);
+    } catch (err) {
+      console.error('Loading complaints failed:', err);
+      setError(err.message || 'Failed to load complaints.');
+      setLoading(false);
+      return;
+    }
+    const mandalMap = Object.fromEntries(mandalRes.map((m) => [m.id, m.name]));
+    const villageMap = Object.fromEntries(villageRes.map((v) => [v.id, v.name]));
+    const citizenMap = Object.fromEntries(citizenRes.map((c) => [c.id, c]));
 
     const placeMap = await resolveComplaintPlaces(rows).catch(() => ({}));
     let enriched = rows.map((r) => ({
@@ -1196,7 +1258,10 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
       if (branchConstituencyIds.length === 0) { setComplaints([]); setLoading(false); return; }
     }
 
-    let query = supabase.from('complaints').select('*').eq('app_id', appId).order('created_at', { ascending: false });
+    // A fresh query for every page (see loadBatchComplaints): every page is read, never stopping at 1,000.
+    const buildQuery = () => {
+    let query = supabase.from('complaints').select('*').eq('app_id', appId)
+      .order('created_at', { ascending: false }).order('id', { ascending: true });
     if (branchConstituencyIds) query = query.in('constituency_id', branchConstituencyIds);
     if (filterCategory) query = query.eq('category', filterCategory);
     query = applyComplaintSearch(query, filterSearch);
@@ -1214,27 +1279,34 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     if (filterPriority) query = query.eq('priority', filterPriority);
     if (filterConstituencyId) query = query.eq('constituency_id', filterConstituencyId);
     query = applyPlaceFilter(query, { mandalId: filterMandalId, villageId: filterVillageId });
-    if (dateFrom) query = query.gte('created_at', dateFrom);
-    if (dateTo) query = query.lte('created_at', dateTo + 'T23:59:59');
-    const { data, error: err } = await query;
-    if (err) { console.error('Loading complaints failed:', err); setError(err.message || 'Failed to load complaints.'); setLoading(false); return; }
+    query = applyDateRange(query, dateFrom, dateTo);
+    return query;
+    };
 
-    const rows = data || [];
-    const constituencyIds = [...new Set(rows.map((r) => r.constituency_id).filter(Boolean))];
-    const mandalIds = [...new Set(rows.map((r) => r.mandal_id).filter(Boolean))];
-    const villageIds = [...new Set(rows.map((r) => r.village_id).filter(Boolean))];
-    const citizenIds = [...new Set(rows.map((r) => r.citizen_id).filter(Boolean))];
-
-    const [constRes, mandalRes, villageRes, citizenRes] = await Promise.all([
-      constituencyIds.length ? supabase.from('constituencies').select('id, name').in('id', constituencyIds) : { data: [] },
-      mandalIds.length ? supabase.from('mandals').select('id, name').in('id', mandalIds) : { data: [] },
-      villageIds.length ? supabase.from('villages').select('id, name').in('id', villageIds) : { data: [] },
-      citizenIds.length ? supabase.from('citizens').select('id, full_name, phone').in('id', citizenIds) : { data: [] },
-    ]);
-    const constMap = Object.fromEntries((constRes.data || []).map((c) => [c.id, c.name]));
-    const mandalMap = Object.fromEntries((mandalRes.data || []).map((m) => [m.id, m.name]));
-    const villageMap = Object.fromEntries((villageRes.data || []).map((v) => [v.id, v.name]));
-    const citizenMap = Object.fromEntries((citizenRes.data || []).map((c) => [c.id, c]));
+    let rows;
+    let constRes, mandalRes, villageRes, citizenRes;
+    try {
+      rows = await fetchAllPages(buildQuery);
+      const constituencyIds = [...new Set(rows.map((r) => r.constituency_id).filter(Boolean))];
+      const mandalIds = [...new Set(rows.map((r) => r.mandal_id).filter(Boolean))];
+      const villageIds = [...new Set(rows.map((r) => r.village_id).filter(Boolean))];
+      const citizenIds = [...new Set(rows.map((r) => r.citizen_id).filter(Boolean))];
+      [constRes, mandalRes, villageRes, citizenRes] = await Promise.all([
+        selectIn('constituencies', 'id, name', constituencyIds),
+        selectIn('mandals', 'id, name', mandalIds),
+        selectIn('villages', 'id, name', villageIds),
+        selectIn('citizens', 'id, full_name, phone', citizenIds),
+      ]);
+    } catch (err) {
+      console.error('Loading complaints failed:', err);
+      setError(err.message || 'Failed to load complaints.');
+      setLoading(false);
+      return;
+    }
+    const constMap = Object.fromEntries(constRes.map((c) => [c.id, c.name]));
+    const mandalMap = Object.fromEntries(mandalRes.map((m) => [m.id, m.name]));
+    const villageMap = Object.fromEntries(villageRes.map((v) => [v.id, v.name]));
+    const citizenMap = Object.fromEntries(citizenRes.map((c) => [c.id, c]));
 
     const placeMap = await resolveComplaintPlaces(rows).catch(() => ({}));
     let enriched = rows.map((r) => ({
@@ -1251,18 +1323,18 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
   }
 
   const S = {
-    page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#f0f4f8', minHeight: '100vh', color: '#1a1a2e' },
+    page: { fontFamily: "'Inter', -apple-system, sans-serif", background: '#1C1C1E', minHeight: '100vh', color: '#fff' },
     inner: { maxWidth: 860, margin: '0 auto', padding: '24px 20px' },
-    card: { background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(26,26,46,0.06)', borderRadius: 12, padding: 16, marginBottom: 16 },
-    input: { width: '100%', padding: '9px 12px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 7, fontSize: 13, color: '#1a1a2e', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
-    select: { width: '100%', padding: '9px 12px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 7, fontSize: 13, color: '#1a1a2e', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' },
-    label: { fontSize: 11, color: '#64748b', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
+    card: { background: '#161618', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16, marginBottom: 16 },
+    input: { width: '100%', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, fontSize: 13, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' },
+    select: { width: '100%', padding: '9px 12px', background: '#111113', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, fontSize: 13, color: '#fff', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', cursor: 'pointer' },
+    label: { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block' },
   };
 
   if (tenantLoading) {
     return (
       <div style={S.page}>
-        <div style={S.inner}><p style={{ color: '#64748b', fontSize: 13 }}>Loading…</p></div>
+        <div style={S.inner}><p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading…</p></div>
       </div>
     );
   }
@@ -1271,14 +1343,14 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
     <div style={S.page}>
       <style>{PRINT_STYLES}</style>
 
-      <div className="no-print" style={{ background: '#1a1a2e', padding: '14px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
+      <div className="no-print" style={{ background: '#1C1C1E', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '14px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 860, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '2px', textTransform: 'uppercase' }}>Print / Export</div>
             <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: '2px 0 0', letterSpacing: -0.3 }}>Complaint Print Centre</h1>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>ఫిర్యాదు ముద్రణ కేంద్రం</div>
           </div>
-          <button onClick={() => window.print()} style={{ padding: '10px 20px', background: '#e8a020', color: '#1a1a2e', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+          <button onClick={() => window.print()} style={{ padding: '10px 20px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
             🖨️ Print now
           </button>
         </div>
@@ -1303,11 +1375,11 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
               // constituency in the first place.
               { k: 'staff_statewide', icon: '🗺️', title: 'Statewide Summary for Minister', sub: 'Many constituencies at once', te: 'రాష్ట్రవ్యాప్త సారాంశం', roles: ['grievance_admin', 'developer', 'support'] },
             ].filter((opt) => isStaff || opt.k === 'citizen').filter((opt) => !opt.roles || opt.roles.includes(tenant?.role)).map((opt) => (
-              <button key={opt.k} onClick={() => setPrintType(opt.k)} aria-pressed={printType === opt.k} style={{ textAlign: 'left', padding: 14, border: `1px solid ${printType === opt.k ? '#e8a020' : '#e2e8f0'}`, background: printType === opt.k ? '#FFF8E8' : '#fff', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button key={opt.k} onClick={() => setPrintType(opt.k)} aria-pressed={printType === opt.k} style={{ textAlign: 'left', padding: 14, border: `1px solid ${printType === opt.k ? 'rgba(232,160,32,0.5)' : 'rgba(255,255,255,0.07)'}`, background: printType === opt.k ? 'rgba(232,160,32,0.08)' : '#111113', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <p style={{ fontSize: 22, margin: '0 0 6px' }}>{opt.icon}</p>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#1a1a2e' }}>{opt.title}</p>
-                <p style={{ margin: '2px 0', fontSize: 11, color: '#64748b' }}>{opt.sub}</p>
-                <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{opt.te}</p>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#fff' }}>{opt.title}</p>
+                <p style={{ margin: '2px 0', fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{opt.sub}</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{opt.te}</p>
               </button>
             ))}
           </div>
@@ -1330,7 +1402,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                 navigate(`/grievance/print?case=${encodeURIComponent(manualCaseNo.trim().toUpperCase())}`, { replace: true });
                 loadSingleComplaint(manualCaseNo.trim().toUpperCase());
               }}
-              style={{ padding: '9px 18px', background: '#1a1a2e', color: '#e8a020', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+              style={{ padding: '9px 18px', background: '#E8A020', color: '#111113', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
             >
               Load
             </button>
@@ -1349,8 +1421,8 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
               implies an ownership/addressing relationship that
               document was never meant to have. */}
           {isStaff && printType !== 'staff_single' && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', marginBottom: 14, borderBottom: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: 13, color: '#64748b' }}>{mlaName || 'MLA name not set'} · {constituency || 'Constituency not set'}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', marginBottom: 14, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{mlaName || 'MLA name not set'} · {constituency || 'Constituency not set'}</span>
             </div>
           )}
 
@@ -1373,7 +1445,7 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
           {(printType === 'staff_batch' || printType === 'staff_statewide') && (
             <>
               {/* Recipient — clearly its own section, separate from filters */}
-              <p style={{ ...S.label, marginBottom: 8, color: '#64748b' }}>Recipient</p>
+              <p style={{ ...S.label, marginBottom: 8, color: 'rgba(255,255,255,0.5)' }}>Recipient</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
                 <div>
                   <label style={S.label}>Addressed to (name)</label>
@@ -1396,17 +1468,17 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
               {/* Filters — separate section, real category/status values,
                   plus quick presets so common cases don't need manual
                   date-range picking every time */}
-              <p style={{ ...S.label, marginBottom: 8, color: '#64748b' }}>Filters</p>
+              <p style={{ ...S.label, marginBottom: 8, color: 'rgba(255,255,255,0.5)' }}>Filters</p>
               <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                 {[
                   { label: 'All pending', apply: () => { setFilterStage('PENDING_ONLY'); setFilterPriority(''); setDateFrom(''); setDateTo(''); } },
                   { label: 'Overdue only', apply: () => { setFilterStage('OVERDUE'); setFilterPriority(''); setDateFrom(''); setDateTo(''); } },
-                  { label: 'This month', apply: () => { const now = new Date(); const first = new Date(now.getFullYear(), now.getMonth(), 1); setDateFrom(first.toISOString().slice(0, 10)); setDateTo(now.toISOString().slice(0, 10)); } },
+                  { label: 'This month', apply: () => { const r = presetRange('This month'); setDateFrom(r.from); setDateTo(r.to); } },
                   { label: 'Urgent only', apply: () => { setFilterPriority('Urgent'); setDateFrom(''); setDateTo(''); } },
                   { label: 'All time', apply: () => { setFilterCategory(''); setFilterStage(''); setFilterPriority(''); setDateFrom(''); setDateTo(''); } },
                 ].map((preset) => (
                   <button key={preset.label} type="button" onClick={preset.apply}
-                    style={{ padding: '6px 12px', borderRadius: 16, border: '1px solid #F5DEB3', background: '#FFF8E8', color: '#A8762C', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    style={{ padding: '6px 12px', borderRadius: 16, border: '1px solid rgba(232,160,32,0.3)', background: 'rgba(232,160,32,0.08)', color: '#E8A020', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                     {preset.label}
                   </button>
                 ))}
@@ -1419,32 +1491,32 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                     <option value="">All districts — full statewide summary</option>
                     {branchOptions.map((b) => <option key={b.id} value={b.id}>{b.branch_name}</option>)}
                   </select>
-                  <p style={{ fontSize: 11, color: '#64748b', margin: '4px 0 0' }}>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
                     Narrows this report to just one district's constituencies — the real scope a District Collector actually needs, rather than the whole state.
                   </p>
                 </div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 10 }}>
                 <div>
-                  <label style={S.label}>Constituency {printType === 'staff_batch' && <span style={{ color: '#A8762C' }}>(required)</span>}</label>
-                  <select value={filterConstituencyId} onChange={(e) => { setFilterConstituencyId(e.target.value); setFilterMandalId(''); setFilterVillageId(''); setError(''); }} style={{ ...S.select, border: (printType === 'staff_batch' && !filterConstituencyId) ? '1px solid #e8a020' : S.select.border }}>
+                  <label style={S.label}>Constituency {printType === 'staff_batch' && <span style={{ color: '#E8A020' }}>(required)</span>}</label>
+                  <select value={filterConstituencyId} onChange={(e) => { setFilterConstituencyId(e.target.value); setFilterMandalId(''); setFilterVillageId(''); setError(''); }} style={{ ...S.select, border: (printType === 'staff_batch' && !filterConstituencyId) ? '1px solid rgba(232,160,32,0.5)' : S.select.border }}>
                     <option value="">{printType === 'staff_batch' ? 'Select a constituency…' : 'All constituencies'}</option>
                     {constituencyOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                   {printType === 'staff_batch' && !filterConstituencyId && (
-                    <p style={{ fontSize: 11, color: '#64748b', margin: '4px 0 0' }}>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
                       This letter is written as one MLA's own correspondence — it needs exactly one office to be from. For a statewide or multi-constituency overview instead, use Reports.
                     </p>
                   )}
                 </div>
                 <div>
-                  <label style={S.label}>Mandal {addresseeRole === 'MRO' && <span style={{ color: '#A8762C' }}>(required for MRO)</span>}</label>
-                  <select value={filterMandalId} onChange={(e) => { setFilterMandalId(e.target.value); setFilterVillageId(''); setError(''); }} disabled={!filterConstituencyId} style={{ ...S.select, opacity: filterConstituencyId ? 1 : 0.5, border: (addresseeRole === 'MRO' && !filterMandalId) ? '1px solid #e8a020' : S.select.border }}>
+                  <label style={S.label}>Mandal {addresseeRole === 'MRO' && <span style={{ color: '#E8A020' }}>(required for MRO)</span>}</label>
+                  <select value={filterMandalId} onChange={(e) => { setFilterMandalId(e.target.value); setFilterVillageId(''); setError(''); }} disabled={!filterConstituencyId} style={{ ...S.select, opacity: filterConstituencyId ? 1 : 0.5, border: (addresseeRole === 'MRO' && !filterMandalId) ? '1px solid rgba(232,160,32,0.5)' : S.select.border }}>
                     <option value="">{addresseeRole === 'MRO' ? 'Select a mandal…' : 'All mandals'}</option>
                     {mandalOptions.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                   {addresseeRole === 'MRO' && !filterMandalId && (
-                    <p style={{ fontSize: 11, color: '#64748b', margin: '4px 0 0' }}>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
                       An MRO can only act on their own mandal, not the whole constituency.
                     </p>
                   )}
@@ -1500,11 +1572,11 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
                   <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={S.input} />
                 </div>
               </div>
-              <button onClick={() => printType === 'staff_statewide' ? loadStatewideComplaints() : loadBatchComplaints()} style={{ padding: '8px 18px', background: (printType === 'staff_batch' && (!filterConstituencyId || (addresseeRole === 'MRO' && !filterMandalId))) ? '#cbd5e1' : '#1a1a2e', color: (printType === 'staff_batch' && (!filterConstituencyId || (addresseeRole === 'MRO' && !filterMandalId))) ? '#475569' : '#e8a020', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
+              <button onClick={() => printType === 'staff_statewide' ? loadStatewideComplaints() : loadBatchComplaints()} style={{ padding: '8px 18px', background: (printType === 'staff_batch' && (!filterConstituencyId || (addresseeRole === 'MRO' && !filterMandalId))) ? 'rgba(232,160,32,0.3)' : '#E8A020', color: (printType === 'staff_batch' && (!filterConstituencyId || (addresseeRole === 'MRO' && !filterMandalId))) ? '#111113' : '#111113', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
                 Apply filters & preview
               </button>
               {complaints.length > 0 && (
-                <p style={{ fontSize: 12, color: '#16a34a', marginTop: 8, marginBottom: 0 }}>
+                <p style={{ fontSize: 12, color: '#6AAA90', marginTop: 8, marginBottom: 0 }}>
                   ✓ {complaints.length} complaints will be included in the print
                 </p>
               )}
@@ -1513,20 +1585,20 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
         </div>
 
         {error && (
-          <p style={{ color: '#B91C1C', fontSize: 13, marginBottom: 16 }}>{error}</p>
+          <p style={{ color: '#E05A5A', fontSize: 13, marginBottom: 16 }}>{error}</p>
         )}
 
         {loading && (
-          <p style={{ color: '#64748b', fontSize: 13 }}>Loading complaint data...</p>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Loading complaint data...</p>
         )}
 
         {/* Print preview label */}
         {!loading && !error && (
-          <div style={{ background: '#FFF8E8', border: '1px solid #F5DEB3', borderRadius: 10, padding: '10px 16px', marginBottom: 20 }}>
-            <p style={{ margin: 0, fontSize: 13, color: '#A8762C', fontWeight: 500 }}>
+          <div style={{ background: 'rgba(232,160,32,0.06)', border: '1px solid rgba(232,160,32,0.15)', borderRadius: 10, padding: '10px 16px', marginBottom: 20 }}>
+            <p style={{ margin: 0, fontSize: 13, color: '#E8A020', fontWeight: 500 }}>
               📄 Print preview below — looks exactly like the printed output
             </p>
-            <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748b' }}>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
               Click "Print now" above or use Ctrl+P / ⌘+P to print
             </p>
           </div>
@@ -1582,11 +1654,20 @@ export default function ComplaintPrint({ caseNo, mode = 'citizen', appId: appIdP
       <div className="no-print" style={{ display: 'flex', gap: 16, justifyContent: 'center', padding: '20px 0 100px' }}>
         <button
           onClick={() => window.history.back()}
-          style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+          style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
         >
           ← Back
         </button>
-        <Link to="/" style={{ fontSize: 13, color: '#64748b', textDecoration: 'none' }}>🏠 Exit to Home</Link>
+        {isStaff ? (
+          <>
+            <Link to="/portal/dashboard" style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>🏠 Home</Link>
+            <button onClick={() => signOutAndRelease()} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer', padding: 0 }}>
+              Sign out
+            </button>
+          </>
+        ) : (
+          <Link to="/" style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', textDecoration: 'none' }}>🏠 Exit to Home</Link>
+        )}
       </div>
 
       <GrievanceNav />

@@ -22,10 +22,12 @@ import SchoolNav from '../shared/SchoolNav';
 import PrintHeader from '../shared/PrintHeader';
 import { exportToExcel } from '../shared/exportExcel';
 import BugReporter from '../shared/BugReporter';
+import { fetchAllPages, fetchAllIn, istToday } from '../shared/schoolDates';
 
+// Whole days between the due date and today, both as calendar dates in India.
 function daysOverdue(dueDate) {
   if (!dueDate) return 0;
-  const diff = (new Date() - new Date(dueDate)) / (1000 * 60 * 60 * 24);
+  const diff = (new Date(istToday()) - new Date(String(dueDate).slice(0, 10))) / (1000 * 60 * 60 * 24);
   return Math.max(0, Math.floor(diff));
 }
 
@@ -67,9 +69,22 @@ function FeeAnalyticsContent() {
 
   async function loadData() {
     setLoading(true);
-    const { data: studentRows } = await supabase
-      .from('students').select('id, full_name, sid, class_id, parent_phone, classes(class_name, class_order)')
-      .eq('app_id', tenant.appId).eq('status', 'active');
+    setLoadError('');
+    // The database returns at most 1,000 rows per request, so students and fees
+    // are read page by page (and the fee list in groups of student ids). Without
+    // this a larger school silently saw only part of its figures.
+    let studentRows;
+    try {
+      studentRows = await fetchAllPages((from, to) => supabase
+        .from('students').select('id, full_name, sid, class_id, parent_phone, classes(class_name, class_order)')
+        .eq('app_id', tenant.appId).eq('status', 'active')
+        .order('id').range(from, to));
+    } catch (e) {
+      console.error('Loading students failed:', e);
+      setLoadError(e.message || 'Could not load students.');
+      setLoading(false);
+      return;
+    }
     setStudents(studentRows || []);
 
     const studentIds = (studentRows || []).map((s) => s.id);
@@ -82,14 +97,18 @@ function FeeAnalyticsContent() {
     // dues came back empty and every figure on this screen showed ₹0
     // — even with ₹20,000 actually collected. The error was also
     // discarded, so it failed completely silently.
-    let duesQuery = supabase
-      .from('fee_dues')
-      .select('id, student_id, fee_structure_id, amount_due, concession_amount, due_date, fee_type, fee_payments(amount)')
-      .in('student_id', studentIds);
-    if (dateFrom) duesQuery = duesQuery.gte('due_date', dateFrom);
-    if (dateTo) duesQuery = duesQuery.lte('due_date', dateTo);
-    const { data: dueRows, error: duesErr } = await duesQuery;
-    if (duesErr) {
+    let dueRows;
+    try {
+      dueRows = await fetchAllIn(studentIds, (chunk, from, to) => {
+        let q = supabase
+          .from('fee_dues')
+          .select('id, student_id, fee_structure_id, amount_due, concession_amount, due_date, fee_type, fee_payments(amount)')
+          .in('student_id', chunk);
+        if (dateFrom) q = q.gte('due_date', dateFrom);
+        if (dateTo) q = q.lte('due_date', dateTo);
+        return q.order('id').range(from, to);
+      });
+    } catch (duesErr) {
       console.error('Loading fee dues failed:', duesErr);
       setLoadError(duesErr.message || 'Could not load fee data.');
       setLoading(false);
@@ -197,12 +216,12 @@ function FeeAnalyticsContent() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `fee_analytics_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `fee_analytics_${istToday()}.csv`;
     a.click();
   }
 
   function exportExcelFile() {
-    exportToExcel(`fee_analytics_${new Date().toISOString().slice(0, 10)}`, [
+    exportToExcel(`fee_analytics_${istToday()}`, [
       { name: 'Fee Analytics', headers: exportHeaders, rows: exportRows },
     ]);
   }

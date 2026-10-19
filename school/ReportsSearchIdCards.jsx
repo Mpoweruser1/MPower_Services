@@ -8,6 +8,10 @@ import PrintHeader from '../shared/PrintHeader';
 import ReportRemark from '../shared/ReportRemark';
 import BugReporter from '../shared/BugReporter';
 import { canAccess } from '../shared/tierAccess';
+import {
+  fetchAllPages, fetchAllIn, istToday, istDateOf, addDays, istDayStart, istDayEnd, fmtIstDate,
+  academicYearStartingIn, academicYearFor, tenantAcademicYear,
+} from '../shared/schoolDates';
 
 // Verified against StudentAdmission.jsx's own real constants
 const FILTER_CASTE_CATEGORIES = ['OC', 'BC-A', 'BC-B', 'BC-C', 'BC-D', 'BC-E', 'SC', 'ST', 'EWS', 'Other'];
@@ -152,13 +156,36 @@ const REPORT_CATEGORIES = [
 // Indian academic year runs June to May, so "2026-27" means
 // 1 Jun 2026 to 31 May 2027. Six reports need this same range, so it
 // lives here rather than being rewritten in each.
-function academicRange(startYear) {
+function academicRange(startYear, yc) {
   if (!startYear) return null;
-  return { from: `${startYear}-06-01`, to: `${Number(startYear) + 1}-05-31` };
+  // yc = the school's own year start ({ month, day }, default 1 June).
+  const y = academicYearStartingIn(Number(startYear), yc?.month || 6, yc?.day || 1);
+  return { from: y.start, to: y.end };
 }
 
-async function runReportQuery(reportId, appId, extraFilters) {
-  const today = new Date().toISOString().slice(0, 10);
+// The database returns at most 1,000 rows per request and says nothing about
+// the rest, so every list that can pass 1,000 rows is read page by page.
+//   allRows(() => supabase.from(...).select(...).eq(...))      -- ordered by id
+//   allRows(() => ..., [['full_name', true], ['id', true]])    -- own order first
+// `build` must return a FRESH query each time it is called.
+function allRows(build, orders = [['id', true]]) {
+  return fetchAllPages((from, to) => {
+    let q = build();
+    for (const [col, asc] of orders) q = q.order(col, { ascending: asc });
+    return q.range(from, to);
+  });
+}
+// Number of rows in a table matching a filter, without reading them.
+//   countWhere('ptm_slots', (q) => q.eq('session_id', id).eq('status', 'booked'))
+async function countWhere(table, filter) {
+  const { count, error } = await filter(supabase.from(table).select('*', { count: 'exact', head: true }));
+  if (error) throw error;
+  return count || 0;
+}
+
+async function runReportQuery(reportId, appId, extraFilters, yc) {
+  // "Today" is the date in India, not the UTC date (which is still yesterday until 5:30 AM).
+  const today = istToday();
 
   switch (reportId) {
     case 'student_full_details': {
@@ -185,27 +212,25 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // specifically, rather than only "everyone currently active" —
       // lets a class's admission register be pulled up for a past
       // year, not just today's roster.
-      const admRange = academicRange(extraFilters?.academicYearStart);
+      const admRange = academicRange(extraFilters?.academicYearStart, yc);
 
-      let sfdQuery = supabase
-        .from('students')
-        .select(`
-          id, sid, full_name, full_name_telugu, dob, gender, blood_group,
-          caste_category, religion, annual_income, apaar_id,
-          admission_no, admission_date, section, medium, student_type,
-          father_name, mother_name, parent_phone,
-          village_name, mandal_name, district_name, state,
-          classes(class_name)
-        `)
-        .eq('app_id', appId)
-        .eq('class_id', classId);
-      if (admRange) {
-        sfdQuery = sfdQuery.gte('admission_date', admRange.from).lte('admission_date', admRange.to);
-      } else {
-        sfdQuery = sfdQuery.eq('status', 'active');
-      }
-      const { data, error: qErr } = await sfdQuery.order('full_name');
-      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+      const data = await allRows(() => {
+        let q = supabase
+          .from('students')
+          .select(`
+            id, sid, full_name, full_name_telugu, dob, gender, blood_group,
+            caste_category, religion, annual_income, apaar_id,
+            admission_no, admission_date, section, medium, student_type,
+            father_name, mother_name, parent_phone,
+            village_name, mandal_name, district_name, state,
+            classes(class_name)
+          `)
+          .eq('app_id', appId)
+          .eq('class_id', classId);
+        if (admRange) q = q.gte('admission_date', admRange.from).lte('admission_date', admRange.to);
+        else q = q.eq('status', 'active');
+        return q;
+      }, [['full_name', true], ['id', true]]);
       return { data: data || [], columns: cols, fieldsUsed: fields };
     }
     case 'daily_attendance': {
@@ -216,21 +241,22 @@ async function runReportQuery(reportId, appId, extraFilters) {
       const to = extraFilters?.date_to || from;
       const cols = ['S.No', 'Name', 'SID', 'Class', 'Present', 'Absent', 'Days recorded', 'Attendance %', 'Remarks'];
 
-      let sq = supabase
-        .from('students').select('id, full_name, sid, section, classes(class_name)')
-        .eq('app_id', appId).eq('status', 'active');
-      if (extraFilters?.class_id) sq = sq.eq('class_id', extraFilters.class_id);
-      const { data: students, error: sErr } = await sq;
-      if (sErr) { console.error('Report query failed:', sErr); throw sErr; }
+      const students = await allRows(() => {
+        let sq = supabase
+          .from('students').select('id, full_name, sid, section, classes(class_name)')
+          .eq('app_id', appId).eq('status', 'active');
+        if (extraFilters?.class_id) sq = sq.eq('class_id', extraFilters.class_id);
+        return sq;
+      });
 
       const ids = (students || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: cols };
 
-      const { data, error: qErr } = await supabase
+      const data = await fetchAllIn(ids, (chunk, f, t) => supabase
         .from('attendance').select('student_id, status')
         .gte('date', from).lte('date', to)
-        .in('student_id', ids);
-      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+        .in('student_id', chunk)
+        .order('id').range(f, t));
 
       const tally = {};
       for (const r of data || []) {
@@ -262,18 +288,19 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // so a genuinely struggling student could be missing from the
       // report entirely. All three are now explicit parameters, and
       // the cap is gone.
-      const from = extraFilters?.date_from || `${new Date().getFullYear()}-06-01`;
-      const to = extraFilters?.date_to || new Date().toISOString().slice(0, 10);
+      const from = extraFilters?.date_from || academicYearFor(today, yc?.month || 6, yc?.day || 1).start;
+      const to = extraFilters?.date_to || today;
       const minDays = Number(extraFilters?.min_days ?? 10);
       const limitPct = Number(extraFilters?.threshold ?? 75);
       const classId = extraFilters?.class_id;
 
-      let sq = supabase
-        .from('students').select('id, full_name, sid, class_id, section, classes(class_name)')
-        .eq('app_id', appId).eq('status', 'active');
-      if (classId) sq = sq.eq('class_id', classId);
-      const { data: students, error: sErr } = await sq;
-      if (sErr) { console.error('Report query failed:', sErr); throw sErr; }
+      const students = await allRows(() => {
+        let sq = supabase
+          .from('students').select('id, full_name, sid, class_id, section, classes(class_name)')
+          .eq('app_id', appId).eq('status', 'active');
+        if (classId) sq = sq.eq('class_id', classId);
+        return sq;
+      });
 
       const ids = (students || []).map((s) => s.id);
       const cols = ['S.No', 'Name', 'SID', 'Class', 'Days present', 'Days recorded', 'Attendance %', 'Remarks'];
@@ -282,10 +309,10 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // One query for all students instead of two per student — the old
       // loop fired 200 separate queries for 100 students, which is why
       // it needed a cap in the first place.
-      const { data: att, error: aErr } = await supabase
+      const att = await fetchAllIn(ids, (chunk, f, t) => supabase
         .from('attendance').select('student_id, status')
-        .in('student_id', ids).gte('date', from).lte('date', to);
-      if (aErr) { console.error('Report query failed:', aErr); throw aErr; }
+        .in('student_id', chunk).gte('date', from).lte('date', to)
+        .order('id').range(f, t));
 
       const tally = {};
       for (const r of att || []) {
@@ -310,9 +337,11 @@ async function runReportQuery(reportId, appId, extraFilters) {
       return { data: results, columns: cols };
     }
     case 'fee_defaulters': {
-      let stq = supabase.from('students').select('id').eq('app_id', appId);
-      if (extraFilters?.class_id) stq = stq.eq('class_id', extraFilters.class_id);
-      const { data: appStudents } = await stq;
+      const appStudents = await allRows(() => {
+        let stq = supabase.from('students').select('id').eq('app_id', appId);
+        if (extraFilters?.class_id) stq = stq.eq('class_id', extraFilters.class_id);
+        return stq;
+      });
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: ['Name', 'SID', 'Class', 'Fee type', 'Balance', 'Due date', 'Remarks'] };
       // Previously read amount_paid directly from fee_dues — never
@@ -323,13 +352,14 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // Dashboard.jsx and TransferCertificate.jsx for this identical bug.
       // Overdue-only used to be hardcoded, so a fee due next month
       // never appeared — indistinguishable from "nothing owed".
-      let fdQuery = supabase
-        .from('fee_dues')
-        .select('id, amount_due, fee_type, due_date, fee_payments(amount), students(full_name, sid, parent_phone, classes(class_name))')
-        .in('student_id', ids);
-      if (extraFilters?.overdue_only !== false) fdQuery = fdQuery.lt('due_date', today);
-      const { data, error: qErr } = await fdQuery;
-      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+      const data = await fetchAllIn(ids, (chunk, f, t) => {
+        let fdQuery = supabase
+          .from('fee_dues')
+          .select('id, amount_due, fee_type, due_date, fee_payments(amount), students(full_name, sid, parent_phone, classes(class_name))')
+          .in('student_id', chunk);
+        if (extraFilters?.overdue_only !== false) fdQuery = fdQuery.lt('due_date', today);
+        return fdQuery.order('id').range(f, t);
+      });
       const withRealPaid = (data || []).map((d) => ({
         ...d,
         amount_paid: (d.fee_payments || []).reduce((sum, p) => sum + Number(p.amount), 0),
@@ -348,11 +378,10 @@ async function runReportQuery(reportId, appId, extraFilters) {
       const cols = ['Rank', 'Name', 'SID', 'Subjects', 'Total', 'Percentage', 'Remarks'];
       if (!classId || !examId) return { data: [], columns: cols };
 
-      const { data, error: qErr } = await supabase
+      const data = await allRows(() => supabase
         .from('marks')
         .select('student_id, total, students(full_name, sid, status)')
-        .eq('exam_id', examId);
-      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+        .eq('exam_id', examId));
 
       // Sum every subject per student for this one exam.
       const byStudent = {};
@@ -390,7 +419,7 @@ async function runReportQuery(reportId, appId, extraFilters) {
     }
     case 'class_strength': {
       const { data: classRows } = await supabase.from('classes').select('id, class_name, class_order').eq('app_id', appId).order('class_order');
-      const { data: studentRows } = await supabase.from('students').select('id, class_id, section').eq('app_id', appId).eq('status', 'active');
+      const studentRows = await allRows(() => supabase.from('students').select('id, class_id, section').eq('app_id', appId).eq('status', 'active'));
       const grouped = {};
       (studentRows || []).forEach((s) => {
         const key = `${s.class_id}|${s.section || '—'}`;
@@ -407,17 +436,18 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // Was a single school-wide total. Now broken down per class,
       // with a Total row — and an academic year filter so previous
       // years can be looked at, not just the students on roll today.
-      const range = academicRange(extraFilters?.academicYearStart);
-      let q = supabase.from('students')
-        .select('id, gender, class_id, admission_date, classes(class_name, medium)')
-        .eq('app_id', appId);
-      if (extraFilters?.class_id) q = q.eq('class_id', extraFilters.class_id);
-      // Without a year chosen, show who is on roll now. With one,
-      // show everyone admitted during that year regardless of status.
-      if (range) q = q.gte('admission_date', range.from).lte('admission_date', range.to);
-      else q = q.eq('status', 'active');
-      const { data, error: qErr } = await q;
-      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+      const range = academicRange(extraFilters?.academicYearStart, yc);
+      const data = await allRows(() => {
+        let q = supabase.from('students')
+          .select('id, gender, class_id, admission_date, classes(class_name, medium)')
+          .eq('app_id', appId);
+        if (extraFilters?.class_id) q = q.eq('class_id', extraFilters.class_id);
+        // Without a year chosen, show who is on roll now. With one,
+        // show everyone admitted during that year regardless of status.
+        if (range) q = q.gte('admission_date', range.from).lte('admission_date', range.to);
+        else q = q.eq('status', 'active');
+        return q;
+      });
 
       const byClass = {};
       for (const s of data || []) {
@@ -449,29 +479,31 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // Was a fixed 90-day window with no way to change it, so older
       // admissions simply couldn't be looked at. Now the academic year
       // if one is chosen, otherwise the last 90 days as before.
-      const admRange = academicRange(extraFilters?.academicYearStart);
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 90);
+      const admRange = academicRange(extraFilters?.academicYearStart, yc);
+      const cutoff = addDays(today, -90);
       // Deliberately NOT filtered by status: this is a historical
       // record of who joined in the period, so a student who has since
       // left still belongs in the count. The Status column below makes
       // it clear at a glance who is still with the school.
-      let naQuery = supabase
-        .from('students')
-        .select('id, full_name, sid, admission_date, admission_no, status, class_id, classes(class_name)')
-        .eq('app_id', appId)
-        .gte('admission_date', admRange ? admRange.from : cutoff.toISOString().slice(0, 10))
-        .lte('admission_date', admRange ? admRange.to : '9999-12-31');
-      if (extraFilters?.class_id) naQuery = naQuery.eq('class_id', extraFilters.class_id);
-      const { data, error: qErr } = await naQuery.order('admission_date', { ascending: false });
-      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+      const data = await allRows(() => {
+        let naQuery = supabase
+          .from('students')
+          .select('id, full_name, sid, admission_date, admission_no, status, class_id, classes(class_name)')
+          .eq('app_id', appId)
+          .gte('admission_date', admRange ? admRange.from : cutoff)
+          .lte('admission_date', admRange ? admRange.to : '9999-12-31');
+        if (extraFilters?.class_id) naQuery = naQuery.eq('class_id', extraFilters.class_id);
+        return naQuery;
+      }, [['admission_date', false], ['id', true]]);
       return { data: data || [], columns: ['S.No', 'Name', 'SID', 'Admission no', 'Class', 'Admission date', 'Status', 'Remarks'] };
     }
     case 'tc_issued': {
-      let stQ = supabase.from('students').select('id').eq('app_id', appId);
-      if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
-      const { data: appStudents } = await stQ;
-      const tcRange = academicRange(extraFilters?.academicYearStart);
+      const appStudents = await allRows(() => {
+        let stQ = supabase.from('students').select('id').eq('app_id', appId);
+        if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
+        return stQ;
+      });
+      const tcRange = academicRange(extraFilters?.academicYearStart, yc);
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: ['S.No', 'Name', 'TC no', 'Reason', 'Date of leaving', 'Remarks'] };
       // reason_leaving/date_of_leaving were never real columns — this
@@ -479,53 +511,59 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // TransferCertificate.jsx itself; this report had the identical
       // stale field names and has likely been failing outright every
       // time it ran, since these columns don't exist to select at all.
-      let tcQ = supabase
-        .from('transfer_certificates')
-        .select('id, tc_no, reason, issue_date, students(full_name, sid, classes(class_name))')
-        .in('student_id', ids);
-      if (tcRange) tcQ = tcQ.gte('issue_date', tcRange.from).lte('issue_date', tcRange.to);
-      const { data, error } = await tcQ.order('issue_date', { ascending: false });
-      if (error) { console.error('tc_issued report failed:', error); throw error; }
+      const data = await fetchAllIn(ids, (chunk, f, t) => {
+        let tcQ = supabase
+          .from('transfer_certificates')
+          .select('id, tc_no, reason, issue_date, students(full_name, sid, classes(class_name))')
+          .in('student_id', chunk);
+        if (tcRange) tcQ = tcQ.gte('issue_date', tcRange.from).lte('issue_date', tcRange.to);
+        return tcQ.order('issue_date', { ascending: false }).order('id').range(f, t);
+      });
+      // Groups of students were read separately, so put the whole list in date order again.
+      data.sort((a, b) => String(b.issue_date || '').localeCompare(String(a.issue_date || '')));
       return { data: data || [], columns: ['S.No', 'Name', 'TC no', 'Reason', 'Date of leaving', 'Remarks'] };
     }
     case 'certificates_issued': {
-      let stQ = supabase.from('students').select('id').eq('app_id', appId);
-      if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
-      const { data: appStudents } = await stQ;
-      const certRange = academicRange(extraFilters?.academicYearStart);
+      const appStudents = await allRows(() => {
+        let stQ = supabase.from('students').select('id').eq('app_id', appId);
+        if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
+        return stQ;
+      });
+      const certRange = academicRange(extraFilters?.academicYearStart, yc);
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: ['S.No', 'Name', 'Certificate type', 'Cert no', 'Issued', 'Remarks'] };
       // issued_at was never a real column — the real column is
       // issue_date (a date, not a timestamp). Same mismatch already
       // found and fixed in Certificates.jsx itself.
-      let certQ = supabase
-        .from('certificates')
-        .select('id, cert_type, cert_no, issue_date, students(full_name, sid, classes(class_name))')
-        .in('student_id', ids);
-      if (certRange) certQ = certQ.gte('issue_date', certRange.from).lte('issue_date', certRange.to);
-      const { data, error } = await certQ.order('issue_date', { ascending: false });
-      if (error) { console.error('certificates_issued report failed:', error); throw error; }
+      const data = await fetchAllIn(ids, (chunk, f, t) => {
+        let certQ = supabase
+          .from('certificates')
+          .select('id, cert_type, cert_no, issue_date, students(full_name, sid, classes(class_name))')
+          .in('student_id', chunk);
+        if (certRange) certQ = certQ.gte('issue_date', certRange.from).lte('issue_date', certRange.to);
+        return certQ.order('issue_date', { ascending: false }).order('id').range(f, t);
+      });
+      data.sort((a, b) => String(b.issue_date || '').localeCompare(String(a.issue_date || '')));
       return { data: data || [], columns: ['S.No', 'Name', 'Certificate type', 'Cert no', 'Issued', 'Remarks'] };
     }
     case 'transport_enrollment': {
       const { data: routes } = await supabase.from('transport_routes').select('id, route_no, driver_name, vehicle_no').eq('app_id', appId);
       const routeIds = (routes || []).map((r) => r.id);
-      const { data: enrollments } = routeIds.length
-        ? await supabase.from('transport_students').select('route_id').in('route_id', routeIds)
-        : { data: [] };
+      // Counted by the database per route, so the 1,000-row limit cannot cut it short.
       const counts = {};
-      (enrollments || []).forEach((e) => { counts[e.route_id] = (counts[e.route_id] || 0) + 1; });
+      await Promise.all(routeIds.map(async (rid) => {
+        counts[rid] = await countWhere('transport_students', (q) => q.eq('route_id', rid));
+      }));
       const rows = (routes || []).map((r) => ({ id: r.id, route_no: r.route_no, driver_name: r.driver_name, vehicle_no: r.vehicle_no, count: counts[r.id] || 0 }));
       return { data: rows, columns: ['Route no', 'Driver', 'Vehicle', 'Students enrolled', 'Remarks'] };
     }
     case 'activities_participation': {
       const { data: activities } = await supabase.from('activities').select('id, activity_name, activity_type, activity_date').eq('app_id', appId);
       const activityIds = (activities || []).map((a) => a.id);
-      const { data: participants } = activityIds.length
-        ? await supabase.from('activity_participants').select('activity_id').in('activity_id', activityIds)
-        : { data: [] };
       const counts = {};
-      (participants || []).forEach((p) => { counts[p.activity_id] = (counts[p.activity_id] || 0) + 1; });
+      await Promise.all(activityIds.map(async (aid) => {
+        counts[aid] = await countWhere('activity_participants', (q) => q.eq('activity_id', aid));
+      }));
       const rows = (activities || []).map((a) => ({ id: a.id, activity_name: a.activity_name, activity_type: a.activity_type, activity_date: a.activity_date, count: counts[a.id] || 0 }));
       return { data: rows, columns: ['Activity', 'Type', 'Date', 'Participants', 'Remarks'] };
     }
@@ -535,43 +573,49 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // outings in that window whatever their status; with no range
       // chosen it still shows who is out right now.
       const cols = ['S.No', 'Name', 'SID', 'Class', 'Reason', 'Out since', 'Expected return', 'Status', 'Remarks'];
-      let stQ = supabase.from('students').select('id').eq('app_id', appId);
-      if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
-      const { data: appStudents } = await stQ;
+      const appStudents = await allRows(() => {
+        let stQ = supabase.from('students').select('id').eq('app_id', appId);
+        if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
+        return stQ;
+      });
       const ids = (appStudents || []).map((s) => s.id);
       if (ids.length === 0) return { data: [], columns: cols };
 
-      let hoQ = supabase
-        .from('hostel_outings')
-        .select('id, reason, out_date, out_time, return_expected, status, students(full_name, sid, classes(class_name))')
-        .in('student_id', ids);
-      if (extraFilters?.date_from) hoQ = hoQ.gte('out_date', extraFilters.date_from).lte('out_date', extraFilters.date_to);
-      else hoQ = hoQ.eq('status', 'out');
-      const { data, error: qErr } = await hoQ.order('out_date', { ascending: false });
-      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+      const data = await fetchAllIn(ids, (chunk, f, t) => {
+        let hoQ = supabase
+          .from('hostel_outings')
+          .select('id, reason, out_date, out_time, return_expected, status, students(full_name, sid, classes(class_name))')
+          .in('student_id', chunk);
+        if (extraFilters?.date_from) hoQ = hoQ.gte('out_date', extraFilters.date_from).lte('out_date', extraFilters.date_to);
+        else hoQ = hoQ.eq('status', 'out');
+        return hoQ.order('out_date', { ascending: false }).order('id').range(f, t);
+      });
+      data.sort((a, b) => String(b.out_date || '').localeCompare(String(a.out_date || '')));
       return { data: data || [], columns: cols };
     }
     case 'welfare_eligible': {
-      const weRange = academicRange(extraFilters?.academicYearStart);
-      let weQ = supabase
-        .from('students')
-        .select('id, full_name, sid, caste_category, admission_date, classes(class_name)')
-        .eq('app_id', appId)
-        .in('caste_category', ['SC', 'ST', 'BC-A', 'BC-B', 'BC-C', 'BC-D', 'BC-E', 'EWS']);
-      if (extraFilters?.class_id) weQ = weQ.eq('class_id', extraFilters.class_id);
-      // A past year means everyone admitted then; no year means who is
-      // on roll now.
-      if (weRange) weQ = weQ.gte('admission_date', weRange.from).lte('admission_date', weRange.to);
-      else weQ = weQ.eq('status', 'active');
-      const { data, error: qErr } = await weQ;
-      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+      const weRange = academicRange(extraFilters?.academicYearStart, yc);
+      const data = await allRows(() => {
+        let weQ = supabase
+          .from('students')
+          .select('id, full_name, sid, caste_category, admission_date, classes(class_name)')
+          .eq('app_id', appId)
+          .in('caste_category', ['SC', 'ST', 'BC-A', 'BC-B', 'BC-C', 'BC-D', 'BC-E', 'EWS']);
+        if (extraFilters?.class_id) weQ = weQ.eq('class_id', extraFilters.class_id);
+        // A past year means everyone admitted then; no year means who is
+        // on roll now.
+        if (weRange) weQ = weQ.gte('admission_date', weRange.from).lte('admission_date', weRange.to);
+        else weQ = weQ.eq('status', 'active');
+        return weQ;
+      });
       return { data: data || [], columns: ['S.No', 'Name', 'SID', 'Class', 'Category', 'Remarks'] };
     }
     case 'admissions_village_category_class': {
       const startYear = extraFilters?.academicYearStart;
       if (!startYear) return { data: [], columns: [] };
-      const rangeStart = `${startYear}-06-01`;
-      const rangeEnd = `${Number(startYear) + 1}-05-31`;
+      const yr = academicRange(startYear, yc);
+      const rangeStart = yr.from;
+      const rangeEnd = yr.to;
 
       // village_id/villages(name) removed — that join points at CTS's
       // electoral village table, which was never populated at
@@ -580,13 +624,12 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // here, which is exactly the "could not find relationship"
       // error this was producing. village_name is the real, plain-text
       // column StudentAdmission.jsx actually saves to.
-      const { data, error: qErr } = await supabase
+      const data = await allRows(() => supabase
         .from('students')
-        .select('caste_category, village_name, class_id, classes(class_name)')
+        .select('id, caste_category, village_name, class_id, classes(class_name)')
         .eq('app_id', appId)
         .gte('admission_date', rangeStart)
-        .lte('admission_date', rangeEnd);
-      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+        .lte('admission_date', rangeEnd));
 
       const grouped = {};
       (data || []).forEach((s) => {
@@ -609,30 +652,35 @@ async function runReportQuery(reportId, appId, extraFilters) {
       // filterable by class and academic year, and each month also
       // shows how many payments made it up — a bare total doesn't say
       // whether it came from 2 families or 40.
-      const mfRange = academicRange(extraFilters?.academicYearStart);
+      const mfRange = academicRange(extraFilters?.academicYearStart, yc);
       const cols = ['S.No', 'Month', 'Payments', 'Total collected', 'Remarks'];
 
-      let stQ = supabase.from('students').select('id').eq('app_id', appId);
-      if (extraFilters?.class_id) stQ = stQ.eq('class_id', extraFilters.class_id);
-      const { data: appStudents } = await stQ;
-      const sIds = (appStudents || []).map((s) => s.id);
-      if (sIds.length === 0) return { data: [], columns: cols };
-
-      const { data: dueRows } = await supabase.from('fee_dues').select('id').in('student_id', sIds);
-      const dueIdList = (dueRows || []).map((d) => d.id);
-      if (dueIdList.length === 0) return { data: [], columns: cols };
-
-      let fpQ = supabase.from('fee_payments').select('amount, paid_at').in('due_id', dueIdList);
-      if (mfRange) fpQ = fpQ.gte('paid_at', mfRange.from).lte('paid_at', `${mfRange.to}T23:59:59`);
-      const { data, error: qErr } = await fpQ;
-      if (qErr) { console.error('Report query failed:', qErr); throw qErr; }
+      const withDates = (q) => (mfRange
+        ? q.gte('paid_at', istDayStart(mfRange.from)).lte('paid_at', istDayEnd(mfRange.to))
+        : q);
+      let data;
+      if (extraFilters?.class_id) {
+        // One class: follow the class's students -> their fees -> the payments on those fees.
+        const appStudents = await allRows(() => supabase.from('students').select('id').eq('app_id', appId).eq('class_id', extraFilters.class_id));
+        const sIds = (appStudents || []).map((s) => s.id);
+        if (sIds.length === 0) return { data: [], columns: cols };
+        const dueRows = await fetchAllIn(sIds, (chunk, f, t) => supabase.from('fee_dues').select('id').in('student_id', chunk).order('id').range(f, t));
+        const dueIdList = (dueRows || []).map((d) => d.id);
+        if (dueIdList.length === 0) return { data: [], columns: cols };
+        data = await fetchAllIn(dueIdList, (chunk, f, t) => withDates(supabase.from('fee_payments').select('id, amount, paid_at').in('due_id', chunk)).order('id').range(f, t));
+      } else {
+        // Whole school: every payment of this school (each payment carries its school).
+        data = await allRows(() => withDates(supabase.from('fee_payments').select('id, amount, paid_at').eq('app_id', appId)));
+      }
 
       const byMonth = {};
       (data || []).forEach((p) => {
-        const d = new Date(p.paid_at);
+        // The month a payment belongs to is the month in India, not the viewer's browser or UTC.
+        const day = istDateOf(p.paid_at);
+        if (!day) return;
         // Sort key keeps chronological order; the label is what prints.
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const label = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+        const key = day.slice(0, 7);
+        const label = new Date(`${key}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' });
         if (!byMonth[key]) byMonth[key] = { month: label, total: 0, count: 0 };
         byMonth[key].total += Number(p.amount || 0);
         byMonth[key].count += 1;
@@ -663,13 +711,12 @@ async function runReportQuery(reportId, appId, extraFilters) {
     }
     case 'homework_compliance': {
       const { data: classRows } = await supabase.from('classes').select('id, class_name').eq('app_id', appId).order('class_order');
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 7);
-      const { data: recent } = await supabase
-        .from('homework_entries').select('class_id, section')
-        .eq('app_id', appId).gte('homework_date', cutoff.toISOString().slice(0, 10));
+      const cutoff = addDays(today, -7);
+      const recent = await allRows(() => supabase
+        .from('homework_entries').select('id, class_id, section')
+        .eq('app_id', appId).gte('homework_date', cutoff));
       const postedSet = new Set((recent || []).map((h) => `${h.class_id}|${h.section}`));
-      const { data: studentSections } = await supabase.from('students').select('class_id, section').eq('app_id', appId).eq('status', 'active');
+      const studentSections = await allRows(() => supabase.from('students').select('id, class_id, section').eq('app_id', appId).eq('status', 'active'));
       const realSections = new Set((studentSections || []).map((s) => `${s.class_id}|${s.section}`));
       const rows = [...realSections].map((key) => {
         const [classId, section] = key.split('|');
@@ -681,30 +728,32 @@ async function runReportQuery(reportId, appId, extraFilters) {
     case 'ptm_engagement': {
       const { data: sessions } = await supabase.from('ptm_sessions').select('id, title, session_date').eq('app_id', appId).order('session_date', { ascending: false });
       const sessionIds = (sessions || []).map((s) => s.id);
-      const { data: slots } = sessionIds.length
-        ? await supabase.from('ptm_slots').select('session_id, status').in('session_id', sessionIds)
-        : { data: [] };
-      const rows = (sessions || []).map((s) => {
-        const sessionSlots = (slots || []).filter((sl) => sl.session_id === s.id);
-        const booked = sessionSlots.filter((sl) => sl.status === 'booked').length;
-        return { id: s.id, title: s.title, session_date: s.session_date, total: sessionSlots.length, booked };
-      });
+      // Counted by the database per session, so the 1,000-row limit cannot cut it short.
+      const rows = await Promise.all((sessions || []).map(async (s) => {
+        const [total, booked] = await Promise.all([
+          countWhere('ptm_slots', (q) => q.eq('session_id', s.id)),
+          countWhere('ptm_slots', (q) => q.eq('session_id', s.id).eq('status', 'booked')),
+        ]);
+        return { id: s.id, title: s.title, session_date: s.session_date, total, booked };
+      }));
       return { data: rows, columns: ['Session', 'Date', 'Total slots', 'Booked', 'Remarks'] };
     }
     case 'caste_gender_filter': {
       const filters = extraFilters || {};
       // village_id/villages(name) removed — same fix as
       // admissions_village_category_class above.
-      let query = supabase
-        .from('students')
-        .select('id, full_name, sid, caste_category, gender, village_name, classes(class_name)')
-        .eq('app_id', appId)
-        .eq('status', 'active');
-      if (filters.caste_category) query = query.eq('caste_category', filters.caste_category);
-      if (filters.gender) query = query.eq('gender', filters.gender);
-      if (filters.village_name) query = query.eq('village_name', filters.village_name);
-      if (filters.class_id) query = query.eq('class_id', filters.class_id);
-      const { data } = await query;
+      const data = await allRows(() => {
+        let query = supabase
+          .from('students')
+          .select('id, full_name, sid, caste_category, gender, village_name, classes(class_name)')
+          .eq('app_id', appId)
+          .eq('status', 'active');
+        if (filters.caste_category) query = query.eq('caste_category', filters.caste_category);
+        if (filters.gender) query = query.eq('gender', filters.gender);
+        if (filters.village_name) query = query.eq('village_name', filters.village_name);
+        if (filters.class_id) query = query.eq('class_id', filters.class_id);
+        return query;
+      });
       return { data: data || [], columns: ['Name', 'SID', 'Class', 'Category', 'Gender', 'Village', 'Remarks'] };
     }
     default:
@@ -733,9 +782,10 @@ export function ReportEngine({ userTier = 'basic' }) {
   const [selectedExamId, setSelectedExamId] = useState('');
   // Date range defaults to the current academic year (June onwards) —
   // the same window the attendance report used to hardcode invisibly.
-  const academicStart = `${new Date().getMonth() >= 5 ? new Date().getFullYear() : new Date().getFullYear() - 1}-06-01`;
-  const [dateFrom, setDateFrom] = useState(academicStart);
-  const [dateTo, setDateTo] = useState(new Date().toISOString().slice(0, 10));
+  const schoolYear = tenantAcademicYear(tenant, istToday()); // this school's current year (default 1 June start)
+  const yc = { month: tenant?.academicYearStartMonth || 6, day: tenant?.academicYearStartDay || 1 };
+  const [dateFrom, setDateFrom] = useState(schoolYear.start);
+  const [dateTo, setDateTo] = useState(istToday());
   const [minDays, setMinDays] = useState('10');
   const [threshold, setThreshold] = useState('75');
   const [overdueOnly, setOverdueOnly] = useState(true);
@@ -745,7 +795,7 @@ export function ReportEngine({ userTier = 'basic' }) {
   const [fieldGroups, setFieldGroups] = useState({ personal: true, academic: true, family: true, location: false, identity: false });
   const [casteFilter, setCasteFilter] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
-  const [academicYearStart, setAcademicYearStart] = useState(String(new Date().getFullYear() - (new Date().getMonth() < 5 ? 1 : 0)));
+  const [academicYearStart, setAcademicYearStart] = useState(String(schoolYear.startYear));
   const [villageFilterQuery, setVillageFilterQuery] = useState('');
   const [villageFilterResults, setVillageFilterResults] = useState([]);
   // Was villageFilterId + a separate villages(name) lookup — village_name
@@ -904,12 +954,12 @@ export function ReportEngine({ userTier = 'basic' }) {
     setResult(null);
     setError('');
     try {
-      const res = await runReportQuery(report.id, tenant.appId, extraFilters);
+      const res = await runReportQuery(report.id, tenant.appId, extraFilters, yc);
       setResult({
         report,
         ...res,
         filterLabel: extraFilters ? buildFilterLabel(report, extraFilters) : '',
-        generatedAt: new Date().toLocaleString('en-IN'),
+        generatedAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
       });
 
       // Log to report_history
@@ -1076,9 +1126,10 @@ export function ReportEngine({ userTier = 'basic' }) {
                   <label htmlFor="reports-academic-year-start" style={S.label}>Academic year starting</label>
                   <select id="reports-academic-year-start" name="reports-academic-year-start" value={academicYearStart}
                     onChange={(e) => setAcademicYearStart(e.target.value)} style={{ ...S.input, cursor: 'pointer' }}>
-                    {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((y) => (
-                      <option key={y} value={y}>{y}-{String(y + 1).slice(-2)} (June {y} – May {y + 1})</option>
-                    ))}
+                    {Array.from({ length: 6 }, (_, i) => schoolYear.startYear - i).map((y) => {
+                      const yr = academicYearStartingIn(y, yc.month, yc.day);
+                      return <option key={y} value={y}>{yr.label} ({fmtIstDate(yr.start)} – {fmtIstDate(yr.end)})</option>;
+                    })}
                   </select>
                 </div>
               )}

@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTenant } from '../context/TenantContext';
+import { useSchoolAccess } from './SchoolAccessContext';
+import { moduleForPath } from './schoolAccess';
 
 const NAV_ITEMS = [
   { path: '/school/dashboard',     icon: '📊', label: 'Home' },
@@ -53,12 +55,27 @@ const MORE_GROUPS = [
     { path: '/school/business-details', icon: '🏫', label: 'Business details' },
   ] },
 ];
-const MORE_ITEMS = MORE_GROUPS.flatMap((g) => g.items);
 
 export default function SchoolNav() {
   const location  = useLocation();
   const { tenant } = useTenant();
+  const access = useSchoolAccess();
   const [showMore, setShowMore] = useState(false);
+
+  // Only the screens this person may open (same list the route guard uses,
+  // schoolAccess.js). Outside the access layer (no context) nothing is hidden.
+  function canSee(path) {
+    if (!access) return true;
+    const moduleCode = moduleForPath(path);
+    if (moduleCode === null) return true;
+    if (access.isOwner) return true;
+    return moduleCode !== undefined && access.can(moduleCode);
+  }
+  const navItems = NAV_ITEMS.filter((i) => canSee(i.path));
+  const moreGroups = MORE_GROUPS
+    .map((g) => ({ ...g, items: g.items.filter((i) => canSee(i.path)) }))
+    .filter((g) => g.items.length > 0);
+  const MORE_ITEMS = moreGroups.flatMap((g) => g.items);
 
   return (
     <>
@@ -72,7 +89,7 @@ export default function SchoolNav() {
       zIndex: 100,
       fontFamily: "'Inter', -apple-system, sans-serif",
     }}>
-      {NAV_ITEMS.map((item) => {
+      {navItems.map((item) => {
         const active = location.pathname === item.path ||
           (item.path !== '/school/dashboard' && location.pathname.startsWith(item.path)) ||
           (item.alsoActive || []).some((p) => location.pathname.startsWith(p));
@@ -89,6 +106,7 @@ export default function SchoolNav() {
           </Link>
         );
       })}
+      {MORE_ITEMS.length > 0 && (
       <button onClick={() => setShowMore(true)}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', minWidth: 56, padding: '4px 0', cursor: 'pointer' }}>
         <span style={{ fontSize: 20, lineHeight: 1 }}>⋯</span>
@@ -96,16 +114,17 @@ export default function SchoolNav() {
           More
         </span>
       </button>
+      )}
     </nav>
 
-    {showMore && (
+    {showMore && MORE_ITEMS.length > 0 && (
       <div onClick={() => setShowMore(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'flex-end' }}>
         <div onClick={(e) => e.stopPropagation()} style={{ background: '#161618', width: '100%', maxHeight: '80vh', overflowY: 'auto', borderRadius: '16px 16px 0 0', padding: '20px 16px 28px', fontFamily: "'Inter', -apple-system, sans-serif" }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>More</p>
             <button onClick={() => setShowMore(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 18, cursor: 'pointer' }}>✕</button>
           </div>
-          {MORE_GROUPS.map((group) => (
+          {moreGroups.map((group) => (
             <div key={group.label} style={{ marginBottom: 18 }}>
               <p style={{ margin: '0 0 6px 4px', fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>{group.label}</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>

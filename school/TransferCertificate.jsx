@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import SchoolNav from '../shared/SchoolNav';
 import BugReporter from '../shared/BugReporter';
+import { istToday, tenantAcademicYear } from '../shared/schoolDates';
 
 const LEAVING_REASONS = [
   'Joining another school',
@@ -127,7 +128,8 @@ export default function TransferCertificate() {
     setNoFeeRecordsFound((dues || []).length === 0);
 
     // Get attendance percentage
-    const yearStart = `${new Date().getFullYear()}-06-01`;
+    // Attendance for the current school year, as the school itself defines it.
+    const yearStart = tenantAcademicYear(tenant).start;
     const { count: total }   = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', s.id).gte('date', yearStart);
     const { count: present } = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', s.id).eq('status', 'P').gte('date', yearStart);
     setAttendancePct(total > 0 ? Math.round(((present || 0) / total) * 100) : null);
@@ -149,7 +151,7 @@ export default function TransferCertificate() {
     if (!reason)                           { setError('Select reason for leaving.'); return false; }
     if (reason === 'Other' && !reasonOther.trim()) { setError('Please specify the reason.'); return false; }
     if (!leavingDate)                      { setError('Select date of leaving.'); return false; }
-    if (new Date(leavingDate) > new Date()) { setError('Date of leaving cannot be in the future.'); return false; }
+    if (leavingDate > istToday()) { setError('Date of leaving cannot be in the future.'); return false; }
     if (isBlocked) {
       setError(hasPendingDues
         ? `Fee dues of ₹${totalPending.toLocaleString('en-IN')} are pending. Clear dues or provide an override reason.`
@@ -380,7 +382,7 @@ export default function TransferCertificate() {
                     <div>
                       <label htmlFor="tc-leaving-date" style={S.label}>Date of leaving *</label>
                       <input id="tc-leaving-date" name="tc-leaving-date" type="date" value={leavingDate}
-                        max={new Date().toISOString().slice(0, 10)}
+                        max={istToday()}
                         onChange={(e) => { setLeavingDate(e.target.value); setError(''); }}
                         style={S.input(!!error && !leavingDate)} />
                     </div>

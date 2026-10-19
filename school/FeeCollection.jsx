@@ -1,5 +1,5 @@
 // school/FeeCollection.jsx — FINAL
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useTenant } from '../context/TenantContext';
 import { sanitize, validators } from '../shared/useFormValidation';
@@ -25,6 +25,10 @@ const S = {
 
 export default function FeeCollection() {
   const { tenant } = useTenant();
+  // Only the principal can give a discount at the counter. The database enforces
+  // the same rule; this just keeps the box off the screen for everyone else.
+  const isPrincipal = tenant?.role === 'principal';
+  const searchSeq = useRef(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching]   = useState(false);
@@ -36,6 +40,7 @@ export default function FeeCollection() {
   const [amountErrors, setAmountErrors]     = useState({});
   const [discountPct, setDiscountPct]       = useState('');
   const [discountError, setDiscountError]   = useState('');
+  const [discountReason, setDiscountReason] = useState('');
   const [paymentMode, setPaymentMode]       = useState('Cash');
   // upi_id is branch-level business data, not part of TenantContext,
   // so it's fetched here on mount. Same approach as HospitalBilling.
@@ -64,15 +69,28 @@ export default function FeeCollection() {
 
   async function searchStudents(q) {
     setSearchQuery(q);
-    if (q.trim().length < 2) { setSearchResults([]); return; }
+    // Commas, brackets, quotes and wildcard characters mean something inside the
+    // search filter, so a stray one in the typed text could break or change the
+    // search. They are taken out before the text is used.
+    const safe = q.replace(/[,()"\\%*]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (safe.length < 2) {
+      searchSeq.current += 1;
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    const mySeq = ++searchSeq.current;
     setSearching(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('students')
       .select('id, full_name, sid, parent_phone, class_id')
       .eq('app_id', tenant.appId)
       .eq('status', 'active')
-      .or(`full_name.ilike.%${q}%,sid.ilike.%${q}%,parent_phone.ilike.%${q}%`)
+      .or(`full_name.ilike.%${safe}%,sid.ilike.%${safe}%,parent_phone.ilike.%${safe}%`)
       .limit(8);
+    // A newer search has started since this one — its answer is the one to show.
+    if (mySeq !== searchSeq.current) return;
+    if (error) console.error('Student search failed:', error);
     setSearchResults(data || []);
     setSearching(false);
   }
@@ -113,6 +131,8 @@ export default function FeeCollection() {
 
     if (entered < 0) {
       setAmountErrors((prev) => ({ ...prev, [dueId]: 'Amount cannot be negative' }));
+    } else if (Math.abs(entered * 100 - Math.round(entered * 100)) > 1e-6) {
+      setAmountErrors((prev) => ({ ...prev, [dueId]: 'Use at most 2 decimal places' }));
     } else if (entered > balance) {
       setAmountErrors((prev) => ({ ...prev, [dueId]: `Cannot exceed balance of ${currency(balance)}` }));
     } else if (entered === 0) {
@@ -126,25 +146,38 @@ export default function FeeCollection() {
     const sanitized = sanitize.percentage(value);
     setDiscountPct(sanitized);
     const num = Number(sanitized);
-    if (num < 0 || num > 100) {
-      setDiscountError('Discount must be between 0 and 100');
+    if (num < 0 || num >= 100) {
+      setDiscountError('Discount must be 0 or more and less than 100');
     } else {
       setDiscountError('');
     }
   }
 
-  const subtotal = useMemo(() => {
-    return selectedDueIds.reduce((sum, dueId) => {
-      const due      = dues.find((d) => d.id === dueId);
-      const balance  = due ? balanceFor(due) : 0;
-      const custom   = customAmount[dueId];
-      const amount   = custom !== undefined ? Number(custom) : balance;
-      return sum + (amount > 0 ? amount : 0);
-    }, 0);
-  }, [selectedDueIds, customAmount, dues]);
+  // One entry per selected fee. Money is worked out in paise (whole numbers) so the
+  // discount and the payment always add up exactly to the amount being settled.
+  const discountPctNum = Number(discountPct || 0);
+  const lines = useMemo(() => {
+    return selectedDueIds.map((dueId) => {
+      const due     = dues.find((d) => d.id === dueId);
+      const balance = due ? balanceFor(due) : 0;
+      const custom  = customAmount[dueId];
+      const amount  = custom !== undefined ? Number(custom) : balance;
+      const grossPaise = amount > 0 ? Math.round(amount * 100) : 0;
+      const discPaise  = isPrincipal && discountPctNum > 0 && discountPctNum < 100
+        ? Math.floor((grossPaise * discountPctNum) / 100 + 1e-9)
+        : 0;
+      return { dueId, due, grossPaise, discPaise, payPaise: grossPaise - discPaise };
+    });
+  }, [selectedDueIds, customAmount, dues, discountPctNum, isPrincipal]);
 
-  const discountAmount  = Math.min(subtotal, (subtotal * Number(discountPct || 0)) / 100);
-  const totalToCollect  = Math.max(0, subtotal - discountAmount);
+  const subtotal       = lines.reduce((s, l) => s + l.grossPaise, 0) / 100;
+  const discountAmount = lines.reduce((s, l) => s + l.discPaise, 0) / 100;
+  const totalToCollect = lines.reduce((s, l) => s + l.payPaise, 0) / 100;
+  // A payment link always covers the full balance of the selected fees.
+  const linkAmount = selectedDueIds.reduce((sum, dueId) => {
+    const due = dues.find((d) => d.id === dueId);
+    return sum + (due ? balanceFor(due) : 0);
+  }, 0);
 
   async function sendPaymentLink() {
     if (selectedDueIds.length === 0) { setSubmitError('Select at least one fee first.'); return; }
@@ -152,53 +185,35 @@ export default function FeeCollection() {
     setSubmitError('');
     setSendingLink(true);
 
-    // link_token is the sole access control on the public /pay/:token
-    // page (no login there) — a real, unguessable random value, same
-    // idea as the session_id used for PTM booking links.
-    const linkToken = crypto.randomUUID();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    const { error: linkErr } = await supabase.from('fee_payment_links').insert({
-      app_id: tenant.appId,
-      student_id: student.id,
-      due_ids: selectedDueIds,
-      amount: totalToCollect,
-      status: 'pending',
-      link_token: linkToken,
-      expires_at: expiresAt.toISOString(),
+    // The server makes the link: it works out the amount from the fees' balances,
+    // checks they all belong to this one student and this school, and creates the
+    // secret token. The amount is never taken from this screen.
+    const { data: link, error: linkErr } = await supabase.rpc('create_fee_payment_link', {
+      p_due_ids: selectedDueIds,
     });
 
-    if (linkErr) {
+    if (linkErr || !link?.link_token) {
       console.error('Creating payment link failed:', linkErr);
-      setSubmitError(`Could not create payment link: ${linkErr.message || 'please try again.'}`);
+      setSubmitError(`Could not create payment link: ${linkErr?.message || 'please try again.'}`);
       setSendingLink(false);
       return;
     }
 
-    const paymentUrl = `${window.location.origin}/pay/${linkToken}`;
-    // 'fee_payment_link' is a new WhatsApp message type — matches the
-    // established calling convention (see 'ptm_invite' in
-    // PTMScheduling.jsx), but send-whatsapp itself needs its own
-    // template for this type to actually produce a message. Flagged
-    // for verification since that function's source wasn't available
-    // to confirm directly.
+    const paymentUrl = `${window.location.origin}/pay/${link.link_token}`;
     const { error: waErr } = await supabase.functions.invoke('send-whatsapp', {
-      // Checked against the real send-whatsapp source: it resolves the
-      // recipient by looking up studentId itself (via resolveRecipient),
-      // NOT from a phone/studentName passed directly — those two fields
-      // would have been silently ignored, sending to nobody. paymentUrl
-      // is now in that function's variable-2 fallback chain, so the
-      // actual link reaches the message.
       body: {
         type: 'fee_payment_link',
         studentId: student.id,
         paymentUrl,
       },
     });
-    if (waErr) console.error('Sending payment link via WhatsApp failed:', waErr);
 
     setSendingLink(false);
+    if (waErr) {
+      console.error('Sending payment link via WhatsApp failed:', waErr);
+      setSubmitError(`The payment link was created, but WhatsApp could not send it. Share this link with the parent yourself: ${paymentUrl}`);
+      return;
+    }
     setLinkSent(true);
     setTimeout(() => setLinkSent(false), 5000);
   }
@@ -212,6 +227,8 @@ export default function FeeCollection() {
     // Check all amount errors
     const hasAmountErrors = Object.values(amountErrors).some(Boolean);
     if (hasAmountErrors) { setSubmitError('Please fix the amount errors above.'); return; }
+    if (discountError) { setSubmitError('Please fix the discount above.'); return; }
+    if (discountAmount > 0 && !discountReason.trim()) { setSubmitError('Enter the reason for the discount.'); return; }
 
     // Real UPI reference numbers are a 12-16 digit core (NPCI
     // standard); bank UTRs for other transfer types run up to 22
@@ -234,55 +251,60 @@ export default function FeeCollection() {
     }
 
     setSaving(true);
-    const receiptNo = 'RCPT-' + Date.now();
 
-    const rows = selectedDueIds.map((dueId) => {
-      const due     = dues.find((d) => d.id === dueId);
-      const balance = due ? balanceFor(due) : 0;
-      const custom  = customAmount[dueId];
-      const amount  = custom !== undefined ? Number(custom) : balance;
+    // The server records everything in one step: it checks every balance, numbers
+    // the receipt, applies the discount (principal only) and saves the payments.
+    // If anything is wrong, nothing at all is saved.
+    const payLines = lines
+      .filter((l) => l.payPaise > 0)
+      .map((l) => ({ due_id: l.dueId, amount: l.payPaise / 100 }));
+    const discounts = lines
+      .filter((l) => l.discPaise > 0)
+      .map((l) => ({ due_id: l.dueId, amount: l.discPaise / 100, reason: discountReason.trim() }));
 
-      return {
-        due_id:         dueId,
-        amount:         amount,
-        payment_mode:   paymentMode,
-        transaction_id: transactionId.trim() || null,
-        receipt_no:     receiptNo,
-        collected_by:   tenant.userRowId,
-        branch_id:      tenant.branchId,
-      };
+    const { data: result, error } = await supabase.rpc('collect_fee', {
+      p_lines:     payLines,
+      p_mode:      paymentMode,
+      p_txn:       transactionId.trim() || null,
+      p_discounts: discounts,
     });
 
-    const { error } = await supabase.from('fee_payments').insert(rows);
-
-    if (error) {
+    if (error || !result?.receipt_no) {
       console.error('Recording payment failed:', error);
-      setSubmitError(error.message || 'Failed to record payment. Please try again.');
+      setSubmitError(error?.message || 'Failed to record payment. Please try again.');
       setSaving(false);
       return;
     }
 
-    // WhatsApp receipt
+    const receiptNo = result.receipt_no;
+
+    // WhatsApp receipt — "sent" is shown only if it really was.
+    let whatsappSent = false;
     if (student?.parent_phone) {
-      await supabase.functions.invoke('send-whatsapp', {
+      const { error: waErr } = await supabase.functions.invoke('send-whatsapp', {
         body: { studentId: student.id, type: 'fee_receipt', receiptNo },
       });
+      if (waErr) console.error('Sending WhatsApp receipt failed:', waErr);
+      else whatsappSent = true;
     }
 
     setReceipt({
       receiptNo, amount: totalToCollect, student, paymentMode, transactionId: transactionId.trim() || null,
-      date: new Date().toLocaleDateString('en-IN'),
+      date: new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' }),
       orgName: tenant?.orgName || 'School',
-      items: rows.map((r) => {
-        const due = dues.find((d) => d.id === r.due_id);
-        return { label: due?.fee_type || due?.category || 'Fee', amount: r.amount };
-      }),
-      subtotal, discountPct: Number(discountPct || 0), discountAmount,
+      items: lines.map((l) => ({
+        label: l.due?.fee_type || l.due?.category || 'Fee',
+        amount: l.grossPaise / 100,
+      })),
+      subtotal, discountPct: discountAmount > 0 ? discountPctNum : 0, discountAmount,
+      whatsappSent,
     });
     setSelectedDueIds([]);
     setCustomAmount({});
     setAmountErrors({});
     setDiscountPct('');
+    setDiscountError('');
+    setDiscountReason('');
     setTransactionId('');
     setSaving(false);
 
@@ -359,7 +381,7 @@ export default function FeeCollection() {
                 <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 600, color: '#6AAA90' }}>✓ Payment recorded — {receipt.receiptNo}</p>
                 <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
                   {currency(receipt.amount)} via {receipt.paymentMode} · {receipt.date}
-                  {student.parent_phone ? ' · WhatsApp receipt sent' : ''}
+                  {receipt.whatsappSent ? ' · WhatsApp receipt sent' : (student.parent_phone ? ' · WhatsApp receipt could not be sent' : '')}
                 </p>
                 <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                   <button onClick={() => window.print()}
@@ -439,7 +461,7 @@ export default function FeeCollection() {
                   <div style={S.card}>
                     <label style={S.label}>Payment details · చెల్లింపు వివరాలు</label>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isPrincipal ? '1fr 1fr' : '1fr', gap: 12, marginBottom: 14 }}>
                       <div>
                         <label htmlFor="fee-payment-mode" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>Payment mode</label>
                         <select id="fee-payment-mode" name="fee-payment-mode" value={paymentMode} onChange={(e) => { setPaymentMode(e.target.value); setTxnError(''); }}
@@ -469,6 +491,7 @@ export default function FeeCollection() {
                           </p>
                         )}
                       </div>
+                      {isPrincipal && (
                       <div>
                         <label htmlFor="fee-discount-pct" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>Discount %</label>
                         <input
@@ -481,7 +504,23 @@ export default function FeeCollection() {
                         />
                         {discountError && <p style={S.fieldErr}>⚠ {discountError}</p>}
                       </div>
+                      )}
                     </div>
+
+                    {isPrincipal && discountPctNum > 0 && !discountError && (
+                      <div style={{ marginBottom: 14 }}>
+                        <label htmlFor="fee-discount-reason" style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 6, display: 'block' }}>
+                          Reason for discount <span style={{ color: '#E05A5A' }}>*</span>
+                        </label>
+                        <input
+                          id="fee-discount-reason" name="fee-discount-reason"
+                          value={discountReason}
+                          onChange={(e) => setDiscountReason(e.target.value.slice(0, 200))}
+                          placeholder="e.g. Staff child, sibling, scholarship"
+                          style={S.input(false)}
+                        />
+                      </div>
+                    )}
 
                     {['UPI', 'Card', 'Online', 'DD', 'Cheque'].includes(paymentMode) && (
                       <div style={{ marginBottom: 14 }}>
@@ -537,7 +576,7 @@ export default function FeeCollection() {
                       <button onClick={sendPaymentLink} disabled={sendingLink || !student?.parent_phone}
                         title={!student?.parent_phone ? 'No WhatsApp number on file for this student' : ''}
                         style={{ width: '100%', marginTop: 8, padding: 12, background: 'transparent', color: student?.parent_phone ? '#5A9ADF' : 'rgba(255,255,255,0.25)', border: `1px solid ${student?.parent_phone ? 'rgba(90,154,223,0.3)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: (sendingLink || !student?.parent_phone) ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                        {sendingLink ? 'Sending...' : '📱 Send payment link instead — parent pays remotely'}
+                        {sendingLink ? 'Sending...' : `📱 Send payment link for ${currency(linkAmount)} — parent pays remotely`}
                       </button>
                     )}
                   </>
@@ -607,7 +646,7 @@ export default function FeeCollection() {
           </div>
 
           <div style={{ marginTop: 20, padding: '6px 10px', background: '#f5f5f5', borderRadius: 4, fontSize: 10, color: '#888', fontFamily: 'monospace' }}>
-            Receipt No: {receipt.receiptNo} · Generated: {new Date().toLocaleString('en-IN')} · MPower
+            Receipt No: {receipt.receiptNo} · Generated: {new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
           </div>
         </div>
       )}

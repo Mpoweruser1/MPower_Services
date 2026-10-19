@@ -110,6 +110,7 @@ import BusinessDetails from './shared/BusinessDetails';
 import HospitalNav from './shared/HospitalNav';
 import { rolesFor } from './shared/hospitalAccess';
 import SchoolNav from './shared/SchoolNav';
+import SchoolAccessLayout from './shared/SchoolAccessLayout';
 
 // ─────────────────────────────────────────────────────────────
 // Auth guard
@@ -153,6 +154,15 @@ const SCREEN_NAMES = {
   '/school/id-cards': 'ID cards', '/school/search': 'Search',
   '/school/classes': 'Manage classes',
   '/school/business-details': 'Business details',
+  '/school/student': 'Find student', '/school/timetable': 'Timetable',
+  '/school/promote-students': 'Promote students', '/school/staff': 'Manage staff',
+  '/school/subjects': 'Manage subjects', '/school/fee-structure': 'Fee structure',
+  '/school/fee-structure-report': 'Fee structure report', '/school/holidays': 'Holiday management',
+  '/school/birthdays': 'Birthday wishes', '/school/activity-finance': 'Activity finance',
+  '/school/homework': 'Homework diary', '/school/ptm': 'Parent meetings',
+  '/school/marks-entry': 'Marks entry', '/school/report-card': 'Report card',
+  '/school/academic-analytics': 'Academic analytics', '/school/attendance-analytics': 'Attendance analytics',
+  '/school/fee-analytics': 'Fee analytics', '/school/hostel-welfare-report': 'Hostel welfare report',
   '/hospital/dashboard': 'Dashboard', '/hospital/patients/new': 'Patient registration',
   '/hospital/opd': 'OPD visit', '/hospital/lab': 'Lab reports',
   '/hospital/billing': 'Billing', '/hospital/ipd': 'IPD management',
@@ -346,6 +356,10 @@ function AppRoutes() {
 
       {/* ── School — only School logins (RequireModule, 9-10-2026) ── */}
       <Route element={<RequireModule modules={['school']} blockRoles={['developer','support']} />}>
+      {/* Per-role screen access (School Round 1, 16-10-2026): every School screen
+          below needs "View" on its permission module — see shared/schoolAccess.js.
+          Principal / doctor always pass; the Dashboard is open to every login. */}
+      <Route element={<SchoolAccessLayout />}>
       <Route path="/school/dashboard"
         element={<RequireAuth><SchoolDashboard /></RequireAuth>} />
       <Route path="/school/admission"
@@ -415,6 +429,7 @@ function AppRoutes() {
         element={<RequireAuth><FeeAnalytics /></RequireAuth>} />
       <Route path="/school/hostel-welfare-report"
         element={<RequireAuth><HostelWelfareReport /></RequireAuth>} />
+      </Route>
       </Route>
 
       {/* ── Hospital — only Hospital logins (RequireModule, 9-10-2026) ── */}

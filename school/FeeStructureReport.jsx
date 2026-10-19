@@ -13,6 +13,7 @@ import PrintHeader from '../shared/PrintHeader';
 import { exportToExcel } from '../shared/exportExcel';
 import TierGate from '../shared/TierGate';
 import BugReporter from '../shared/BugReporter';
+import { fetchAllIn, istToday } from '../shared/schoolDates';
 
 function currency(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
 
@@ -56,11 +57,16 @@ function FeeStructureReportContent() {
     const structureIds = (structures || []).map((s) => s.id);
     if (structureIds.length === 0) { setRows([]); setLoading(false); return; }
 
-    const { data: allDues, error: dErr } = await supabase
-      .from('fee_dues')
-      .select('fee_structure_id, amount_due, list_amount, concession_amount, student_id, students(full_name, sid, status), fee_payments(amount)')
-      .in('fee_structure_id', structureIds);
-    if (dErr) { console.error('Loading fee dues failed:', dErr); setLoadError(dErr.message || 'Could not load fee dues.'); setLoading(false); return; }
+    // Read page by page: the database returns at most 1,000 rows per request,
+    // and a school with several fees per student passes that quickly.
+    let allDues;
+    try {
+      allDues = await fetchAllIn(structureIds, (chunk, from, to) => supabase
+        .from('fee_dues')
+        .select('id, fee_structure_id, amount_due, list_amount, concession_amount, student_id, students(full_name, sid, status), fee_payments(amount)')
+        .in('fee_structure_id', chunk)
+        .order('id').range(from, to));
+    } catch (dErr) { console.error('Loading fee dues failed:', dErr); setLoadError(dErr.message || 'Could not load fee dues.'); setLoading(false); return; }
 
     const dues = (allDues || []).filter((d) => d.students?.status === 'active');
 
@@ -107,12 +113,12 @@ function FeeStructureReportContent() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `fee_structure_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `fee_structure_report_${istToday()}.csv`;
     a.click();
   }
 
   function exportExcelFile() {
-    exportToExcel(`fee_structure_report_${new Date().toISOString().slice(0, 10)}`, [
+    exportToExcel(`fee_structure_report_${istToday()}`, [
       { name: 'Fee Structure Report', headers: exportHeaders, rows: exportRows },
     ]);
   }
