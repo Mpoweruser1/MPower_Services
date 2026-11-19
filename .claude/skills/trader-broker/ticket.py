@@ -5,7 +5,8 @@ This tool never talks to a broker and never places anything. It does three
 things around the one moment that matters, your yes:
 
   show      renders each proposed order as a plain-English ticket plus the
-            exact JSON Claude will send to Alpaca's place_stock_order tool.
+            exact JSON Claude will send to Alpaca's place_stock_order tool (or
+            Zerodha Kite MCP place_order when "broker": "zerodha").
             An order is READY only if trader-risk passed THIS exact order
             today (matched by fingerprint) and nobody has decided on it yet.
   approve   records your explicit yes for ONE order, with your reply word for
@@ -44,6 +45,13 @@ STRING_FIELDS = ("qty", "notional", "limit_price", "stop_price", "trail_price", 
 TIF_WORDS = {"day": "good for today", "gtc": "good until canceled", "opg": "at the open",
              "cls": "at the close", "ioc": "immediate or cancel", "fok": "fill or kill"}
 YES_WORDS = ("yes", "y")
+CURRENCY = {"sym": "$"}  # "₹" when the broker is Zerodha (set in _load)
+
+# Zerodha Kite MCP (github.com/zerodha/kite-mcp-server) place_order arguments.
+KITE_ORDER_TYPES = {"market": "MARKET", "limit": "LIMIT", "stop": "SL-M", "stop_limit": "SL"}
+KITE_VALIDITY = {"day": "DAY", "ioc": "IOC"}
+KITE_EXCHANGES = ("NSE", "BSE")
+KITE_LEVERAGED_PRODUCTS = ("MIS", "NRML", "MTF")
 BATCH_WORDS = {"all", "every", "everything", "rest", "remaining", "them", "both", "batch", "each"}
 DOUBT_WORDS = {"no", "not", "dont", "don't", "wait", "cancel", "stop", "but", "maybe", "later",
                "hold", "unless", "if"}
@@ -118,7 +126,71 @@ def tool_input(order):
 def _money(v):
     f = float(v)
     s = "{:,.2f}".format(f)
-    return "$" + (s[:-3] if s.endswith(".00") else s)
+    return CURRENCY["sym"] + (s[:-3] if s.endswith(".00") else s)
+
+
+def is_zerodha(cfg):
+    return str(cfg.get("broker", "alpaca")).lower() in ("zerodha", "kite")
+
+
+def kite_mode(cfg):
+    """manual (default): you place the order yourself in the Kite app.
+    mcp: Claude calls place_order on your self-hosted Kite MCP server."""
+    return "mcp" if str(cfg.get("zerodha_mode", "manual")).lower() == "mcp" else "manual"
+
+
+def kite_input(order, cfg):
+    """The exact arguments for the Kite MCP place_order tool, or raise TicketError
+    with the reason this order cannot go to Zerodha as it stands."""
+    if order.get("notional") is not None and order.get("qty") is None:
+        raise TicketError("Zerodha takes a whole number of shares, not a rupee amount; "
+                          "re-size with trader-budget --whole-shares --prices trader/prices.json")
+    try:
+        qf = float(order.get("qty"))
+    except (TypeError, ValueError):
+        raise TicketError("the order has no share quantity")
+    if qf < 1 or qf != int(qf):
+        raise TicketError("Zerodha needs a whole number of shares (got %s); "
+                          "re-size with trader-budget --whole-shares" % _str_num(order.get("qty")))
+    typ = str(order.get("type", "market")).lower()
+    if typ not in KITE_ORDER_TYPES:
+        raise TicketError("order type %s has no Zerodha equivalent (use market, limit, stop or stop_limit)" % typ)
+    tif = str(order.get("time_in_force", "day")).lower()
+    if tif not in KITE_VALIDITY:
+        raise TicketError("time in force %s has no Zerodha equivalent (use day or ioc)" % tif)
+    exchange = str(order.get("exchange") or cfg.get("exchange", "NSE")).upper()
+    if exchange not in KITE_EXCHANGES:
+        raise TicketError("exchange %s is not allowed here (equity on NSE or BSE only)" % exchange)
+    product = str(cfg.get("kite_product", "CNC")).upper()
+    if product in KITE_LEVERAGED_PRODUCTS and not cfg.get("allow_margin"):
+        raise TicketError("product %s uses intraday or margin leverage; this pack uses CNC (delivery) "
+                          "unless \"allow_margin\": true is in the config" % product)
+    out = {"variety": "amo" if cfg.get("kite_amo") else "regular", "exchange": exchange,
+           "tradingsymbol": str(order.get("symbol", "")).upper(),
+           "transaction_type": str(order.get("side", "")).upper(),
+           "quantity": int(qf), "product": product, "order_type": KITE_ORDER_TYPES[typ],
+           "validity": KITE_VALIDITY[tif]}
+    if typ in ("limit", "stop_limit"):
+        out["price"] = float(order["limit_price"])
+    if typ in ("stop", "stop_limit"):
+        out["trigger_price"] = float(order["stop_price"])
+    if out["transaction_type"] not in ("BUY", "SELL"):
+        raise TicketError("the order side must be buy or sell")
+    return out
+
+
+def broker_name(cfg):
+    if is_zerodha(cfg):
+        return "Zerodha"
+    return "Interactive Brokers" if str(cfg.get("broker", "")).lower() == "ibkr" else "Alpaca"
+
+
+def order_tool(cfg):
+    return "place_order" if is_zerodha(cfg) else "place_stock_order"
+
+
+def call_input(order, cfg):
+    return kite_input(order, cfg) if is_zerodha(cfg) else tool_input(order)
 
 
 def plain(order):
@@ -209,9 +281,14 @@ def risk_verdict(risk, fp, today):
     return None, "this exact order was not in the last risk check (it changed or is new); run check.py again"
 
 
-def status_of(order, risk, state, today):
+def status_of(order, risk, state, today, cfg=None):
     """(ready, label, risk_result)"""
     fp = fingerprint(order)
+    if cfg is not None and is_zerodha(cfg):
+        try:
+            kite_input(order, cfg)
+        except TicketError as e:
+            return False, "NOT READY for Zerodha: %s" % e, None
     rv, why = risk_verdict(risk, fp, today)
     if rv is None:
         return False, "NOT READY: " + why, None
@@ -221,7 +298,7 @@ def status_of(order, risk, state, today):
     if rec:
         st = rec.get("status")
         if st == "approved":
-            return False, "APPROVED by you at %s, waiting for the place_stock_order call" % rec.get("at"), rv
+            return False, "APPROVED by you at %s, waiting for the order to be placed" % rec.get("at"), rv
         return False, "DONE: %s at %s" % (st, rec.get("at")), rv
     return True, "READY: trader-risk PASS, waiting for your yes", rv
 
@@ -229,18 +306,34 @@ def status_of(order, risk, state, today):
 # ---------------------------------------------------------------- rendering
 
 def render(order, idx, total, cfg, risk, state, today):
-    ready, label, rv = status_of(order, risk, state, today)
+    ready, label, rv = status_of(order, risk, state, today, cfg)
     broker = str(cfg.get("broker", "alpaca")).lower()
     paper = cfg.get("paper", True)
     acct = "PAPER account" if paper else "LIVE ACCOUNT, REAL MONEY"
-    lines = ["ORDER %d of %d, %s, %s" % (idx, total, acct, "Interactive Brokers" if broker == "ibkr" else "Alpaca"),
+    if is_zerodha(cfg):
+        acct = "LIVE ACCOUNT, REAL MONEY"  # Zerodha has no paper account
+    lines = ["ORDER %d of %d, %s, %s" % (idx, total, acct, broker_name(cfg)),
              "  " + plain(order)]
     if order.get("why"):
         lines.append("  why: " + order["why"])
     lines.append("  " + label)
     for w in (rv or {}).get("warnings", []):
         lines.append("  note: " + w)
-    if broker == "ibkr":
+    if is_zerodha(cfg) and label.startswith("NOT READY for Zerodha"):
+        pass
+    elif is_zerodha(cfg) and kite_mode(cfg) == "manual":
+        k = kite_input(order, cfg)
+        lines.append("  You place this yourself in the Kite app (Claude cannot place Zerodha orders):")
+        lines.append("    %s %s on %s, qty %d, %s, product %s, validity %s%s%s" % (
+            k["transaction_type"], k["tradingsymbol"], k["exchange"], k["quantity"], k["order_type"],
+            k["product"], k["validity"],
+            (", price %s" % _money(k["price"])) if "price" in k else "",
+            (", trigger %s" % _money(k["trigger_price"])) if "trigger_price" in k else ""))
+    elif is_zerodha(cfg):
+        lines.append("  Claude will call the Kite MCP place_order with exactly:")
+        for l in json.dumps(kite_input(order, cfg), indent=2).splitlines():
+            lines.append("    " + l)
+    elif broker == "ibkr":
         lines.append("  Claude drafts this with the Interactive Brokers connector. IBKR sends it to your")
         lines.append("  IBKR account, and it only goes to the market after you approve it there.")
     else:
@@ -249,17 +342,24 @@ def render(order, idx, total, cfg, risk, state, today):
             lines.append("    " + l)
     if ready:
         lines.append("  Reply \"yes\" to place this one order, or \"no\" to skip it.")
-        if broker != "ibkr":
+        if is_zerodha(cfg) and kite_mode(cfg) == "manual":
+            lines.append("  Your yes is logged; then you enter it in Kite and tell Claude the Kite order id.")
+        elif broker != "ibkr":
             lines.append("  Claude's own card then asks again: Allow once places it, Deny stops it.")
     return "\n".join(lines), ready
 
 
 def ticket_json(order, idx, cfg, risk, state, today):
-    ready, label, rv = status_of(order, risk, state, today)
+    ready, label, rv = status_of(order, risk, state, today, cfg)
+    try:
+        ti = call_input(order, cfg)
+    except TicketError:
+        ti = None
     return {"index": idx, "ready": ready, "status": label, "plain": plain(order),
-            "fingerprint": fingerprint(order), "paper": bool(cfg.get("paper", True)),
-            "broker": cfg.get("broker", "alpaca"), "tool": "place_stock_order",
-            "tool_input": tool_input(order), "why": order.get("why", "")}
+            "fingerprint": fingerprint(order),
+            "paper": False if is_zerodha(cfg) else bool(cfg.get("paper", True)),
+            "broker": cfg.get("broker", "alpaca"), "tool": order_tool(cfg),
+            "tool_input": ti, "why": order.get("why", "")}
 
 
 # ---------------------------------------------------------------- fills -> lots
@@ -317,6 +417,7 @@ def _load(a):
     if not isinstance(orders, list) or not orders:
         raise TicketError("no orders in %s" % a.orders)
     cfg = read_json(a.config, "config", required=False) or {}
+    CURRENCY["sym"] = "\u20b9" if is_zerodha(cfg) or str(cfg.get("currency", "")).upper() == "INR" else "$"
     risk = read_json(a.risk, "risk check", required=False)
     state = load_state(a.state)
     today = a.today or datetime.date.today().isoformat()
@@ -352,7 +453,7 @@ def cmd_show(a):
 def cmd_approve(a):
     orders, cfg, risk, state, today = _load(a)
     order = _pick(orders, a.index)
-    ready, label, rv = status_of(order, risk, state, today)
+    ready, label, rv = status_of(order, risk, state, today, cfg)
     if not ready:
         raise TicketError("order %d is not ready: %s" % (a.index, label))
     ok, why = parse_yes(a.reply, order, [o.get("symbol", "") for o in orders])
@@ -362,11 +463,23 @@ def cmd_approve(a):
     rec = {"at": now_iso(), "date": today, "index": a.index, "fingerprint": fingerprint(order),
            "symbol": str(order.get("symbol", "")).upper(), "side": order.get("side"),
            "plain": plain(order), "status": "approved", "reply": a.reply,
-           "paper": bool(cfg.get("paper", True)), "broker": cfg.get("broker", "alpaca")}
+           "paper": False if is_zerodha(cfg) else bool(cfg.get("paper", True)),
+           "broker": cfg.get("broker", "alpaca")}
     state.setdefault("orders", []).append(rec)
     write_json(a.state, state)
     print("Recorded your yes for order %d: %s." % (a.index, plain(order)))
-    if str(cfg.get("broker", "alpaca")).lower() == "ibkr":
+    if is_zerodha(cfg) and kite_mode(cfg) == "manual":
+        k = kite_input(order, cfg)
+        print("Now place it yourself in the Kite app: %s %d %s on %s, %s, product %s, validity %s."
+              % (k["transaction_type"], k["quantity"], k["tradingsymbol"], k["exchange"], k["order_type"],
+                 k["product"], k["validity"]))
+        print("Then: ticket.py result --index %d --status placed --broker-id <Kite order id>" % a.index)
+    elif is_zerodha(cfg):
+        print("Now call the Kite MCP place_order with exactly:")
+        print(json.dumps(kite_input(order, cfg), indent=2))
+        print("Claude's card shows Allow once / Deny. Then: ticket.py result --index %d --status "
+              "placed|denied|failed" % a.index)
+    elif str(cfg.get("broker", "alpaca")).lower() == "ibkr":
         print("Now draft it with the Interactive Brokers connector; approve it in your IBKR account.")
     else:
         print("Now call place_stock_order with exactly:")
@@ -415,6 +528,7 @@ def cmd_result(a):
 
 def cmd_fill(a):
     cfg = read_json(a.config, "config", required=False) or {}
+    CURRENCY["sym"] = "\u20b9" if is_zerodha(cfg) or str(cfg.get("currency", "")).upper() == "INR" else "$"
     date = a.date or datetime.date.today().isoformat()
     pf = apply_fill(a.portfolio, cfg, a.symbol, a.side, a.qty, a.price, date)
     print("Recorded %s %s %s at %s on %s. Cash now %s." % (a.side, a.qty, a.symbol.upper(),

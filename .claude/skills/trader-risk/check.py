@@ -53,6 +53,15 @@ TYPES = {"market", "limit", "stop", "stop_limit", "trailing_stop"}
 TIFS = {"day", "gtc", "opg", "cls", "ioc", "fok"}
 OCC = re.compile(r"^[A-Z]{1,6}\d{6}[CP]\d{8}$")
 TICKER = re.compile(r"^[A-Z]{1,5}([.\-][A-Z]{1,2})?$")
+# NSE/BSE equity trading symbols (Zerodha): INFY, HDFCBANK, M&M, BAJAJ-AUTO, 3MINDIA
+TICKER_IN = re.compile(r"^[A-Z0-9][A-Z0-9&\-]{0,19}$")
+CUR = {"sym": "$"}
+
+
+def india(c):
+    """Zerodha / Indian market mode: NSE symbols, rupees, no paper account."""
+    return (str(c.get("broker", "")).lower() in ("zerodha", "kite")
+            or str(c.get("currency", "")).upper() == "INR")
 CENT = 0.005
 
 
@@ -87,7 +96,7 @@ def _f(x):
 
 
 def money(x):
-    return "$" + "{:,.2f}".format(float(x)).replace(".00", "")
+    return CUR["sym"] + "{:,.2f}".format(float(x)).replace(".00", "")
 
 
 def account(cfg, portfolio, prices):
@@ -134,6 +143,10 @@ def check(orders, cfg, portfolio=None, prices=None, state=None, today=None):
     """Pure function. Returns {"results": [...], "pass": n, "block": n, "warnings": [...]}."""
     c = dict(DEFAULTS)
     c.update(cfg or {})
+    IN = india(c)
+    CUR["sym"] = "\u20b9" if IN else "$"
+    if IN:
+        c["paper"] = False  # Zerodha has no paper account: every order is real money
     prices = {str(k).upper(): float(v) for k, v in (prices or {}).items() if _f(v)}
     today = today or datetime.date.today().isoformat()
     acct, top_warn = account(c, portfolio, prices)
@@ -143,7 +156,9 @@ def check(orders, cfg, portfolio=None, prices=None, state=None, today=None):
     placed_keys = {(str(r.get("symbol", "")).upper(), r.get("side")) for r in done_today}
     seen = set()
     results = []
-    if not c.get("paper", True):
+    if IN:
+        top_warn.append("Zerodha: there is no paper account, these orders use real money")
+    elif not c.get("paper", True):
         top_warn.append("LIVE account (\"paper\": false): these orders use real money")
 
     for i, o in enumerate(orders, 1):
@@ -167,7 +182,7 @@ def check(orders, cfg, portfolio=None, prices=None, state=None, today=None):
                 v = _f(o.get(k))
                 if v is None or v <= 0:
                     reasons.append("format: %s must be a positive number, got %r" % (k, o.get(k)))
-                elif not isinstance(o.get(k), str):
+                elif not IN and not isinstance(o.get(k), str):
                     warns.append("send %s as a string (\"%s\"), the way place_stock_order types it"
                                  % (k, o.get(k)))
         if typ not in TYPES:
@@ -193,7 +208,10 @@ def check(orders, cfg, portfolio=None, prices=None, state=None, today=None):
                                "(\"allow_options\": false)" % sym)
             else:
                 warns.append("option order: options can lose 100%% of what you pay")
-        elif sym and ("/" in sym or not TICKER.match(sym)):
+        elif IN and sym and not TICKER_IN.match(sym):
+            reasons.append("asset: %s does not look like an NSE/BSE equity symbol; "
+                           "this pack trades stocks and ETFs only" % sym)
+        elif not IN and sym and ("/" in sym or not TICKER.match(sym)):
             reasons.append("asset: %s does not look like a US stock or ETF ticker; "
                            "this pack trades stocks and ETFs only" % sym)
 

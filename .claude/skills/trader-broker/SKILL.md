@@ -7,10 +7,12 @@ description: >-
   word for word, then Claude's own Allow once / Deny card asks again. Covers
   setting up Alpaca's official MCP server in Claude Desktop (paper trading by
   default, keys in env vars, never in chat), the Interactive Brokers connector
-  (orders go to your IBKR account for your approval), and setting order tools
-  to "Needs approval". Use when the user says "place the orders", "buy it",
-  "execute", "send it to my broker", "connect Alpaca", "connect Interactive
-  Brokers", "set up paper trading", or after /trader-risk passes.
+  (orders go to your IBKR account for your approval), Zerodha through its
+  official Kite MCP server (NSE/BSE, rupees, whole shares; read-only by
+  default, you place the order in Kite), and setting order tools to "Needs
+  approval". Use when the user says "place the orders", "buy it", "execute",
+  "send it to my broker", "connect Alpaca", "connect Interactive Brokers",
+  "connect Zerodha", "Kite", "set up paper trading", or after /trader-risk passes.
 argument-hint: "[order number]"
 ---
 
@@ -108,6 +110,63 @@ IBKR as well. Set `"broker": "ibkr"` in `trader/config.json`, and size with
 `--whole-shares` if IBKR wants share counts. Set its tools that draft orders
 to Needs approval too.
 
+## Setup C: Zerodha (official Kite MCP server)
+
+Zerodha's own server is github.com/zerodha/kite-mcp-server. Set
+`"broker": "zerodha"` in `trader/config.json`. Then ticket.py and trader-risk
+take NSE/BSE symbols (`INFY`, `HDFCBANK`, `M&M`), show rupees, and turn each
+order into the arguments of Kite's `place_order`: `exchange` NSE (or
+`"exchange": "BSE"`), `product` CNC (delivery), `order_type`
+MARKET / LIMIT / SL / SL-M, `validity` DAY or IOC, and `quantity` as a whole
+number of shares. Zerodha has **no paper account**, so every ticket says LIVE
+ACCOUNT, REAL MONEY. It also does not take rupee amounts, so size with
+`trader-budget --whole-shares --prices trader/prices.json`. A notional order
+shows as NOT READY. Intraday and margin products (MIS, NRML, MTF) are refused
+unless `"allow_margin": true`.
+
+Example `trader/config.json` (amounts are in rupees even where a key says `_usd`):
+
+```json
+{"broker": "zerodha", "zerodha_mode": "manual", "exchange": "NSE",
+ "budget": 50000, "cash_buffer_pct": 10, "max_position_pct": 25,
+ "max_order_usd": 10000, "min_order_usd": 500}
+```
+
+**C1, manual (default, `"zerodha_mode": "manual"`).** The hosted server needs
+no API key, but its README says it leaves out the trading tools, so it is for
+reading holdings, positions, margins and quotes only. Claude Desktop:
+Settings > Developer > Edit Config, then add:
+
+```json
+{"mcpServers": {"kite": {"command": "npx", "args": ["mcp-remote", "https://mcp.kite.trade/mcp"]}}}
+```
+
+Claude Code: `claude mcp add --transport http kite https://mcp.kite.trade/mcp`.
+Ask Claude to run the `login` tool and open the link it gives, so you log in
+to Zerodha in your browser and never in the chat. Each ticket then shows the
+order in Kite's own words ("BUY INFY on NSE, qty 5, MARKET, product CNC,
+validity DAY"). Your yes is recorded, you place the order yourself in the
+Kite app, and then you tell Claude the Kite order id:
+`ticket.py result --index N --status placed --broker-id <id>`.
+
+**C2, Claude places it (`"zerodha_mode": "mcp"`).** Only the user can choose
+this. It needs your own Kite Connect app (developers.kite.trade) and the
+server running on your computer (`go build -o kite-mcp-server`, see its
+README). Put `KITE_API_KEY` and `KITE_API_SECRET` in the server's `env` block
+or `.env` file, **never in the chat**. Set Kite's `place_order`,
+`modify_order`, `cancel_order`, `place_gtt_order`, `modify_gtt_order` and
+`delete_gtt_order` tools to **Needs approval**. In Claude Code:
+`"permissions": {"ask": ["mcp__kite__place_order", "mcp__kite__modify_order",
+"mcp__kite__cancel_order"]}`. Then step 4 below calls `place_order` with
+exactly the JSON the ticket prints, and Claude's Allow once / Deny card
+is the third gate. If you want the self-hosted server read-only, run it with
+`EXCLUDED_TOOLS=place_order,modify_order,cancel_order`.
+
+The research skills still read US sources (SEC 13F, US Congress PTRs, NYSE
+hours, US tax rules). Point trader-budget, trader-risk and trader-rebalance
+at NSE symbols and Kite prices (`get_ltp`) yourself; copycat, pelosi, news,
+analyst, alerts and tax do not cover Indian stocks.
+
 ## Steps, for each order
 
 1. `ticket.py show`. Only READY tickets go to the user. A ticket that is NOT
@@ -118,8 +177,11 @@ to Needs approval too.
    If it prints "Not recorded", the reply was not an explicit yes for this
    order (for example "sure", "yes to all", or a yes that names a different
    stock or amount). Ask again. Never turn a reply into a yes yourself.
-4. Only after "Recorded your yes", call `place_stock_order` with exactly the
-   JSON the ticket printed. Claude's card appears: Allow once or Deny.
+4. Only after "Recorded your yes", call the order tool with exactly the JSON
+   the ticket printed (`place_stock_order` for Alpaca, Kite's `place_order`
+   for Zerodha in `mcp` mode). Claude's card appears: Allow once or Deny. In
+   Zerodha `manual` mode, Claude calls nothing: the user places the order in
+   Kite and reports the Kite order id.
 5. Record what happened: `ticket.py result --index N --status placed
    --broker-id <id from the response>`, or `--status denied` if they pressed
    Deny, or `--status failed` with `--note` for an error. A failed order is
@@ -149,6 +211,7 @@ buttons: Allow once, Deny. Allow once sends it to the paper account.
 - Never places orders from a scheduled or background task: nobody is there to say yes.
 - Never asks for, reads, stores or repeats API keys or passwords.
 - Never switches `ALPACA_PAPER_TRADE` or `"paper"` to live. The user does that themselves.
+- Never switches `"zerodha_mode"` to `mcp` and never asks for a Kite API key or Zerodha password.
 - Never calls `close_all_positions`, `cancel_all_orders`, option or crypto order tools on its own.
 
 ## Safety
