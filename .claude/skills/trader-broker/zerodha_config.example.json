@@ -1,0 +1,12 @@
+{
+  "broker": "zerodha",
+  "zerodha_mode": "manual",
+  "exchange": "NSE",
+  "kite_product": "CNC",
+  "budget": 50000,
+  "cash_buffer_pct": 10,
+  "max_position_pct": 25,
+  "max_order_usd": 10000,
+  "min_order_usd": 500,
+  "fractional": false
+}
